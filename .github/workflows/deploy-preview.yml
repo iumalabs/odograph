@@ -44,7 +44,7 @@ jobs:
       - name: Deploy to Cloudflare Workers (preview)
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CLOUDFLARE_PREVIEW_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --env preview --name odograph-pr-${{ github.event.pull_request.number }}
 
