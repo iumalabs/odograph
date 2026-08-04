@@ -11,6 +11,8 @@ jobs:
   cleanup:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    environment:
+      name: preview
     steps:
       - uses: actions/checkout@v4
 
@@ -24,6 +26,6 @@ jobs:
       - name: Delete preview worker
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_PREVIEW_API_TOKEN }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           command: delete odograph-pr-${{ github.event.pull_request.number }} --force
