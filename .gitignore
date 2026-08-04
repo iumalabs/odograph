@@ -39,3 +39,7 @@ Thumbs.db
 coverage/
 playwright-report/
 test-results/
+
+# Design source drops (Claude design exports) — reference only, not versioned
+docs/odograph-design.zip
+docs/design/
