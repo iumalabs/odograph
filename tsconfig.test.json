@@ -12,7 +12,7 @@
     "moduleDetection": "force",
     "resolveJsonModule": true,
     "noEmit": true,
-    "types": ["@cloudflare/vitest-pool-workers/types"]
+    "types": ["@cloudflare/vitest-pool-workers/types", "node"]
   },
   "include": ["tests", "vitest.config.ts", "worker-configuration.d.ts"]
 }

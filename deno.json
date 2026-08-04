@@ -16,6 +16,6 @@
     "build": "npm run build",
     "typecheck": "npm run typecheck",
     "test": "npm run test",
-    "check": "deno fmt --check && deno lint && npm run typecheck && npm run test"
+    "check": "deno fmt --check && deno lint && npm run typecheck && npm run test && bash scripts/check-repository-boundary.sh"
   }
 }

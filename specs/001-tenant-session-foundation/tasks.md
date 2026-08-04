@@ -15,27 +15,27 @@ public API surface needing its own test layer.
 
 ## Phase 1: Setup
 
-- [ ] T001 Create D1 migration `migrations/0001_tenants_users_sessions.sql` (tables `tenants`,
+- [X] T001 Create D1 migration `migrations/0001_tenants_users_sessions.sql` (tables `tenants`,
       `users`, `sessions`, and `probe_resources` per data-model.md, including the
       `ON DELETE
       CASCADE` foreign keys and the `sessions.token_hash` unique constraint)
-- [ ] T002 Add `[[d1_databases]]` and `[[kv_namespaces]]` bindings to `wrangler.toml` for the
+- [X] T002 Add `[[d1_databases]]` and `[[kv_namespaces]]` bindings to `wrangler.toml` for the
       default (local/test), `env.preview`, and `env.production` sections, using the resource ids
       from research.md's "Cloudflare resources provisioned" table; add
       `migrations_dir =
       "migrations"` to each `d1_databases` entry
-- [ ] T003 Add an `ENVIRONMENT` plain-text var to `wrangler.toml` (`"development"` at the top level,
+- [X] T003 Add an `ENVIRONMENT` plain-text var to `wrangler.toml` (`"development"` at the top level,
       `"preview"` under `env.preview`, `"production"` under `env.production`)
-- [ ] T004 Run `npm run cf-typegen` to regenerate `worker-configuration.d.ts` with the new bindings'
+- [X] T004 Run `npm run cf-typegen` to regenerate `worker-configuration.d.ts` with the new bindings'
       types, and confirm `npm run typecheck` still passes with no bindings referenced yet
 
 ## Phase 2: Foundational (blocking prerequisites)
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T005 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
+- [X] T005 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
       (targets the Miniflare-simulated local D1, per quickstart.md step 1)
-- [ ] T006 [P] Implement the repository layer in `src/server/db/repository.ts`: the only module that
+- [X] T006 [P] Implement the repository layer in `src/server/db/repository.ts`: the only module that
       imports/queries the D1 binding. Export `createTenant`, `createUser`, `createSession`,
       `findSessionByTokenHash`, `invalidateSession`, `findUserById`, `createProbeResource`,
       `findProbeResourceById` — all reads/writes scoped by whatever `TenantContext`/ids are passed
@@ -43,19 +43,19 @@ public API surface needing its own test layer.
       `findProbeResourceById` must return `null` both when no row has that id and when the row
       exists but belongs to a different tenant — the two cases are indistinguishable by design. No
       function in this file accepts a raw D1 client from a caller.
-- [ ] T007 [P] Implement the session module in `src/server/auth/session.ts`: generate an opaque
+- [X] T007 [P] Implement the session module in `src/server/auth/session.ts`: generate an opaque
       token (`crypto.getRandomValues`, base64url-encoded), hash it (`crypto.subtle.digest` SHA-256,
       hex-encoded) for storage/lookup, serialize/parse the session cookie
       (HttpOnly/Secure/SameSite=Lax per FR-005), and implement `issueSession`, `resolveSession`
       (checks KV cache first, falls through to `repository.ts` on miss, populates KV with a 5-minute
       TTL on hit), and `invalidateSession` (deletes the D1 row via `repository.ts` **and** deletes
       the KV cache entry explicitly, per research.md)
-- [ ] T008 Implement tenant-context middleware in `src/server/middleware/tenant-context.ts`: reads
+- [X] T008 Implement tenant-context middleware in `src/server/middleware/tenant-context.ts`: reads
       the session cookie, calls `session.ts`'s `resolveSession`, attaches
       `{ tenantId,
       userId }` to the Hono context on success, responds `401` on any failure (no
       cookie, invalid/expired/invalidated session, dangling user/tenant reference per FR-008)
-- [ ] T009 [P] Implement the rate limiter in `src/server/auth/rate-limit.ts`: a Hono middleware that
+- [X] T009 [P] Implement the rate limiter in `src/server/auth/rate-limit.ts`: a Hono middleware that
       increments a KV fixed-window counter keyed by the resolved session's token hash, rejects with
       `429` + `Retry-After` when the configured limit is exceeded, and lets the request through
       unmodified otherwise (per contracts/api.md's "Cross-cutting: rate limiting" section)
@@ -76,21 +76,21 @@ tenant A, confirm tenant B's session gets an identical "not found" response whet
 tenant A's resource id or a completely made-up one, and confirm a client-supplied tenant/owner id
 never overrides the session's own tenant.
 
-- [ ] T010 [US1] Implement the dev/test session-issuing routes in `src/server/auth/dev-session.ts`:
+- [X] T010 [US1] Implement the dev/test session-issuing routes in `src/server/auth/dev-session.ts`:
       `POST /api/v1/_dev/session` (creates a tenant + user via `repository.ts`, issues a session via
       `session.ts`, sets the cookie) and `POST /api/v1/_dev/session/invalidate` (invalidates the
       presented session). Register both only when `c.env.ENVIRONMENT !== "production"` — not
       registered at all otherwise (per research.md's dev-route decision and FR-009)
-- [ ] T011 [US1] Implement the placeholder probe routes in
+- [X] T011 [US1] Implement the placeholder probe routes in
       `src/server/routes/v1/_tenant-isolation-probe.ts`: `POST /api/v1/_tenant-isolation-probe`
       (creates a `probe_resources` row for the caller's tenant, returns `{ id, tenantId }`) and
       `GET /api/v1/_tenant-isolation-probe/:id` (tenant-scoped lookup via `findProbeResourceById`;
       `200` with `{ id, tenantId }` only if it belongs to the caller's tenant, `404` otherwise) —
       both require the tenant-context middleware, per contracts/api.md
-- [ ] T012 [US1] Wire `tenant-context` middleware, `rate-limit` middleware (applied to the write
+- [X] T012 [US1] Wire `tenant-context` middleware, `rate-limit` middleware (applied to the write
       routes from T010 and the `POST` probe route from T011), `dev-session` routes, and the probe
       routes into `src/server/index.ts`
-- [ ] T013 [P] [US1] Write `tests/server/tenant-isolation.test.ts` covering spec.md's User Story 1
+- [X] T013 [P] [US1] Write `tests/server/tenant-isolation.test.ts` covering spec.md's User Story 1
       Acceptance Scenarios 1-3: (a) tenant B requesting tenant A's probe-resource id gets the same
       `404` as a nonexistent id, with no signal distinguishing the two cases, (b) a client-supplied
       tenant/owner identifier in body/query/headers is ignored in favor of the session's own tenant,
@@ -98,7 +98,7 @@ never overrides the session's own tenant.
       case: delete a user directly via `repository.ts`, confirm their session no longer resolves
       (proves the `ON DELETE CASCADE` behaves as data-model.md documents, not just that it's
       declared).
-- [ ] T014 [P] [US1] Write `tests/server/dev-routes-production-gating.test.ts` asserting
+- [X] T014 [P] [US1] Write `tests/server/dev-routes-production-gating.test.ts` asserting
       `POST /api/v1/_dev/session` and `POST /api/v1/_dev/session/invalidate` both return `404` when
       the Worker is run with `c.env.ENVIRONMENT === "production"` (FR-009) — construct the Hono app
       with an `{ ENVIRONMENT: "production" }` env override and confirm the routes are absent, rather
@@ -119,7 +119,7 @@ tests surface.
 **Independent Test**: Per spec.md — issue a session via the dev/test mechanism, inspect the cookie's
 attributes, confirm resolution works and stops working after invalidation.
 
-- [ ] T015 [P] [US2] Write `tests/server/session.test.ts` covering spec.md's User Story 2 Acceptance
+- [X] T015 [P] [US2] Write `tests/server/session.test.ts` covering spec.md's User Story 2 Acceptance
       Scenarios 1-3: issued cookie is HttpOnly/Secure/SameSite=Lax, a valid session cookie resolves
       to the correct tenant with no other credential needed, and a request using an invalidated
       session's cookie is treated as anonymous (same rejection as Scenario 3 in User Story 1)
@@ -137,12 +137,12 @@ load, without affecting other sessions.
 **Independent Test**: Per spec.md — send writes faster than the configured limit on one session and
 confirm rejection without a database write, while a different session is unaffected.
 
-- [ ] T016 [US3] Confirm the rate-limit middleware from T009 is applied to
+- [X] T016 [US3] Confirm the rate-limit middleware from T009 is applied to
       `POST /api/v1/_dev/session`, `POST /api/v1/_dev/session/invalidate`, and
       `POST /api/v1/_tenant-isolation-probe` in `src/server/index.ts` (should already be true from
       T012 — this task is the checkpoint that verifies it, adjusting the middleware order if a
       review shows rate-limiting is being bypassed for any of them)
-- [ ] T017 [P] [US3] Write `tests/server/rate-limit.test.ts` covering spec.md's User Story 3
+- [X] T017 [P] [US3] Write `tests/server/rate-limit.test.ts` covering spec.md's User Story 3
       Acceptance Scenarios 1-3: requests under the limit succeed normally, requests over the limit
       are rejected with no underlying write performed, and a second session is unaffected by the
       first session's throttling
@@ -153,16 +153,16 @@ confirm rejection without a database write, while a different session is unaffec
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T018 [P] Add `src/server/db/schema.sql` as a human-readable reference copy of the current
+- [X] T018 [P] Add `src/server/db/schema.sql` as a human-readable reference copy of the current
       schema shape (docs only — `migrations/` stays the actual source of truth, per plan.md's
       Project Structure)
-- [ ] T019 Add a repository-layer guard: a small script or `deno lint` check (wired into
+- [X] T019 Add a repository-layer guard: a small script or `deno lint` check (wired into
       `deno.json`'s `check` task) that fails if any file other than `src/server/db/repository.ts`
       references the D1 binding name — upgrades FR-002/SC-002 from convention-only to CI-enforced
       (finding M2)
-- [ ] T020 Run `deno task check` (fmt --check, lint, typecheck, full test suite) and fix any
+- [X] T020 Run `deno task check` (fmt --check, lint, typecheck, full test suite) and fix any
       failures across all files touched by this feature
-- [ ] T021 Walk through quickstart.md end-to-end against `wrangler dev` exactly as written; update
+- [X] T021 Walk through quickstart.md end-to-end against `wrangler dev` exactly as written; update
       quickstart.md if any command or expected output drifted during implementation
 
 ## Dependencies

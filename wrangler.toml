@@ -9,6 +9,22 @@ not_found_handling = "single-page-application"
 [observability]
 enabled = true
 
+[vars]
+ENVIRONMENT = "development"
+
+# Local dev/test reuse the preview D1 database and KV namespace (Miniflare
+# never calls the remote API for these, so this is safe reuse rather than a
+# redundant third resource — see specs/001-tenant-session-foundation/research.md).
+[[d1_databases]]
+binding = "DB"
+database_name = "odograph-preview"
+database_id = "a55a25d1-0270-44e7-8d85-ae4873626ca7"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "SESSION_CACHE"
+id = "eaf8958e040049ecbe52408b28fa1d1c"
+
 # The default (top-level) config above is used by `wrangler dev` for local
 # iteration. CI deploys always pass an explicit environment — see
 # docs/deployment.md. There is no supported local `wrangler deploy` path.
@@ -21,9 +37,35 @@ name = "odograph-preview"
 [env.preview.observability]
 enabled = true
 
+[env.preview.vars]
+ENVIRONMENT = "preview"
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "odograph-preview"
+database_id = "a55a25d1-0270-44e7-8d85-ae4873626ca7"
+migrations_dir = "migrations"
+
+[[env.preview.kv_namespaces]]
+binding = "SESSION_CACHE"
+id = "eaf8958e040049ecbe52408b28fa1d1c"
+
 [env.production]
 name = "odograph"
 routes = [{ pattern = "odograph.dev/*", custom_domain = true }]
 
 [env.production.observability]
 enabled = true
+
+[env.production.vars]
+ENVIRONMENT = "production"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "odograph-production"
+database_id = "d8bcd8f6-3521-487d-aa78-8b7a075ef372"
+migrations_dir = "migrations"
+
+[[env.production.kv_namespaces]]
+binding = "SESSION_CACHE"
+id = "aa415e9f6b9646d2ba2318090008c0f8"
