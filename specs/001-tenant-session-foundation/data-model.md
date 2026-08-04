@@ -56,10 +56,26 @@ A session is valid iff `invalidated_at IS NULL AND expires_at > now()`.
 retention value once expired or invalidated; a scheduled cleanup (out of scope for this feature,
 tracked as a follow-up) can delete rows past `expires_at` by some margin.
 
+### `probe_resources`
+
+A tenant-owned throwaway row with no purpose beyond proving cross-tenant access denial end-to-end
+(spec.md User Story 1's Independent Test needs an actual resource id to request, not just an
+identity echo). Deleted along with the `_tenant-isolation-probe` route once a real tenant-scoped
+resource (vehicles, milestone M2) exists to test against instead.
+
+| Column       | Type                                               | Notes    |
+| ------------ | -------------------------------------------------- | -------- |
+| `id`         | TEXT PK                                            | UUID     |
+| `tenant_id`  | TEXT NOT NULL, FK → `tenants.id` ON DELETE CASCADE |          |
+| `created_at` | TEXT NOT NULL                                      | ISO 8601 |
+
+**GDPR erasure decision**: Delete. Test-fixture data with no retention value.
+
 ## Relationships
 
 ```text
 tenants (1) ───< (N) users (1) ───< (N) sessions
+tenants (1) ───< (N) probe_resources
 ```
 
 - A tenant has many users; a user belongs to exactly one tenant.

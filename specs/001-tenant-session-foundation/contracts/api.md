@@ -25,17 +25,36 @@ real logout flow (which belongs to the login-method specs).
 
 **Response** `200`: `{ "invalidated": true }`. `401` if no valid session was presented.
 
-## `GET /api/v1/_tenant-isolation-probe` (all environments, temporary)
+## `POST /api/v1/_tenant-isolation-probe` (all environments, temporary)
 
-Placeholder tenant-scoped route that exists purely to prove isolation end-to-end (spec's User Story
-1 Independent Test) before any real tenant-scoped resource (vehicles, milestone M2) exists. Deleted
-in the first PR that adds a real tenant-scoped resource route — it's a test fixture, not a feature.
+Creates one `probe_resources` row owned by the caller's resolved tenant. Placeholder tenant-scoped
+write route that exists purely to prove isolation end-to-end (spec's User Story 1 Independent Test)
+before any real tenant-scoped resource (vehicles, milestone M2) exists. Deleted, along with the GET
+route below, in the first PR that adds a real tenant-scoped resource route — it's a test fixture,
+not a feature.
 
-**Auth**: requires a valid session (tenant context resolved via the session middleware).
+**Auth**: requires a valid session (tenant context resolved via the session middleware). Passes
+through the rate limiter like any other write route.
 
-**Response** `200`: `{ "tenantId": string }` — the tenant id the _server_ resolved for the request,
-never anything the client supplied. Used by tests to assert that two different sessions resolve to
-two different tenant ids, and that neither can be steered by request content.
+**Response** `200`: `{ "id": string, "tenantId": string }` — the created resource's id and the
+tenant id the _server_ resolved for the request, never anything the client supplied.
+
+**Response** `401`: no valid session (FR-004).
+
+## `GET /api/v1/_tenant-isolation-probe/:id` (all environments, temporary)
+
+Tenant-scoped lookup of a `probe_resources` row by id, through the repository layer. This is what
+actually exercises FR-003/SC-001: a resource id that exists but belongs to a _different_ tenant must
+come back identical to an id that doesn't exist at all.
+
+**Auth**: requires a valid session.
+
+**Response** `200`: `{ "id": string, "tenantId": string }` — only when the resource exists **and**
+belongs to the caller's resolved tenant.
+
+**Response** `404`: the id doesn't exist, or exists but belongs to a different tenant — these two
+cases are indistinguishable in the response, by design (spec.md Acceptance Scenario 1: "no
+confirmation the id is valid for another tenant").
 
 **Response** `401`: no valid session (FR-004).
 

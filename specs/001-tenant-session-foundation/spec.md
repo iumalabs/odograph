@@ -185,3 +185,7 @@ touching the database, while requests from a different session are unaffected.
 - Account linking, roles/permissions beyond "belongs to a tenant," and any UI are out of scope —
   this feature is server-side plumbing plus the minimal dev/test session-issuing mechanism needed to
   prove it.
+- SC-003's response-time-parity guarantee (no timing side-channel between "invalid session" and
+  "valid session, empty result") is a stated goal but not something this feature builds automated
+  coverage for — reliable timing assertions are typically too flaky for CI. Noted here as a known
+  follow-up for a future security-hardening pass (milestone M8), not silently dropped.
