@@ -106,30 +106,41 @@ from the request handles all three environments correctly without per-environmen
 
 ## Testing WebAuthn ceremonies without real authenticator hardware
 
-**Decision**: Unit-test `src/server/auth/passkey.ts`'s verification logic directly against
-precomputed fixture request/response pairs (a valid registration response and a valid authentication
-response, captured once and checked into `tests/server/fixtures/webauthn/`), plus tests for the
-surrounding logic that don't need real WebAuthn crypto at all (challenge expiry/replay rejection,
-duplicate-credential rejection, session issuance on success). True browser-driven ceremony testing —
-actually calling `navigator.credentials.create/get` against a virtual authenticator — is **out of
-scope for this feature** and tracked as a follow-up using Playwright's
-[WebAuthn virtual authenticator support](https://playwright.dev/docs/api/class-browsercontext#browser-context-add-init-script)
-(via the Chrome DevTools Protocol `WebAuthn` domain), which is a natural fit for the already-planned
-Playwright E2E suite (constitution stack) rather than something this D1/Vitest-focused feature
-should build its own harness for.
+**Decision**: Unit-test `src/server/auth/passkey.ts`'s verification logic directly against fixture
+request/response pairs from the `fido2-helpers` npm package (dev dependency; MIT, zero-dependency,
+maintained by the author of `fido2-lib`) — specifically
+`server.challengeResponseAttestationNoneMsgB64Url` (a valid registration/attestation response) and
+`server.assertionResponseMsgB64Url` (a valid authentication/assertion response), each with its
+matching challenge and origin (`https://localhost:8443`) embedded in its `clientDataJSON`, verified
+by inspection to contain exactly the fields a real ceremony would produce. Tests pass that fixture's
+own origin/rpID as the `expectedOrigin`/`expectedRPID` to
+`verifyRegistrationResponse`/`verifyAuthenticationResponse` — the test isn't asserting "this matches
+our real domain," it's asserting "the verification logic correctly validates a real,
+independently-generated WebAuthn response." Plus tests for logic that doesn't need real WebAuthn
+crypto at all (challenge expiry/replay rejection, duplicate-credential rejection, session issuance
+on success). True browser-driven ceremony testing — actually calling
+`navigator.credentials.create/get` against a virtual authenticator — is **out of scope for this
+feature** and tracked as a follow-up using Playwright's WebAuthn virtual authenticator support (via
+the Chrome DevTools Protocol `WebAuthn` domain), a natural fit for the already-planned Playwright
+E2E suite (constitution stack) rather than something this D1/Vitest-focused feature should build its
+own harness for.
 
-**Rationale**: Generating a fixture pair requires actually running the ceremony once against a
-software/virtual authenticator (there's no way to hand-write a valid CBOR attestation object and a
-valid ECDSA/EdDSA signature by hand) — that's most naturally done via a real or virtual
-authenticator, one time, with the resulting JSON captured as a fixture, rather than built as a
-recurring part of every test run. `@simplewebauthn`'s own test suite follows this exact pattern
-(committed fixture JSON), which this feature's fixtures are modeled on.
+**Rationale**: A hand-generated fixture would require actually running a ceremony against a
+software/virtual authenticator once (there's no way to hand-write a valid CBOR attestation object
+and a valid ECDSA/EdDSA signature by hand) — `fido2-helpers` already did exactly that and published
+the result as a stable, versioned, independently-maintained artifact, which is strictly better than
+this project owning a bespoke generation script for the same output: no local tooling to maintain,
+and the fixture's validity isn't dependent on this project's own crypto code being correct (a
+self-generated fixture using our own verify code to "check itself" would risk circularity).
 
 **Alternatives considered**:
 
 - Mocking `@simplewebauthn/server`'s verify functions entirely: rejected — that would test our
   routing/repository glue but never actually exercise real cryptographic verification, which is the
   part most likely to have a subtle, security-relevant bug.
+- Generating our own fixtures via a one-off script against a virtual authenticator: rejected in
+  favor of `fido2-helpers` per the circularity concern above — reconsider only if its fixtures ever
+  prove insufficient (e.g. need an EdDSA/other algorithm variant it doesn't cover).
 - Building Playwright + virtual authenticator support now: rejected as this feature's job — no
   Playwright config exists in the repo yet at all; standing that up is a separate, reusable piece of
   infrastructure that shouldn't be bootstrapped as a side effect of one feature.
