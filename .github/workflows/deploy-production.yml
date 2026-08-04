@@ -37,6 +37,15 @@ jobs:
       - name: build
         run: npm run build
 
+      # Idempotent — only applies migrations not already applied, safe to run
+      # on every deploy.
+      - name: Apply D1 migrations (production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply odograph-production --remote --env production
+
       - name: Deploy to Cloudflare Workers (production)
         uses: cloudflare/wrangler-action@v3
         with:

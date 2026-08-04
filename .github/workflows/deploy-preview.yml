@@ -41,6 +41,16 @@ jobs:
       - name: build
         run: npm run build
 
+      # Idempotent — only applies migrations not already applied, safe to run
+      # on every deploy. Shared across all open PRs, same as the preview D1
+      # database itself (see docs/deployment.md).
+      - name: Apply D1 migrations (preview)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply odograph-preview --remote
+
       - name: Deploy to Cloudflare Workers (preview)
         uses: cloudflare/wrangler-action@v3
         with:
