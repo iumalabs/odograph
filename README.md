@@ -51,7 +51,7 @@ no local `wrangler deploy` path to either environment.
 
 ## Getting started
 
-Requires Node.js 20+, [Deno](https://deno.com/) (toolchain only), and Wrangler (installed as a dev
+Requires Node.js 22+, [Deno](https://deno.com/) (toolchain only), and Wrangler (installed as a dev
 dependency below).
 
 ```sh
