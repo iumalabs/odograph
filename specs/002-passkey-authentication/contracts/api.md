@@ -1,7 +1,9 @@
 # API Contracts: Passkey Authentication
 
-All routes under `/api/v1/auth/passkey`. All are rate-limited via `rateLimitByIp` (no session exists
-yet at any of these calls — matches the pattern the dev-session route already uses).
+All routes under `/api/v1/auth/passkey`. `register/*` and `login/*` are rate-limited via
+`rateLimitByIp` (no session exists yet at either call — matches the pattern the dev-session route
+already uses). `add/*` is rate-limited via `rateLimitBySession` instead, since it requires an
+existing session (see below) — same middleware order as the existing tenant-isolation-probe route.
 
 ## `POST /api/v1/auth/passkey/register/options`
 
@@ -22,8 +24,11 @@ contact address.
 dev-session route's) and returns `{ "userId": string, "tenantId": string }`. Creates exactly one new
 tenant, one new user, and one new credential (FR-001, FR-010).
 
-**Response** `400`: the challenge is missing/expired/already consumed, the response doesn't verify
-against it, or the credential ID is already registered (FR-006, FR-007).
+**Response** `400`: the challenge is missing/expired/already consumed, or the response doesn't
+verify against it (FR-007, FR-008).
+
+**Response** `409`: the credential ID is already registered — to any account (FR-006). Same status
+as the `add/verify` conflict response below, for the same underlying rule.
 
 ## `POST /api/v1/auth/passkey/login/options`
 

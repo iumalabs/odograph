@@ -53,10 +53,12 @@ brand-new tenant.
       `src/server/routes/v1/auth/passkey.ts`: calls `createChallenge(db, "registration")`, calls
       `passkey.ts`'s option-generation, returns the options JSON (contracts/api.md)
 - [ ] T008 [US1] Implement `POST /api/v1/auth/passkey/register/verify`: consumes the challenge
-      (`consumeChallenge` — 400 if invalid/expired/already used), calls
-      `verifyRegistrationResponse`, on success calls `createCredentialedUser` then `issueSession`
-      and sets the cookie; on a credential-ID primary-key conflict, returns 400 without any partial
-      writes (FR-006 — the `batch()` call from T005 makes this atomic, not a check-then-insert race)
+      (`consumeChallenge` — 400 if invalid/expired/already used), calls `verifyRegistrationResponse`
+      (400 if it doesn't verify), on success calls `createCredentialedUser` then `issueSession` and
+      sets the cookie; on a credential-ID primary-key conflict, returns **409** (not 400 — a
+      conflict with existing state is a different failure class than a malformed/expired request,
+      and matches `add/verify`'s 409 for the same underlying rule) without any partial writes
+      (FR-006 — the `batch()` call from T005 makes this atomic, not a check-then-insert race)
 - [ ] T009 [US1] Wire the two routes into `src/server/index.ts` under
       `/api/v1/auth/passkey/register`, with `rateLimitByIp` applied to both (no session exists yet —
       same pattern as the existing dev-session route)
@@ -64,10 +66,21 @@ brand-new tenant.
       spec.md's User Story 1 Acceptance Scenarios 1-3 using `fido2-helpers`'s
       `challengeResponseAttestationNoneMsgB64Url` fixture (adapted to `RegistrationResponseJSON`'s
       shape — add `type: "public-key"`, `clientExtensionResults: {}` if the fixture doesn't already
-      include them): successful registration creates exactly one tenant/user/credential and issues a
-      working session; submitting the same fixture response twice (simulating a retry) does not
-      create a second tenant/user for the same credential (FR-006); a request with a stale/unknown
-      challenge is rejected before any row is written
+      include them). Four _distinct_ cases, not three — the analyze pass caught that "submit twice"
+      only exercises FR-007, not FR-006: 1. Successful registration creates exactly one
+      tenant/user/credential and issues a working session. 2. **Challenge replay (FR-007)**:
+      submitting the exact same fixture response twice — the second attempt fails on the
+      _already-consumed challenge_ (400), before ever reaching the duplicate-credential check. 3.
+      **Duplicate credential (FR-006), independently of replay**: pre-seed a `webauthn_credentials`
+      row with the fixture's own credential ID directly via the repository (bypassing the ceremony),
+      then attempt `register/verify` with the fixture response paired with a _freshly issued_
+      challenge — this is what actually exercises the 409 conflict path, since replay (case 2) never
+      reaches it. 4. **Tampered response (FR-008)**: mutate one byte of the fixture's
+      `attestationObject` (or its embedded signature) after base64url-decoding it, confirm
+      `verifyRegistrationResponse` rejects it (400) and no tenant/user/credential is created
+      (FR-010) — proves the server actually checks the cryptographic response rather than trusting a
+      client-shaped payload. A request with a stale/unknown challenge (never issued, or past
+      `expires_at`) is also rejected before any row is written.
 
 **Checkpoint**: User Story 1 is independently complete and testable — `npm test` passes for the
 registration portion of `passkey-auth.test.ts`, and quickstart.md step 3.1 works against
@@ -101,7 +114,12 @@ ceremony with the same passkey, confirm it resolves to the same user/tenant.
       the login attempt has something real to verify against): successful login resolves to the
       credential's existing tenant, not a new one; a response for an unregistered credential ID is
       rejected with the same status/shape as an invalid response (SC-003); an authenticator counter
-      that doesn't advance is rejected
+      that doesn't advance is rejected. Also, matching T010's analyze fixes: a **tampered response**
+      (one byte of the fixture's `authenticatorData` or `signature` mutated after decoding) is
+      rejected (FR-008), and a **stale/already-consumed challenge** is rejected before the
+      credential lookup even runs (SC-004) — `consumeChallenge` is shared code with registration,
+      but this proves `login/verify` actually calls it with the right purpose, not just that the
+      function itself works.
 
 **Checkpoint**: `npm test` passes for the login portion; quickstart.md steps 3.2-3.3 work against
 `wrangler dev`.
@@ -120,8 +138,9 @@ confirm both are independently usable to sign in to the same account.
       `POST /api/v1/auth/passkey/add/verify` (contracts/api.md): both behind `tenantContext`
       (existing middleware — requires a valid session, unlike registration/login). `verify` calls
       `addCredentialToUser` for `c.get("tenant").userId` instead of `createCredentialedUser`;
-      returns 409 (not 400) on a credential already registered to any account, matching User Story 3
-      Scenario 2's "reject rather than move/ambiguity" requirement
+      returns 409 on a credential already registered to any account — same status as
+      `register/verify`'s equivalent conflict (T008), for the same underlying rule (FR-006),
+      matching User Story 3 Scenario 2's "reject rather than move/ambiguity" requirement
 - [ ] T016 [US3] Wire the two routes into `src/server/index.ts` under `/api/v1/auth/passkey/add`,
       with `tenantContext` then `rateLimitBySession` (an authenticated write path — matches the
       existing tenant-isolation-probe route's middleware order)
