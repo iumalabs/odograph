@@ -30,3 +30,23 @@ CREATE TABLE probe_resources (
   tenant_id TEXT NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
   created_at TEXT NOT NULL
 );
+
+-- See specs/002-passkey-authentication/data-model.md for GDPR erasure
+-- decisions (webauthn_credentials: delete on account erasure, not
+-- anonymise, unlike users).
+
+CREATE TABLE webauthn_credentials (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  public_key BLOB NOT NULL,
+  counter INTEGER NOT NULL DEFAULT 0,
+  transports TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE webauthn_challenges (
+  challenge TEXT PRIMARY KEY,
+  purpose TEXT NOT NULL CHECK (purpose IN ('registration', 'authentication')),
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
