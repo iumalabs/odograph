@@ -97,12 +97,18 @@ real external-contributor trust process.
 
 - `.github/workflows/ci.yml` — format/lint/typecheck/test/build on every push and PR. Required check
   before merge.
-- `.github/workflows/deploy-preview.yml` — re-runs the same checks, then deploys the PR head commit
-  to the `preview` environment and comments the preview URL on the PR. Same-repo PRs only.
+- `.github/workflows/deploy-preview.yml` — re-runs the same checks, applies any pending D1
+  migrations to `odograph-preview` (idempotent), then deploys the PR head commit to the `preview`
+  environment and comments the preview URL on the PR. Same-repo PRs only.
 - `.github/workflows/deploy-preview-cleanup.yml` — deletes the per-PR preview worker when the PR
   closes (merged or not). Same-repo PRs only.
-- `.github/workflows/deploy-production.yml` — re-runs the same checks, then deploys `main` to the
-  `production` environment. Pauses for the required reviewer approval before it runs.
+- `.github/workflows/deploy-production.yml` — re-runs the same checks, applies any pending D1
+  migrations to `odograph-production` (idempotent), then deploys `main` to the `production`
+  environment. Pauses for the required reviewer approval before it runs.
+
+Migrations only ever apply through these two workflows — never run
+`wrangler d1 migrations apply --remote` from a local machine, for the same reason there's no local
+`wrangler deploy` path (constitution Principle XII).
 
 See each workflow file for the exact steps; this document describes intent and stays in sync with
 them manually — if you change a workflow's trigger or target, update this table in the same PR.
