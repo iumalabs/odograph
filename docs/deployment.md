@@ -37,15 +37,39 @@ protection rule — see the fork-PR guard below for why that's still safe.
 
 Repository configuration:
 
-| Name                    | Kind                         | Used by        | Notes                                                                                                                                                                                |
-| ----------------------- | ---------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CLOUDFLARE_API_TOKEN`  | secret (`gh secret set`)     | both workflows | scoped token: Workers Scripts (Edit), D1 (Edit), Workers R2 Storage (Edit), Workers KV Storage (Edit), Account Settings (Read) — for account `8b655d0dde6d223b9ce11116a014973a` only |
-| `CLOUDFLARE_ACCOUNT_ID` | variable (`gh variable set`) | both workflows | `8b655d0dde6d223b9ce11116a014973a` — not sensitive, so it's a variable, not a secret                                                                                                 |
+| Name                    | Kind                         | Used by        | Notes                                                                                                             |
+| ----------------------- | ---------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | secret (`gh secret set`)     | both workflows | scoped token, see permissions below — for account `8b655d0dde6d223b9ce11116a014973a` and zone `odograph.dev` only |
+| `CLOUDFLARE_ACCOUNT_ID` | variable (`gh variable set`) | both workflows | `8b655d0dde6d223b9ce11116a014973a` — not sensitive, so it's a variable, not a secret                              |
 
-The API token is scoped as narrowly as the Cloudflare dashboard allows for the resource types above
-— not the account-wide "Edit Cloudflare Workers" template, which grants more than deploy needs. Set
-it with `gh secret set CLOUDFLARE_API_TOKEN` from a trusted machine — it should never be pasted into
-chat or committed anywhere.
+### `CLOUDFLARE_API_TOKEN` permissions
+
+Create via My Profile → API Tokens → Create Token → Custom token. Not the account-wide "Edit
+Cloudflare Workers" template, which grants more than deploy needs.
+
+**Account resources** (account `8b655d0dde6d223b9ce11116a014973a`):
+
+| Permission         | Level |
+| ------------------ | ----- |
+| Workers Scripts    | Edit  |
+| Workers KV Storage | Edit  |
+| Workers R2 Storage | Edit  |
+| D1                 | Edit  |
+| Account Settings   | Read  |
+
+**Zone resources** (zone `odograph.dev`) — required because the production route uses
+`custom_domain = true` in `wrangler.toml`, which provisions a DNS record under the hood:
+
+| Permission     | Level |
+| -------------- | ----- |
+| Workers Routes | Edit  |
+| DNS            | Edit  |
+
+Without the zone-scoped permissions, preview deploys (no custom domain) still work, but
+`deploy --env production` fails when it tries to attach `odograph.dev`.
+
+Set the token with `gh secret set CLOUDFLARE_API_TOKEN` from a trusted machine — it should never be
+pasted into chat or committed anywhere.
 
 **Fork PRs never get an auto-deployed preview.** `deploy-preview.yml` and its cleanup counterpart
 both gate on `github.event.pull_request.head.repo.full_name == github.repository`, so a pull request
