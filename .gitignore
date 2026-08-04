@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.wrangler/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Claude Code local settings (may contain credentials)
+.claude/settings.local.json
+
+# Deno
+.deno/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
