@@ -1,0 +1,29 @@
+name = "odograph"
+main = "./src/server/index.ts"
+compatibility_date = "2025-04-01"
+
+[assets]
+directory = "./dist/client"
+not_found_handling = "single-page-application"
+
+[observability]
+enabled = true
+
+# The default (top-level) config above is used by `wrangler dev` for local
+# iteration. CI deploys always pass an explicit environment — see
+# docs/deployment.md. There is no supported local `wrangler deploy` path.
+
+[env.preview]
+name = "odograph-preview"
+# Per-PR deploys override this with `--name odograph-pr-<PR number>` in
+# deploy-preview.yml; this base name only applies if --name is omitted.
+
+[env.preview.observability]
+enabled = true
+
+[env.production]
+name = "odograph"
+routes = [{ pattern = "odograph.dev/*", custom_domain = true }]
+
+[env.production.observability]
+enabled = true
