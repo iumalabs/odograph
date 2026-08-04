@@ -15,7 +15,7 @@ All deploys happen through GitHub Actions (constitution Principle XII). There is
 | ------------ | ---------------------------------------------------------------------------------------- | ------------------------------ |
 | Trigger      | every pull request (opened/synchronized)                                                 | push to `main`                 |
 | Worker name  | `odograph-pr-<PR number>`                                                                | `odograph`                     |
-| URL          | `https://odograph-pr-<PR number>.<workers-dev-subdomain>.workers.dev`                    | `https://odograph.dev`         |
+| URL          | `https://odograph-pr-<PR number>.kgz.workers.dev`                                        | `https://odograph.dev`         |
 | D1 / R2 / KV | dedicated `-preview` resources, shared across all open PRs                               | dedicated production resources |
 | Lifecycle    | created on PR open, redeployed on every push to the PR branch, **torn down on PR close** | long-lived                     |
 
@@ -31,29 +31,38 @@ configured in `wrangler.toml` under `[env.production]`.
 
 Two
 [GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)
-back the workflows: `preview` and `production`. `production` has required reviewers / protection
-rules; `preview` does not.
+back the workflows: `preview` and `production`. `production` requires a manual reviewer approval
+(the repo owner) before the job runs, restricted to deployments from `main`; `preview` has no
+protection rule — see the fork-PR guard below for why that's still safe.
 
-Repository secrets (set via `gh secret set <NAME>`, never committed):
+Repository configuration:
 
-| Secret                  | Used by        | Notes                                                                                                                                                                                |
-| ----------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CLOUDFLARE_API_TOKEN`  | both workflows | scoped token: Workers Scripts (Edit), D1 (Edit), Workers R2 Storage (Edit), Workers KV Storage (Edit), Account Settings (Read) — for account `8b655d0dde6d223b9ce11116a014973a` only |
-| `CLOUDFLARE_ACCOUNT_ID` | both workflows | `8b655d0dde6d223b9ce11116a014973a`                                                                                                                                                   |
+| Name                    | Kind                         | Used by        | Notes                                                                                                                                                                                |
+| ----------------------- | ---------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CLOUDFLARE_API_TOKEN`  | secret (`gh secret set`)     | both workflows | scoped token: Workers Scripts (Edit), D1 (Edit), Workers R2 Storage (Edit), Workers KV Storage (Edit), Account Settings (Read) — for account `8b655d0dde6d223b9ce11116a014973a` only |
+| `CLOUDFLARE_ACCOUNT_ID` | variable (`gh variable set`) | both workflows | `8b655d0dde6d223b9ce11116a014973a` — not sensitive, so it's a variable, not a secret                                                                                                 |
 
 The API token is scoped as narrowly as the Cloudflare dashboard allows for the resource types above
-— not the account-wide "Edit Cloudflare Workers" template, which grants more than deploy needs.
+— not the account-wide "Edit Cloudflare Workers" template, which grants more than deploy needs. Set
+it with `gh secret set CLOUDFLARE_API_TOKEN` from a trusted machine — it should never be pasted into
+chat or committed anywhere.
+
+**Fork PRs never get an auto-deployed preview.** `deploy-preview.yml` and its cleanup counterpart
+both gate on `github.event.pull_request.head.repo.full_name == github.repository`, so a pull request
+from a fork can't reach `CLOUDFLARE_API_TOKEN` through the preview flow. `ci.yml` still runs (and is
+the required check) for fork PRs — they just don't get a live preview URL until the project has a
+real external-contributor trust process.
 
 ## Workflows
 
 - `.github/workflows/ci.yml` — format/lint/typecheck/test/build on every push and PR. Required check
   before merge.
-- `.github/workflows/deploy-preview.yml` — deploys the PR head commit to the `preview` environment
-  and comments the preview URL on the PR. Runs after CI succeeds.
+- `.github/workflows/deploy-preview.yml` — re-runs the same checks, then deploys the PR head commit
+  to the `preview` environment and comments the preview URL on the PR. Same-repo PRs only.
 - `.github/workflows/deploy-preview-cleanup.yml` — deletes the per-PR preview worker when the PR
-  closes (merged or not).
-- `.github/workflows/deploy-production.yml` — deploys `main` to the `production` environment after
-  CI succeeds on `main`.
+  closes (merged or not). Same-repo PRs only.
+- `.github/workflows/deploy-production.yml` — re-runs the same checks, then deploys `main` to the
+  `production` environment. Pauses for the required reviewer approval before it runs.
 
 See each workflow file for the exact steps; this document describes intent and stays in sync with
 them manually — if you change a workflow's trigger or target, update this table in the same PR.
