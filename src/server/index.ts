@@ -4,6 +4,7 @@ import { devSession } from "./auth/dev-session";
 import { passkeyAuth } from "./routes/v1/auth/passkey";
 import { magicLinkAuth } from "./routes/v1/auth/magic-link";
 import { googleOidcAuth } from "./routes/v1/auth/oidc/google";
+import { whoami } from "./routes/v1/auth/whoami";
 import { vehicles } from "./routes/v1/vehicles";
 import type { AppEnv } from "./types";
 
@@ -14,6 +15,7 @@ app.route("/api/v1/_dev/session", devSession);
 app.route("/api/v1/auth/passkey", passkeyAuth);
 app.route("/api/v1/auth/magic-link", magicLinkAuth);
 app.route("/api/v1/auth/oidc/google", googleOidcAuth);
+app.route("/api/v1/auth/whoami", whoami);
 app.route("/api/v1/vehicles", vehicles);
 
 export default app;
