@@ -409,3 +409,101 @@ describe("mark reminder rule done (User Story 3)", () => {
     expect(stillOwned.lastDoneDate).toBe(isoDateDaysFromNow(-20));
   });
 });
+
+describe("update and delete reminder rules (User Story 4)", () => {
+  let sharedCookie: string;
+
+  beforeAll(async () => {
+    sharedCookie = (await createSession()).cookie;
+  });
+
+  it("updates one field, leaves every other field unchanged, and recomputes status", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    const created = (await (await createReminderRule(sharedCookie, vehicleId, {
+      label: "Original label",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(0),
+    })).json()) as { id: string };
+
+    const res = await patchReminderRule(sharedCookie, created.id, {
+      lastDoneDate: isoDateDaysFromNow(-110),
+    });
+    expect(res.status).toBe(200);
+    const updated = (await res.json()) as {
+      label: string;
+      intervalDays: number;
+      lastDoneDate: string;
+      status: string;
+    };
+    expect(updated.label).toBe("Original label");
+    expect(updated.intervalDays).toBe(100);
+    expect(updated.lastDoneDate).toBe(isoDateDaysFromNow(-110));
+    expect(updated.status).toBe("overdue");
+  });
+
+  it("rejects clearing the only interval a rule has, applying no change", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    const created = (await (await createReminderRule(sharedCookie, vehicleId, {
+      label: "Date only",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(0),
+    })).json()) as { id: string };
+
+    const res = await patchReminderRule(sharedCookie, created.id, { intervalDays: null });
+    expect(res.status).toBe(400);
+
+    const stillIntact = (await (await getReminderRule(sharedCookie, created.id)).json()) as {
+      intervalDays: number;
+    };
+    expect(stillIntact.intervalDays).toBe(100);
+  });
+
+  it("makes a deleted rule immediately unreachable from list and fetch", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    const created = (await (await createReminderRule(sharedCookie, vehicleId, {
+      label: "To delete",
+      intervalDays: 30,
+      lastDoneDate: isoDateDaysFromNow(0),
+    })).json()) as { id: string };
+
+    const del = await deleteReminderRuleReq(sharedCookie, created.id);
+    expect(del.status).toBe(204);
+
+    const fetchAfter = await getReminderRule(sharedCookie, created.id);
+    expect(fetchAfter.status).toBe(404);
+
+    const { reminderRules } = (await (await listReminderRules(sharedCookie, vehicleId)).json()) as {
+      reminderRules: { id: string }[];
+    };
+    expect(reminderRules.some((r) => r.id === created.id)).toBe(false);
+  });
+
+  it("refuses to update or delete a different tenant's rule, identically to a made-up id, and leaves it intact", async () => {
+    const other = await createSession();
+    const vehicleId = await createVehicleId(sharedCookie);
+    const created = (await (await createReminderRule(sharedCookie, vehicleId, {
+      label: "Owned",
+      intervalDays: 30,
+      lastDoneDate: isoDateDaysFromNow(0),
+    })).json()) as { id: string };
+
+    const crossPatch = await patchReminderRule(other.cookie, created.id, { label: "Hijacked" });
+    const madeUpPatch = await patchReminderRule(other.cookie, crypto.randomUUID(), {
+      label: "Hijacked",
+    });
+    expect(crossPatch.status).toBe(404);
+    expect(madeUpPatch.status).toBe(404);
+    expect(await crossPatch.text()).toBe(await madeUpPatch.text());
+
+    const crossDelete = await deleteReminderRuleReq(other.cookie, created.id);
+    const madeUpDelete = await deleteReminderRuleReq(other.cookie, crypto.randomUUID());
+    expect(crossDelete.status).toBe(404);
+    expect(madeUpDelete.status).toBe(404);
+    expect(await crossDelete.text()).toBe(await madeUpDelete.text());
+
+    const stillOwned = (await (await getReminderRule(sharedCookie, created.id)).json()) as {
+      label: string;
+    };
+    expect(stillOwned.label).toBe("Owned");
+  });
+});

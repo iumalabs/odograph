@@ -1684,3 +1684,66 @@ export async function markReminderRuleDone(
 
   return findReminderRuleById(db, ctx, id);
 }
+
+/**
+ * Applies only the fields present in `patch` — everything else keeps its stored value, same
+ * pattern updateFuelRecord established. The route layer is responsible for rejecting a patch that
+ * would leave the rule with neither interval (tasks.md T011) before calling this.
+ */
+export async function updateReminderRule(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+  patch: Partial<ReminderRuleInput>,
+): Promise<ReminderRuleWithStatus | null> {
+  const existing = await db
+    .prepare(`SELECT ${REMINDER_RULE_COLUMNS} FROM reminder_rules WHERE id = ? AND tenant_id = ?`)
+    .bind(id, ctx.tenantId)
+    .first<ReminderRule>();
+  if (!existing) return null;
+
+  const merged: ReminderRuleInput = {
+    label: patch.label ?? existing.label,
+    intervalDays: "intervalDays" in patch ? patch.intervalDays ?? null : existing.intervalDays,
+    intervalDistance: "intervalDistance" in patch
+      ? patch.intervalDistance ?? null
+      : existing.intervalDistance,
+    lastDoneDate: "lastDoneDate" in patch ? patch.lastDoneDate ?? null : existing.lastDoneDate,
+    lastDoneOdometer: "lastDoneOdometer" in patch
+      ? patch.lastDoneOdometer ?? null
+      : existing.lastDoneOdometer,
+  };
+  const updatedAt = new Date().toISOString();
+
+  await db
+    .prepare(
+      `UPDATE reminder_rules
+       SET label = ?, interval_days = ?, interval_distance = ?, last_done_date = ?, last_done_odometer = ?, updated_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(
+      merged.label,
+      merged.intervalDays,
+      merged.intervalDistance,
+      merged.lastDoneDate,
+      merged.lastDoneOdometer,
+      updatedAt,
+      id,
+      ctx.tenantId,
+    )
+    .run();
+
+  return findReminderRuleById(db, ctx, id);
+}
+
+export async function deleteReminderRule(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare("DELETE FROM reminder_rules WHERE id = ? AND tenant_id = ?")
+    .bind(id, ctx.tenantId)
+    .run();
+  return result.meta.changes > 0;
+}
