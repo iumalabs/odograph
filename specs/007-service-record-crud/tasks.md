@@ -196,11 +196,11 @@ referenced it, for either deletion path.
 
 ## Phase 9: Polish & Cross-Cutting
 
-- [ ] T023 [P] Update `src/server/db/schema.sql` reference copy with `service_records`,
+- [X] T023 [P] Update `src/server/db/schema.sql` reference copy with `service_records`,
       `service_record_attachments`
-- [ ] T024 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary
+- [X] T024 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary
       guard) and fix any failures across all files touched by this feature
-- [ ] T025 Walk through quickstart.md end-to-end against `deno task dev`. Steps 1 (R2 bucket
+- [X] T025 Walk through quickstart.md end-to-end against `deno task dev`. Steps 1 (R2 bucket
       creation) needs the real, owner-provisioned bucket from T001's note — record whatever isn't
       verifiable locally as a pending live-smoke-test item, same shape as prior features' external
       dependencies (Google OAuth client, Cloudflare Email Service domain onboarding)
