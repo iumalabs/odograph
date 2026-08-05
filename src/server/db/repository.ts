@@ -742,24 +742,72 @@ const SERVICE_RECORD_COLUMNS =
 /**
  * Semantic duplicate detection (constitution D-005): only compares against unflagged/original
  * records for this vehicle (never chaining duplicate-of-duplicate), same date exactly, same
- * description case-insensitively. Returns the matching record's id, or null.
+ * description case-insensitively.
+ *
+ * A plain SELECT-then-INSERT here is racy: two concurrent creates for the same vehicle both read
+ * "no duplicate exists" before either has committed, and both land with duplicate_of_id NULL
+ * (issue #45). Instead, the row is inserted unconditionally with duplicate_of_id NULL, then this
+ * single UPDATE...RETURNING classifies it against the row's own SQLite rowid — an implicit column
+ * that reflects true commit order and is therefore immune to any JS-side clock skew between
+ * racing requests, unlike ordering by created_at would be. Run together in one db.batch() call
+ * (atomic, no interleaving with another request's batch): whichever of two racing inserts commits
+ * second finds the first already present and flags itself against it; whichever commits first
+ * finds nothing earlier and stays the original. "Earlier" is always evaluated against the current
+ * committed state at UPDATE time, not a stale pre-insert snapshot, so this is race-safe regardless
+ * of how the two requests' statements interleave.
+ *
+ * The subquery below matches against bound parameters (vehicleId/tenantId/etc. from `input`)
+ * rather than correlating against the row being updated via a table alias — D1's SQLite build
+ * doesn't support `UPDATE t AS alias SET col = (SELECT ... WHERE x = alias.y)` (confirmed via a
+ * local repro: "no such column" for both `alias.col` and the unaliased `table.col` forms). Own
+ * rowid is looked up via a small independent nested SELECT, not correlation.
  */
-async function findServiceDuplicateCandidate(
+async function insertServiceRecordWithDuplicateDetection(
   db: D1Database,
   ctx: TenantContext,
   vehicleId: string,
+  id: string,
+  now: string,
   input: ServiceRecordInput,
 ): Promise<string | null> {
-  const row = await db
-    .prepare(
-      `SELECT id FROM service_records
-       WHERE vehicle_id = ? AND tenant_id = ? AND duplicate_of_id IS NULL
-         AND service_date = ? AND LOWER(description) = LOWER(?)
-       LIMIT 1`,
-    )
-    .bind(vehicleId, ctx.tenantId, input.serviceDate, input.description)
-    .first<{ id: string }>();
-  return row?.id ?? null;
+  const insertStmt = db.prepare(
+    `INSERT INTO service_records
+     (id, tenant_id, vehicle_id, service_date, description, odometer_reading, cost, notes, duplicate_of_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+  ).bind(
+    id,
+    ctx.tenantId,
+    vehicleId,
+    input.serviceDate,
+    input.description,
+    input.odometerReading,
+    input.cost,
+    input.notes,
+    now,
+    now,
+  );
+  const classifyStmt = db.prepare(
+    `UPDATE service_records
+     SET duplicate_of_id = (
+       SELECT earlier.id FROM service_records AS earlier
+       WHERE earlier.vehicle_id = ?
+         AND earlier.tenant_id = ?
+         AND earlier.service_date = ?
+         AND LOWER(earlier.description) = LOWER(?)
+         AND earlier.duplicate_of_id IS NULL
+         AND earlier.rowid < (SELECT rowid FROM service_records WHERE id = ?)
+       ORDER BY earlier.rowid ASC
+       LIMIT 1
+     )
+     WHERE id = ?
+     RETURNING duplicate_of_id AS duplicateOfId`,
+  ).bind(vehicleId, ctx.tenantId, input.serviceDate, input.description, id, id);
+
+  const batchResults = await db.batch<{ duplicateOfId: string | null }>([
+    insertStmt,
+    classifyStmt,
+  ]);
+  return batchResults[1]?.results[0]?.duplicateOfId ?? null;
 }
 
 /**
@@ -776,27 +824,14 @@ export async function createServiceRecord(
 ): Promise<ServiceRecord> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  const duplicateOfId = await findServiceDuplicateCandidate(db, ctx, vehicleId, input);
-  await db
-    .prepare(
-      `INSERT INTO service_records
-       (id, tenant_id, vehicle_id, service_date, description, odometer_reading, cost, notes, duplicate_of_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .bind(
-      id,
-      ctx.tenantId,
-      vehicleId,
-      input.serviceDate,
-      input.description,
-      input.odometerReading,
-      input.cost,
-      input.notes,
-      duplicateOfId,
-      now,
-      now,
-    )
-    .run();
+  const duplicateOfId = await insertServiceRecordWithDuplicateDetection(
+    db,
+    ctx,
+    vehicleId,
+    id,
+    now,
+    input,
+  );
   return {
     id,
     tenantId: ctx.tenantId,
@@ -1065,33 +1100,78 @@ const FUEL_DUPLICATE_ODOMETER_TOLERANCE = 5;
 
 /**
  * Semantic duplicate detection (constitution D-005): same vehicle/tenant, same date exactly, and
- * an odometer reading within the tolerance — the closest match wins. Returns the matching
- * record's id, or null.
+ * an odometer reading within the tolerance — the closest match wins.
+ *
+ * Same race (issue #45) and same fix shape as insertServiceRecordWithDuplicateDetection: insert
+ * unconditionally with duplicate_of_id NULL, then classify atomically in the same db.batch() via
+ * an UPDATE...RETURNING keyed off SQLite's implicit rowid (true commit order, immune to any
+ * JS-side clock skew between racing requests) rather than a stale pre-insert SELECT. "Closest
+ * odometer reading wins" is preserved as the primary tie-break among multiple qualifying earlier
+ * candidates; rowid both guarantees we never link to a record that didn't exist yet and breaks
+ * exact-distance ties deterministically.
+ *
+ * The subquery below matches against bound parameters (vehicleId/tenantId/etc. from `input`)
+ * rather than correlating against the row being updated via a table alias — D1's SQLite build
+ * doesn't support `UPDATE t AS alias SET col = (SELECT ... WHERE x = alias.y)` (confirmed via a
+ * local repro: "no such column" for both `alias.col` and the unaliased `table.col` forms). Own
+ * rowid is looked up via a small independent nested SELECT, not correlation.
  */
-async function findFuelDuplicateCandidate(
+async function insertFuelRecordWithDuplicateDetection(
   db: D1Database,
   ctx: TenantContext,
   vehicleId: string,
+  id: string,
+  now: string,
   input: FuelRecordInput,
 ): Promise<string | null> {
-  const row = await db
-    .prepare(
-      `SELECT id FROM fuel_records
-       WHERE vehicle_id = ? AND tenant_id = ? AND duplicate_of_id IS NULL
-         AND fuel_date = ? AND ABS(odometer_reading - ?) <= ?
-       ORDER BY ABS(odometer_reading - ?) ASC
-       LIMIT 1`,
-    )
-    .bind(
-      vehicleId,
-      ctx.tenantId,
-      input.fuelDate,
-      input.odometerReading,
-      FUEL_DUPLICATE_ODOMETER_TOLERANCE,
-      input.odometerReading,
-    )
-    .first<{ id: string }>();
-  return row?.id ?? null;
+  const insertStmt = db.prepare(
+    `INSERT INTO fuel_records
+     (id, tenant_id, vehicle_id, fuel_date, odometer_reading, volume, cost, station, notes, duplicate_of_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+  ).bind(
+    id,
+    ctx.tenantId,
+    vehicleId,
+    input.fuelDate,
+    input.odometerReading,
+    input.volume,
+    input.cost,
+    input.station,
+    input.notes,
+    now,
+    now,
+  );
+  const classifyStmt = db.prepare(
+    `UPDATE fuel_records
+     SET duplicate_of_id = (
+       SELECT earlier.id FROM fuel_records AS earlier
+       WHERE earlier.vehicle_id = ?
+         AND earlier.tenant_id = ?
+         AND earlier.fuel_date = ?
+         AND ABS(earlier.odometer_reading - ?) <= ?
+         AND earlier.duplicate_of_id IS NULL
+         AND earlier.rowid < (SELECT rowid FROM fuel_records WHERE id = ?)
+       ORDER BY ABS(earlier.odometer_reading - ?) ASC, earlier.rowid ASC
+       LIMIT 1
+     )
+     WHERE id = ?
+     RETURNING duplicate_of_id AS duplicateOfId`,
+  ).bind(
+    vehicleId,
+    ctx.tenantId,
+    input.fuelDate,
+    input.odometerReading,
+    FUEL_DUPLICATE_ODOMETER_TOLERANCE,
+    id,
+    input.odometerReading,
+    id,
+  );
+
+  const batchResults = await db.batch<{ duplicateOfId: string | null }>([
+    insertStmt,
+    classifyStmt,
+  ]);
+  return batchResults[1]?.results[0]?.duplicateOfId ?? null;
 }
 
 export async function createFuelRecord(
@@ -1102,28 +1182,14 @@ export async function createFuelRecord(
 ): Promise<FuelRecord> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  const duplicateOfId = await findFuelDuplicateCandidate(db, ctx, vehicleId, input);
-  await db
-    .prepare(
-      `INSERT INTO fuel_records
-       (id, tenant_id, vehicle_id, fuel_date, odometer_reading, volume, cost, station, notes, duplicate_of_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .bind(
-      id,
-      ctx.tenantId,
-      vehicleId,
-      input.fuelDate,
-      input.odometerReading,
-      input.volume,
-      input.cost,
-      input.station,
-      input.notes,
-      duplicateOfId,
-      now,
-      now,
-    )
-    .run();
+  const duplicateOfId = await insertFuelRecordWithDuplicateDetection(
+    db,
+    ctx,
+    vehicleId,
+    id,
+    now,
+    input,
+  );
   return {
     id,
     tenantId: ctx.tenantId,
