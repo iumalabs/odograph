@@ -74,11 +74,12 @@ describe("passkey registration (User Story 1)", () => {
     expect(body.tenantId).toBeTruthy();
 
     const cookie = cookieValue(res.headers.get("set-cookie"));
-    const probeRes = await SELF.fetch(`${FIXTURE_ORIGIN}/api/v1/_tenant-isolation-probe`, {
+    const probeRes = await SELF.fetch(`${FIXTURE_ORIGIN}/api/v1/vehicles`, {
       method: "POST",
-      headers: { Cookie: cookie },
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "probe", odometerUnit: "km" }),
     });
-    expect(probeRes.status).toBe(200);
+    expect(probeRes.status).toBe(201);
     const probeBody = (await probeRes.json()) as { tenantId: string };
     expect(probeBody.tenantId).toBe(body.tenantId);
 

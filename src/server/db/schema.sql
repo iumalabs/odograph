@@ -25,12 +25,6 @@ CREATE TABLE sessions (
   invalidated_at TEXT
 );
 
-CREATE TABLE probe_resources (
-  id TEXT PRIMARY KEY,
-  tenant_id TEXT NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
-  created_at TEXT NOT NULL
-);
-
 -- See specs/002-passkey-authentication/data-model.md for GDPR erasure
 -- decisions (webauthn_credentials: delete on account erasure, not
 -- anonymise, unlike users).
@@ -91,4 +85,20 @@ CREATE TABLE oidc_states (
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL,
   linking_user_id TEXT REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- See specs/006-vehicle-crud/data-model.md for GDPR erasure decisions (Delete, cascading from
+-- tenants — vehicles have no independent retention value once their owning tenant is gone).
+
+CREATE TABLE vehicles (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  make TEXT,
+  model TEXT,
+  year INTEGER,
+  vin TEXT,
+  odometer_unit TEXT NOT NULL CHECK (odometer_unit IN ('km', 'mi')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );

@@ -58,11 +58,12 @@ async function tokenFor(email: string): Promise<string> {
 }
 
 async function probeTenantId(cookie: string): Promise<string> {
-  const res = await SELF.fetch("https://example.com/api/v1/_tenant-isolation-probe", {
+  const res = await SELF.fetch("https://example.com/api/v1/vehicles", {
     method: "POST",
-    headers: { Cookie: cookie },
+    headers: { Cookie: cookie, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "probe", odometerUnit: "km" }),
   });
-  expect(res.status).toBe(200);
+  expect(res.status).toBe(201);
   const body = (await res.json()) as { tenantId: string };
   return body.tenantId;
 }
@@ -219,11 +220,7 @@ describe("account linking (specs/005 User Story 1)", () => {
 
   it("a subsequent, separate, unauthenticated sign-in with the linked email resolves to the linking user's tenant", async () => {
     const { cookie } = await createDevSession();
-    const originalProbeRes = await SELF.fetch(
-      "https://example.com/api/v1/_tenant-isolation-probe",
-      { method: "POST", headers: { Cookie: cookie } },
-    );
-    const originalTenantId = ((await originalProbeRes.json()) as { tenantId: string }).tenantId;
+    const originalTenantId = await probeTenantId(cookie);
 
     const email = uniqueEmail("link-then-signin");
     await requestLink(email, cookie);

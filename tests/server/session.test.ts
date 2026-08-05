@@ -25,11 +25,12 @@ describe("session (User Story 2)", () => {
     const { tenantId } = (await createRes.json()) as { tenantId: string };
     const { value: cookie } = cookieHeader(createRes.headers.get("set-cookie"));
 
-    const probeRes = await SELF.fetch("https://example.com/api/v1/_tenant-isolation-probe", {
+    const probeRes = await SELF.fetch("https://example.com/api/v1/vehicles", {
       method: "POST",
-      headers: { Cookie: cookie },
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "probe", odometerUnit: "km" }),
     });
-    expect(probeRes.status).toBe(200);
+    expect(probeRes.status).toBe(201);
     const body = (await probeRes.json()) as { tenantId: string };
     expect(body.tenantId).toBe(tenantId);
   });
@@ -47,7 +48,7 @@ describe("session (User Story 2)", () => {
     expect(invalidateRes.status).toBe(200);
 
     const afterRes = await SELF.fetch(
-      `https://example.com/api/v1/_tenant-isolation-probe/${crypto.randomUUID()}`,
+      `https://example.com/api/v1/vehicles/${crypto.randomUUID()}`,
       { headers: { Cookie: cookie } },
     );
     expect(afterRes.status).toBe(401);

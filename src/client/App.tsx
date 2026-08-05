@@ -3,6 +3,8 @@ import { addPasskey, loginWithPasskey, registerWithPasskey } from "./auth/passke
 import type { PasskeyIdentity } from "./auth/passkey";
 import { requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
 import { GOOGLE_LINK_URL, GOOGLE_SIGN_IN_URL } from "./auth/oidc";
+import { createVehicle, listVehicles } from "./vehicles";
+import type { Vehicle } from "./vehicles";
 import { t } from "./i18n/strings";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
@@ -20,6 +22,9 @@ export function App() {
   const [linkEmailSent, setLinkEmailSent] = useState(false);
   const [magicLinkOutcome, setMagicLinkOutcome] = useState<MagicLinkOutcome>(null);
   const [oidcOutcome, setOidcOutcome] = useState<OidcOutcome>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicleName, setVehicleName] = useState("");
+  const [vehicleOdometerUnit, setVehicleOdometerUnit] = useState<"km" | "mi">("km");
 
   // GET /api/v1/auth/magic-link/verify redirects here with ?magicLink=ok/
   // error/linked, and GET /api/v1/auth/oidc/google/callback with
@@ -41,6 +46,11 @@ export function App() {
       setOidcOutcome(oidcOutcomeParam);
     }
   }, []);
+
+  useEffect(() => {
+    if (!identity) return;
+    listVehicles().then(setVehicles).catch(() => setError(t("genericError")));
+  }, [identity]);
 
   async function handle<T>(action: () => Promise<T>, onSuccess: (result: T) => void) {
     setError(null);
@@ -87,6 +97,51 @@ export function App() {
             </button>
             {linkEmailSent && <p role="status">{t("linkEmailSentBanner")}</p>}
             <a href={GOOGLE_LINK_URL}>{t("linkGoogleAccount")}</a>
+
+            <h2>{t("vehiclesHeading")}</h2>
+            {vehicles.length === 0 ? <p>{t("noVehiclesYet")}</p> : (
+              <ul>
+                {vehicles.map((vehicle) => (
+                  <li key={vehicle.id}>
+                    {vehicle.name}
+                    {vehicle.make ? ` — ${vehicle.make}` : ""}
+                    {vehicle.model ? ` ${vehicle.model}` : ""}
+                    {vehicle.year ? ` (${vehicle.year})` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <label>
+              {t("vehicleNameLabel")}
+              <input
+                type="text"
+                value={vehicleName}
+                onChange={(event) => setVehicleName(event.target.value)}
+              />
+            </label>
+            <label>
+              {t("vehicleOdometerUnitLabel")}
+              <select
+                value={vehicleOdometerUnit}
+                onChange={(event) => setVehicleOdometerUnit(event.target.value as "km" | "mi")}
+              >
+                <option value="km">km</option>
+                <option value="mi">mi</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() =>
+                handle(
+                  () => createVehicle({ name: vehicleName, odometerUnit: vehicleOdometerUnit }),
+                  (vehicle) => {
+                    setVehicles((current) => [...current, vehicle]);
+                    setVehicleName("");
+                  },
+                )}
+            >
+              {t("addVehicle")}
+            </button>
           </div>
         )
         : (

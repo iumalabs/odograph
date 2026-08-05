@@ -33,11 +33,12 @@ async function signIn(
 }
 
 async function probeTenantId(cookie: string): Promise<string> {
-  const res = await SELF.fetch("https://example.com/api/v1/_tenant-isolation-probe", {
+  const res = await SELF.fetch("https://example.com/api/v1/vehicles", {
     method: "POST",
-    headers: { Cookie: cookieValue(cookie) },
+    headers: { Cookie: cookieValue(cookie), "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "probe", odometerUnit: "km" }),
   });
-  expect(res.status).toBe(200);
+  expect(res.status).toBe(201);
   const body = (await res.json()) as { tenantId: string };
   return body.tenantId;
 }
