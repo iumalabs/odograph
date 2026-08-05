@@ -1,0 +1,86 @@
+// Icon path data ported verbatim from docs/odograph-design.zip's "Иконки и лого" mockup — only
+// the icons this feature's in-scope screens actually use (spec.md Assumptions). Icon rules from
+// the mockup (06 · ПРАВИЛА): currentColor only, no fills/gradients inside an icon, single stroke
+// width per icon, no emoji.
+
+type IconProps = {
+  size?: number;
+};
+
+const commonProps = {
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.75,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+
+export function GarageIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M3 10.5 12 4l9 6.5" />
+      <path d="M5 10.5V20h14v-9.5" />
+      <path d="M8.5 20v-4.5h7V20" />
+      <path d="M8.5 17.5h7" />
+    </svg>
+  );
+}
+
+export function ServiceIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M12 3.5l7.5 4.25v8.5L12 20.5l-7.5-4.25v-8.5z" />
+      <circle cx="12" cy="12" r="3.2" />
+    </svg>
+  );
+}
+
+export function CarIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M3.5 15l1.9-5.3A2.2 2.2 0 0 1 7.5 8.2h9a2.2 2.2 0 0 1 2.1 1.5L20.5 15" />
+      <path d="M3 15h18v3.2h-2" />
+      <path d="M5 18.2H3V15" />
+      <circle cx="7.5" cy="18.2" r="1.7" />
+      <circle cx="16.5" cy="18.2" r="1.7" />
+    </svg>
+  );
+}
+
+export function AddIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+export function UploadIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M12 4.5v9" />
+      <path d="M8.5 8L12 4.5 15.5 8" />
+      <path d="M4.5 14v4a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-4" />
+    </svg>
+  );
+}
+
+export function ReceiptIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M6.5 3h11v18l-2.75-1.8L12 21l-2.75-1.8L6.5 21z" />
+      <path d="M9.5 8h5M9.5 12h5" />
+    </svg>
+  );
+}
+
+// Not in the mockup's icon sheet — hand-rolled to the same spec, per the design's own rule for
+// entities not in the set: "take the closest matching geometry, never an illustration."
+export function CloseIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}

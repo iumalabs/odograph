@@ -4,7 +4,9 @@
     "npm:@cloudflare/vite-plugin@^1.50.0": "1.50.0_vite@6.4.3__@types+node@26.1.2_wrangler@4.118.0_@types+node@26.1.2",
     "npm:@cloudflare/vitest-pool-workers@~0.20.1": "0.20.1_@vitest+runner@4.1.10_@vitest+snapshot@4.1.10_vitest@4.1.10__@types+node@26.1.2__vite@6.4.3___@types+node@26.1.2_@types+node@26.1.2_vite@6.4.3__@types+node@26.1.2",
     "npm:@fontsource/jetbrains-mono@*": "5.3.0",
+    "npm:@fontsource/jetbrains-mono@^5.3.0": "5.3.0",
     "npm:@fontsource/onest@*": "5.3.0",
+    "npm:@fontsource/onest@^5.3.0": "5.3.0",
     "npm:@simplewebauthn/browser@^13.3.0": "13.3.0",
     "npm:@simplewebauthn/server@^13.3.2": "13.3.2",
     "npm:@types/node@^26.1.2": "26.1.2",
@@ -1670,6 +1672,8 @@
     "dependencies": [
       "npm:@cloudflare/vite-plugin@^1.50.0",
       "npm:@cloudflare/vitest-pool-workers@~0.20.1",
+      "npm:@fontsource/jetbrains-mono@^5.3.0",
+      "npm:@fontsource/onest@^5.3.0",
       "npm:@simplewebauthn/browser@^13.3.0",
       "npm:@simplewebauthn/server@^13.3.2",
       "npm:@types/node@^26.1.2",

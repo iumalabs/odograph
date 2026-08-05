@@ -18,16 +18,16 @@ layout, iconography) is ported.
 
 ## Phase 1: Setup
 
-- [ ] T001 Add `@fontsource/onest` and `@fontsource/jetbrains-mono` as `npm:` specifiers to
+- [X] T001 Add `@fontsource/onest` and `@fontsource/jetbrains-mono` as `npm:` specifiers to
       `deno.json`'s `imports` map (constitution Principle X), then run `deno install`
-- [ ] T002 [P] Create `src/client/design/tokens.css`: `:root` custom properties for the dark
+- [X] T002 [P] Create `src/client/design/tokens.css`: `:root` custom properties for the dark
       (default) palette — `--bg:#0a0c0f; --panel:#13171c; --panel2:#1a1f26; --line:#242b34;
       --fg:#e9eef4; --dim:#7f8b99; --acc:#d4ff3f; --acc2:#3ea6ff; --warn:#ff6b3d;
       --on-acc:#0a0c0f` — plus a `[data-theme="light"]` block overriding to the light palette:
       `--bg:#e9ebee; --panel:#ffffff; --panel2:#f4f6f8; --line:#d6dbe1; --fg:#0d1116;
       --dim:#5d6874; --acc:#3f5c00; --acc2:#0a66c2; --warn:#c2410c; --on-acc:#ffffff`. Also define
       `--radius-sm:5px; --radius-md:8px; --radius-lg:12px` (chips/inputs/cards per research.md)
-- [ ] T003 [P] Create `src/client/design/base.css`: import `@fontsource/onest/400.css` through
+- [X] T003 [P] Create `src/client/design/base.css`: import `@fontsource/onest/400.css` through
       `800.css` and `@fontsource/jetbrains-mono/400.css`/`500.css`/`700.css`; define
       `--font-ui: 'Onest', system-ui, sans-serif` and `--font-mono: 'JetBrains Mono', ui-monospace,
       monospace` custom properties (FR-010 fallback); a minimal reset (`box-sizing: border-box`
@@ -39,11 +39,11 @@ layout, iconography) is ported.
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T004 Create `src/client/theme.ts`: a `useTheme()` hook — reads `localStorage["odograph:theme"]`
+- [X] T004 Create `src/client/theme.ts`: a `useTheme()` hook — reads `localStorage["odograph:theme"]`
       on mount (default `"dark"` if absent or invalid), sets `document.documentElement.dataset.theme`
       to match, and returns `[theme, toggleTheme]` where `toggleTheme` flips the value, writes it
       back to `localStorage`, and updates the `data-theme` attribute (data-model.md)
-- [ ] T005 [P] Create `src/client/design/icons.tsx`: hand-rolled inline SVG icon components, each
+- [X] T005 [P] Create `src/client/design/icons.tsx`: hand-rolled inline SVG icon components, each
       `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
       stroke-linecap="round" stroke-linejoin="round"`, sized via a `size` prop (default 20):
       - `GarageIcon`: `<path d="M3 10.5 12 4l9 6.5"/><path d="M5 10.5V20h14v-9.5"/><path d="M8.5 20v-4.5h7V20"/><path d="M8.5 17.5h7"/>`
@@ -57,7 +57,7 @@ layout, iconography) is ported.
         in the set): `<path d="M6 6l12 12M18 6L6 18"/>`
       Icon rules from the mockup (06 · ПРАВИЛА): `currentColor` only, no fills/gradients inside an
       icon, single stroke width per icon, no emoji.
-- [ ] T006 [P] Create `src/client/components/Logo.tsx`: the approved gauge-mark logo (matches
+- [X] T006 [P] Create `src/client/components/Logo.tsx`: the approved gauge-mark logo (matches
       `public/favicon.svg` exactly) — `<svg viewBox="0 0 32 32"><rect width="32" height="32"
       rx="9" fill="var(--acc)"/><path d="M8 21a8 8 0 0 1 16 0" fill="none" stroke="var(--on-acc)"
       stroke-width="2.2" stroke-linecap="round"/><path d="M16 19.5l5.2-5.8" fill="none"
@@ -67,7 +67,7 @@ layout, iconography) is ported.
       letter-spacing: -.03em` (mockups' logo-lockup spec: gap = 0.4× mark height, min lockup height
       24px) — wordmark is "Odograph" (existing i18n string), never the mockups' placeholder
       "ГАРАЖ"/"GARAGE" branding
-- [ ] T007 Create `src/client/components/AppShell.tsx`: the persistent chrome wrapping every
+- [X] T007 Create `src/client/components/AppShell.tsx`: the persistent chrome wrapping every
       signed-in screen — a 76px-wide icon nav rail (`border-right: 1px solid var(--line);
       background: var(--panel)`) containing only the `Logo` (mark-only, no wordmark) and a single
       `GarageIcon` nav entry (active-state: `border-left: 2px solid var(--acc); color: var(--acc)`)
