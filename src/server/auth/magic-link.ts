@@ -17,21 +17,38 @@ function buildVerifyUrl(requestUrl: string, token: string): string {
 
 export type SendMagicLinkResult = { sent: true } | { sent: false; error: string };
 
+export type MagicLinkEmailPurpose = "new-account" | "sign-in" | "link";
+
+const SUBJECTS: Record<MagicLinkEmailPurpose, string> = {
+  "new-account": "Welcome to Odograph — finish creating your account",
+  "sign-in": "Your Odograph sign-in link",
+  "link": "Confirm linking this email to your Odograph account",
+};
+
+const ACTIONS: Record<MagicLinkEmailPurpose, string> = {
+  "new-account": "finish creating your account",
+  "sign-in": "sign in",
+  "link": "confirm linking this email to your account",
+};
+
 /**
  * Sends the actual email. Always attempts to send regardless of whether the
  * account is new — only the copy differs (FR-006's response-parity
  * requirement is about the HTTP response, not the email content, which the
  * recipient — and only the recipient — necessarily sees differently).
+ *
+ * `purpose` has a third value, "link" (specs/005, analyze finding M1), so a
+ * linking email never misleadingly claims to be a signup or plain sign-in
+ * email — a recipient (who may not be the person who submitted the request)
+ * needs accurate copy to decide whether to click it.
  */
 export async function sendMagicLinkEmail(
   env: Env,
-  input: { email: string; token: string; requestUrl: string; isNewAccount: boolean },
+  input: { email: string; token: string; requestUrl: string; purpose: MagicLinkEmailPurpose },
 ): Promise<SendMagicLinkResult> {
   const verifyUrl = buildVerifyUrl(input.requestUrl, input.token);
-  const subject = input.isNewAccount
-    ? "Welcome to Odograph — finish creating your account"
-    : "Your Odograph sign-in link";
-  const action = input.isNewAccount ? "finish creating your account" : "sign in";
+  const subject = SUBJECTS[input.purpose];
+  const action = ACTIONS[input.purpose];
 
   try {
     await env.EMAIL.send({

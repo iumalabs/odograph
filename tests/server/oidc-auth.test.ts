@@ -1,7 +1,11 @@
 import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { createCredentialedUser } from "../../src/server/db/repository";
-import { completeGoogleSignIn } from "../../src/server/auth/oidc/google";
+import { createCredentialedUser, linkOidcIdentity } from "../../src/server/db/repository";
+import {
+  completeGoogleLink,
+  completeGoogleSignIn,
+  GOOGLE_PROVIDER,
+} from "../../src/server/auth/oidc/google";
 import { FIXTURE_AUDIENCE, fixtureJwks, signFixtureIdToken } from "./fixtures/oidc";
 
 // Cases reaching completeGoogleSignIn call it directly with a fixture ID token rather than via
@@ -40,6 +44,19 @@ async function probeTenantId(cookie: string): Promise<string> {
 
 function cookieValue(setCookie: string): string {
   return setCookie.split(";")[0] ?? "";
+}
+
+async function createDevSession(): Promise<{ userId: string; cookie: string }> {
+  const res = await SELF.fetch("https://example.com/api/v1/_dev/session", { method: "POST" });
+  const body = (await res.json()) as { userId: string };
+  return { userId: body.userId, cookie: (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "" };
+}
+
+function requestLink(cookie?: string): Promise<Response> {
+  return SELF.fetch("https://example.com/api/v1/auth/oidc/google/link", {
+    redirect: "manual",
+    headers: cookie ? { Cookie: cookie } : undefined,
+  });
 }
 
 describe("Google OIDC lifecycle (User Story 1)", () => {
@@ -125,5 +142,68 @@ describe("Google OIDC cross-method isolation (User Story 2)", () => {
     const googleTenantId = await probeTenantId(result.cookie);
 
     expect(googleTenantId).not.toBe(passkeyTenantId);
+  });
+});
+
+describe("account linking (specs/005 User Story 2)", () => {
+  it("an authenticated user links a Google identity, and the resulting session is for the linking user, not a new tenant", async () => {
+    const { userId, cookie } = await createDevSession();
+    const idToken = await signFixtureIdToken({
+      sub: uniqueSub("link-subject"),
+      email: `${crypto.randomUUID()}@example.invalid`,
+    });
+
+    const result = await completeGoogleLink(env.DB, idToken, {
+      jwks: await fixtureJwks(),
+      audience: FIXTURE_AUDIENCE,
+      linkingUserId: userId,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+
+    const linkedTenantId = await probeTenantId(result.cookie);
+    const originalTenantId = await probeTenantId(cookie);
+    expect(linkedTenantId).toBe(originalTenantId);
+  });
+
+  it("rejects linking an identity already linked to a different account (FR-005)", async () => {
+    const other = await createDevSession();
+    const sub = uniqueSub("already-linked-different");
+    await linkOidcIdentity(env.DB, GOOGLE_PROVIDER, sub, other.userId);
+
+    const { userId } = await createDevSession();
+    const idToken = await signFixtureIdToken({
+      sub,
+      email: `${crypto.randomUUID()}@example.invalid`,
+    });
+
+    const result = await completeGoogleLink(env.DB, idToken, {
+      jwks: await fixtureJwks(),
+      audience: FIXTURE_AUDIENCE,
+      linkingUserId: userId,
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects linking an identity already linked to the caller's own account, same as any other (FR-005)", async () => {
+    const { userId } = await createDevSession();
+    const sub = uniqueSub("already-linked-own");
+    await linkOidcIdentity(env.DB, GOOGLE_PROVIDER, sub, userId);
+
+    const idToken = await signFixtureIdToken({
+      sub,
+      email: `${crypto.randomUUID()}@example.invalid`,
+    });
+    const result = await completeGoogleLink(env.DB, idToken, {
+      jwks: await fixtureJwks(),
+      audience: FIXTURE_AUDIENCE,
+      linkingUserId: userId,
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("refuses /link without a session, before any state row is created (FR-004)", async () => {
+    const res = await requestLink();
+    expect(res.status).toBe(401);
   });
 });

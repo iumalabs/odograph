@@ -1,33 +1,43 @@
 import { useEffect, useState } from "react";
 import { addPasskey, loginWithPasskey, registerWithPasskey } from "./auth/passkey";
 import type { PasskeyIdentity } from "./auth/passkey";
-import { requestMagicLink } from "./auth/magic-link";
-import { GOOGLE_SIGN_IN_URL } from "./auth/oidc";
+import { requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
+import { GOOGLE_LINK_URL, GOOGLE_SIGN_IN_URL } from "./auth/oidc";
 import { t } from "./i18n/strings";
+
+type MagicLinkOutcome = "ok" | "error" | "linked" | null;
+type OidcOutcome = "ok" | "error" | "linked" | null;
 
 // Minimal, unstyled — proves the passkey/magic-link/Google ceremonies work
 // end-to-end (plan.md). Real visual design lands once the Claude-design
 // mockups are integrated as their own feature.
 export function App() {
   const [email, setEmail] = useState("");
+  const [linkEmail, setLinkEmail] = useState("");
   const [identity, setIdentity] = useState<PasskeyIdentity | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
-  const [magicLinkOutcome, setMagicLinkOutcome] = useState<"ok" | "error" | null>(null);
-  const [oidcOutcome, setOidcOutcome] = useState<"ok" | "error" | null>(null);
+  const [linkEmailSent, setLinkEmailSent] = useState(false);
+  const [magicLinkOutcome, setMagicLinkOutcome] = useState<MagicLinkOutcome>(null);
+  const [oidcOutcome, setOidcOutcome] = useState<OidcOutcome>(null);
 
   // GET /api/v1/auth/magic-link/verify redirects here with ?magicLink=ok/
-  // error, and GET /api/v1/auth/oidc/google/callback with ?oidc=ok/error
-  // (contracts/api.md) — the session cookie, if any, is already set by the
-  // time this page loads.
+  // error/linked, and GET /api/v1/auth/oidc/google/callback with
+  // ?oidc=ok/error/linked (contracts/api.md) — the session cookie, if any,
+  // is already set by the time this page loads.
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const magicLinkOutcomeParam = params.get("magicLink");
-    if (magicLinkOutcomeParam === "ok" || magicLinkOutcomeParam === "error") {
+    if (
+      magicLinkOutcomeParam === "ok" || magicLinkOutcomeParam === "error" ||
+      magicLinkOutcomeParam === "linked"
+    ) {
       setMagicLinkOutcome(magicLinkOutcomeParam);
     }
     const oidcOutcomeParam = params.get("oidc");
-    if (oidcOutcomeParam === "ok" || oidcOutcomeParam === "error") {
+    if (
+      oidcOutcomeParam === "ok" || oidcOutcomeParam === "error" || oidcOutcomeParam === "linked"
+    ) {
       setOidcOutcome(oidcOutcomeParam);
     }
   }, []);
@@ -48,8 +58,10 @@ export function App() {
 
       {magicLinkOutcome === "ok" && <p role="status">{t("magicLinkOkBanner")}</p>}
       {magicLinkOutcome === "error" && <p role="alert">{t("magicLinkErrorBanner")}</p>}
+      {magicLinkOutcome === "linked" && <p role="status">{t("magicLinkLinkedBanner")}</p>}
       {oidcOutcome === "ok" && <p role="status">{t("oidcOkBanner")}</p>}
       {oidcOutcome === "error" && <p role="alert">{t("oidcErrorBanner")}</p>}
+      {oidcOutcome === "linked" && <p role="status">{t("oidcLinkedBanner")}</p>}
 
       {identity
         ? (
@@ -58,6 +70,23 @@ export function App() {
             <button type="button" onClick={() => handle(addPasskey, () => {})}>
               {t("addAnotherPasskey")}
             </button>
+            <label>
+              {t("linkEmailLabel")}
+              <input
+                type="email"
+                value={linkEmail}
+                onChange={(event) => setLinkEmail(event.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() =>
+                handle(() => requestMagicLinkLink(linkEmail), () => setLinkEmailSent(true))}
+            >
+              {t("linkEmail")}
+            </button>
+            {linkEmailSent && <p role="status">{t("linkEmailSentBanner")}</p>}
+            <a href={GOOGLE_LINK_URL}>{t("linkGoogleAccount")}</a>
           </div>
         )
         : (

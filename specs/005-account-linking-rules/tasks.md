@@ -13,7 +13,7 @@ for both methods, plus the unauthenticated-refusal case (FR-004).
 
 ## Phase 1: Setup
 
-- [ ] T001 Create D1 migration `migrations/0005_account_linking.sql`: `ALTER TABLE
+- [X] T001 Create D1 migration `migrations/0005_account_linking.sql`: `ALTER TABLE
       magic_link_tokens ADD COLUMN linking_user_id TEXT REFERENCES users(id) ON DELETE CASCADE;`
       and `ALTER TABLE oidc_states ADD COLUMN linking_user_id TEXT REFERENCES users(id) ON DELETE
       CASCADE;` per data-model.md
@@ -22,8 +22,8 @@ for both methods, plus the unauthenticated-refusal case (FR-004).
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T002 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
-- [ ] T003 In `src/server/db/repository.ts`, per data-model.md: add an optional trailing
+- [X] T002 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
+- [X] T003 In `src/server/db/repository.ts`, per data-model.md: add an optional trailing
       `linkingUserId?: string` param to `invalidateAndCreateMagicLinkToken` (included in the
       `INSERT` when present); add `linkingUserId: string | null` to `consumeMagicLinkToken`'s
       returned object; add the same two changes, mirrored, to `createOidcState`/`consumeOidcState`;
@@ -31,7 +31,7 @@ for both methods, plus the unauthenticated-refusal case (FR-004).
       userId)` — both plain inserts with no existence pre-check, relying on the primary key
       constraint to reject an already-linked identity (research.md). No other existing export's
       signature changes.
-- [ ] T004 [P] Implement `completeGoogleLink(db, idToken, { jwks, audience, linkingUserId })` in
+- [X] T004 [P] Implement `completeGoogleLink(db, idToken, { jwks, audience, linkingUserId })` in
       `src/server/auth/oidc/google.ts`: verifies the ID token (verify-id-token.ts) exactly like
       `completeGoogleSignIn`; on success, calls `linkOidcIdentity(db, GOOGLE_PROVIDER, claims.sub,
       linkingUserId)` — catches `isUniqueConstraintError` and returns a failure result rather than
@@ -52,7 +52,7 @@ end-to-end, rejecting an already-linked identity cleanly (FR-005).
 separate unauthenticated attempt sign in via magic link with that email and confirm it resolves to
 the original account.
 
-- [ ] T005 [US1] In `src/server/auth/magic-link.ts`, replace `sendMagicLinkEmail`'s
+- [X] T005 [US1] In `src/server/auth/magic-link.ts`, replace `sendMagicLinkEmail`'s
       `isNewAccount: boolean` param with `purpose: "new-account" | "sign-in" | "link"` (three email
       copy branches instead of two) — analyze finding M1: a linking email must not claim to be
       "finishing account creation" or a plain "sign-in link," since it's neither and may reach a
@@ -63,17 +63,17 @@ the original account.
       `/request`), calls `invalidateAndCreateMagicLinkToken(db, email, c.get("tenant").userId)`,
       sends the email with `purpose: "link"`, returns `{ sent: true }` or `502` on send failure —
       contracts/api.md
-- [ ] T006 [US1] Modify `GET /api/v1/auth/magic-link/verify`: after consuming the token, if
+- [X] T006 [US1] Modify `GET /api/v1/auth/magic-link/verify`: after consuming the token, if
       `linkingUserId` is present, call `linkMagicLinkIdentity(db, consumed.email,
       consumed.linkingUserId)` inside a try/catch — on `isUniqueConstraintError`, redirect to
       `/?magicLink=error` (FR-005); on success, `issueSession(db, consumed.linkingUserId)` and
       redirect to `/?magicLink=linked` (contracts/api.md's new outcome value). The existing
       no-`linkingUserId` path (normal sign-in) is unchanged.
-- [ ] T007 [US1] No route-mounting change needed — `/link` is added to the already-mounted
+- [X] T007 [US1] No route-mounting change needed — `/link` is added to the already-mounted
       `magicLinkAuth` Hono instance in `src/server/index.ts`; confirm `tenantContext` and
       `rateLimitBySession` are imported into `src/server/routes/v1/auth/magic-link.ts` (mirroring
       `_tenant-isolation-probe.ts`'s pattern)
-- [ ] T008 [P] [US1] Extend `tests/server/magic-link-auth.test.ts` (linking section): 1. An
+- [X] T008 [P] [US1] Extend `tests/server/magic-link-auth.test.ts` (linking section): 1. An
       authenticated user links a new email, follows the link, and the resulting redirect is
       `/?magicLink=linked` with a session cookie for the *linking* user (not a new tenant). 2. A
       subsequent, separate, unauthenticated sign-in with that same email resolves to the same
@@ -97,19 +97,19 @@ the original account.
 separate unauthenticated attempt sign in with Google using that account and confirm it resolves to
 the original account.
 
-- [ ] T009 [US2] Implement `GET /api/v1/auth/oidc/google/link` in
+- [X] T009 [US2] Implement `GET /api/v1/auth/oidc/google/link` in
       `src/server/routes/v1/auth/oidc/google.ts`, behind `tenantContext` + `rateLimitBySession`:
       calls `createOidcState(db, c.get("tenant").userId)`, builds the authorization URL exactly
       like `/start`, redirects — contracts/api.md
-- [ ] T010 [US2] Modify `GET /api/v1/auth/oidc/google/callback`: after exchanging the code for
+- [X] T010 [US2] Modify `GET /api/v1/auth/oidc/google/callback`: after exchanging the code for
       tokens, if the consumed state's `linkingUserId` is present, call `completeGoogleLink` (T004)
       instead of `completeGoogleSignIn` — on failure (verification or `isUniqueConstraintError`
       surfaced through it), redirect to `/?oidc=error`; on success, set the cookie and redirect to
       `/?oidc=linked`. The existing no-`linkingUserId` path (normal sign-in) is unchanged.
-- [ ] T011 [US2] No route-mounting change needed — `/link` is added to the already-mounted
+- [X] T011 [US2] No route-mounting change needed — `/link` is added to the already-mounted
       `googleOidcAuth` Hono instance; confirm `tenantContext` and `rateLimitBySession` are imported
       into `src/server/routes/v1/auth/oidc/google.ts`
-- [ ] T012 [P] [US2] Extend `tests/server/oidc-auth.test.ts` (linking section): 1. An authenticated
+- [X] T012 [P] [US2] Extend `tests/server/oidc-auth.test.ts` (linking section): 1. An authenticated
       user links a Google identity (via `completeGoogleLink` directly with a fixture ID token,
       mirroring T012/T013's existing "call the core function directly, not via `SELF.fetch`"
       pattern from specs/004 — the code-exchange step is still deliberately untested) and the
@@ -129,7 +129,7 @@ the original account.
 **Goal**: A way to trigger both linking flows from the already-authenticated view, matching the
 existing "minimal, no design polish" precedent.
 
-- [ ] T013 [P] Modify `src/client/App.tsx`: in the `identity`-truthy branch, add an email input
+- [X] T013 [P] Modify `src/client/App.tsx`: in the `identity`-truthy branch, add an email input
       (reuse the existing `email` state) + "Link email" button calling `POST
       /api/v1/auth/magic-link/link`, and a "Link Google account" link (`<a href>`, plain navigation
       like the existing "Continue with Google") pointing to `/api/v1/auth/oidc/google/link`; extend
@@ -139,15 +139,19 @@ existing "minimal, no design polish" precedent.
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T014 [P] Update `src/server/db/schema.sql` reference copy with the two new nullable
+- [X] T014 [P] Update `src/server/db/schema.sql` reference copy with the two new nullable
       `linking_user_id` columns
-- [ ] T015 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
+- [X] T015 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
       and fix any failures across all files touched by this feature
-- [ ] T016 Walk through quickstart.md end-to-end against `npm run dev`. The magic-link half needs
-      no external dependency beyond what specs/003 already requires; the Google half needs the real
-      OAuth client from specs/004's quickstart.md (same local-dev-only limitation on per-PR
-      previews applies here for the same reason — research.md doesn't repeat, but inherits, that
-      finding).
+- [X] T016 Walked through quickstart.md's magic-link half against `npm run dev` (curl, since the
+      preview browser tool couldn't attach to a port here — another chat session held 5173):
+      linked an email, followed the link (`/?magicLink=linked`, correct), confirmed the linked
+      session resolves to the same tenant as the original, and confirmed re-linking the same email
+      is rejected (`/?magicLink=error`, no cookie). The `linked` outcome banner wasn't
+      pixel-verified in a browser this round — it's the same conditional-render pattern already
+      visually confirmed for `ok`/`error` earlier this session, just a third union member, and
+      typechecking passes. The Google half is unverified pending the real OAuth client from
+      specs/004's quickstart.md (same external, owner-only dependency, not yet provisioned).
 
 ## Dependencies
 

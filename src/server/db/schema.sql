@@ -61,11 +61,14 @@ CREATE TABLE magic_link_identities (
   created_at TEXT NOT NULL
 );
 
+-- linking_user_id: see specs/005-account-linking-rules/data-model.md — NULL for a normal sign-in
+-- request, set to the initiating user's id for an account-linking attempt.
 CREATE TABLE magic_link_tokens (
   token TEXT PRIMARY KEY,
   email TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL
+  expires_at TEXT NOT NULL,
+  linking_user_id TEXT REFERENCES users (id) ON DELETE CASCADE
 );
 
 -- See specs/004-google-oidc-authentication/data-model.md for GDPR erasure
@@ -80,9 +83,12 @@ CREATE TABLE oidc_identities (
   PRIMARY KEY (provider, subject)
 );
 
+-- linking_user_id: see specs/005-account-linking-rules/data-model.md — same role as
+-- magic_link_tokens.linking_user_id above, for the OIDC flow's pending-attempt record.
 CREATE TABLE oidc_states (
   state TEXT PRIMARY KEY,
   code_verifier TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL
+  expires_at TEXT NOT NULL,
+  linking_user_id TEXT REFERENCES users (id) ON DELETE CASCADE
 );

@@ -384,10 +384,14 @@ const MAGIC_LINK_TOKEN_TTL_SECONDS = 15 * 60;
  * Deletes any existing unconsumed token for `email` and inserts a fresh one,
  * in one function so no caller can invalidate without also issuing a
  * replacement, or vice versa (FR-005). Returns the new token value.
+ *
+ * `linkingUserId` (specs/005) marks this as a linking attempt rather than a
+ * sign-in one — NULL for the normal /request path.
  */
 export async function invalidateAndCreateMagicLinkToken(
   db: D1Database,
   email: string,
+  linkingUserId?: string,
 ): Promise<string> {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -395,10 +399,13 @@ export async function invalidateAndCreateMagicLinkToken(
   const expiresAt = new Date(Date.now() + MAGIC_LINK_TOKEN_TTL_SECONDS * 1000).toISOString();
   await db.batch([
     db.prepare("DELETE FROM magic_link_tokens WHERE email = ?").bind(email),
-    db.prepare("INSERT INTO magic_link_tokens (token, email, expires_at) VALUES (?, ?, ?)").bind(
+    db.prepare(
+      "INSERT INTO magic_link_tokens (token, email, expires_at, linking_user_id) VALUES (?, ?, ?, ?)",
+    ).bind(
       token,
       email,
       expiresAt,
+      linkingUserId ?? null,
     ),
   ]);
   return token;
@@ -425,20 +432,41 @@ export async function findMagicLinkTokenByEmail(
 /**
  * Atomically checks validity and deletes — a token can be consumed at most
  * once (FR-004). Returns the associated email if it was valid, null
- * otherwise.
+ * otherwise. `linkingUserId` (specs/005) is non-null iff this token was
+ * issued by the linking flow rather than a normal sign-in request.
  */
 export async function consumeMagicLinkToken(
   db: D1Database,
   token: string,
-): Promise<{ email: string } | null> {
+): Promise<{ email: string; linkingUserId: string | null } | null> {
   const now = new Date().toISOString();
   const row = await db
-    .prepare("SELECT email FROM magic_link_tokens WHERE token = ? AND expires_at > ?")
+    .prepare(
+      "SELECT email, linking_user_id AS linkingUserId FROM magic_link_tokens WHERE token = ? AND expires_at > ?",
+    )
     .bind(token, now)
-    .first<{ email: string }>();
+    .first<{ email: string; linkingUserId: string | null }>();
   if (!row) return null;
   await db.prepare("DELETE FROM magic_link_tokens WHERE token = ?").bind(token).run();
   return row;
+}
+
+/**
+ * Account-linking bootstrap (specs/005): attaches `email` to an *existing*
+ * user — never creates a tenant/user, unlike createMagicLinkUser. Insert-only
+ * with no existence pre-check; throws (isUniqueConstraintError) if the email
+ * is already linked to any account, same or different (FR-005) — the
+ * relevant PRIMARY KEY constraint being magic_link_identities.email itself.
+ */
+export async function linkMagicLinkIdentity(
+  db: D1Database,
+  email: string,
+  userId: string,
+): Promise<void> {
+  await db
+    .prepare("INSERT INTO magic_link_identities (email, user_id) VALUES (?, ?)")
+    .bind(email, userId)
+    .run();
 }
 
 // --- OIDC operations ---------------------------------------------------------
@@ -498,9 +526,13 @@ const OIDC_STATE_TTL_SECONDS = 10 * 60;
  * a high-entropy, single-use, short-TTL D1 row, same shape as
  * webauthn_challenges/magic_link_tokens, deliberately with no additional
  * cookie layer).
+ *
+ * `linkingUserId` (specs/005) marks this as a linking attempt rather than a
+ * sign-in one — NULL for the normal /start path.
  */
 export async function createOidcState(
   db: D1Database,
+  linkingUserId?: string,
 ): Promise<{ state: string; codeVerifier: string }> {
   const stateBytes = new Uint8Array(32);
   crypto.getRandomValues(stateBytes);
@@ -513,11 +545,31 @@ export async function createOidcState(
   const expiresAt = new Date(Date.now() + OIDC_STATE_TTL_SECONDS * 1000).toISOString();
   await db
     .prepare(
-      "INSERT INTO oidc_states (state, code_verifier, expires_at) VALUES (?, ?, ?)",
+      "INSERT INTO oidc_states (state, code_verifier, expires_at, linking_user_id) VALUES (?, ?, ?, ?)",
     )
-    .bind(state, codeVerifier, expiresAt)
+    .bind(state, codeVerifier, expiresAt, linkingUserId ?? null)
     .run();
   return { state, codeVerifier };
+}
+
+/**
+ * Account-linking bootstrap (specs/005): attaches `(provider, subject)` to
+ * an *existing* user — never creates a tenant/user, unlike createOidcUser.
+ * Insert-only with no existence pre-check; throws (isUniqueConstraintError)
+ * if the identity is already linked to any account, same or different
+ * (FR-005) — the relevant PRIMARY KEY constraint being
+ * oidc_identities.(provider, subject) itself.
+ */
+export async function linkOidcIdentity(
+  db: D1Database,
+  provider: string,
+  subject: string,
+  userId: string,
+): Promise<void> {
+  await db
+    .prepare("INSERT INTO oidc_identities (provider, subject, user_id) VALUES (?, ?, ?)")
+    .bind(provider, subject, userId)
+    .run();
 }
 
 /**
@@ -528,14 +580,14 @@ export async function createOidcState(
 export async function consumeOidcState(
   db: D1Database,
   state: string,
-): Promise<{ codeVerifier: string } | null> {
+): Promise<{ codeVerifier: string; linkingUserId: string | null } | null> {
   const now = new Date().toISOString();
   const row = await db
     .prepare(
-      "SELECT code_verifier AS codeVerifier FROM oidc_states WHERE state = ? AND expires_at > ?",
+      "SELECT code_verifier AS codeVerifier, linking_user_id AS linkingUserId FROM oidc_states WHERE state = ? AND expires_at > ?",
     )
     .bind(state, now)
-    .first<{ codeVerifier: string }>();
+    .first<{ codeVerifier: string; linkingUserId: string | null }>();
   if (!row) return null;
   await db.prepare("DELETE FROM oidc_states WHERE state = ?").bind(state).run();
   return row;

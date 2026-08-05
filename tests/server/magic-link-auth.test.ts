@@ -1,6 +1,10 @@
 import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { createCredentialedUser, findMagicLinkTokenByEmail } from "../../src/server/db/repository";
+import {
+  createCredentialedUser,
+  findMagicLinkTokenByEmail,
+  linkMagicLinkIdentity,
+} from "../../src/server/db/repository";
 
 // D1 storage in @cloudflare/vitest-pool-workers is isolated per test *file*,
 // not per `it()` (see tests/server/passkey-auth.test.ts) — each test below
@@ -22,6 +26,23 @@ function requestMagicLink(email: string): Promise<Response> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
+}
+
+function requestLink(email: string, cookie?: string): Promise<Response> {
+  return SELF.fetch("https://example.com/api/v1/auth/magic-link/link", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    body: JSON.stringify({ email }),
+  });
+}
+
+async function createDevSession(): Promise<{ userId: string; cookie: string }> {
+  const res = await SELF.fetch("https://example.com/api/v1/_dev/session", { method: "POST" });
+  const body = (await res.json()) as { userId: string };
+  return { userId: body.userId, cookie: cookieValue(res.headers.get("set-cookie")) };
 }
 
 function verify(token: string | null): Promise<Response> {
@@ -174,5 +195,86 @@ describe("magic link response parity and cross-method isolation (User Story 2)",
     const magicLinkTenantId = await probeTenantId(cookie);
 
     expect(magicLinkTenantId).not.toBe(passkeyTenantId);
+  });
+});
+
+describe("account linking (specs/005 User Story 1)", () => {
+  it("an authenticated user links a new email, and the resulting session is for the linking user, not a new tenant", async () => {
+    const { cookie } = await createDevSession();
+    const email = uniqueEmail("link-new");
+
+    const linkRes = await requestLink(email, cookie);
+    expect(linkRes.status).toBe(200);
+
+    const token = await tokenFor(email);
+    const verifyRes = await verify(token);
+    expect(verifyRes.status).toBe(302);
+    expect(verifyRes.headers.get("location")).toBe("https://example.com/?magicLink=linked");
+
+    const linkedCookie = cookieValue(verifyRes.headers.get("set-cookie"));
+    const linkedTenantId = await probeTenantId(linkedCookie);
+    const originalTenantId = await probeTenantId(cookie);
+    expect(linkedTenantId).toBe(originalTenantId);
+  });
+
+  it("a subsequent, separate, unauthenticated sign-in with the linked email resolves to the linking user's tenant", async () => {
+    const { cookie } = await createDevSession();
+    const originalProbeRes = await SELF.fetch(
+      "https://example.com/api/v1/_tenant-isolation-probe",
+      { method: "POST", headers: { Cookie: cookie } },
+    );
+    const originalTenantId = ((await originalProbeRes.json()) as { tenantId: string }).tenantId;
+
+    const email = uniqueEmail("link-then-signin");
+    await requestLink(email, cookie);
+    const linkToken = await tokenFor(email);
+    await verify(linkToken);
+
+    // Separate, unauthenticated sign-in attempt — no cookie from the linking session at all.
+    await requestMagicLink(email);
+    const signInToken = await tokenFor(email);
+    const signInRes = await verify(signInToken);
+    expect(signInRes.headers.get("location")).toBe("https://example.com/?magicLink=ok");
+
+    const signInCookie = cookieValue(signInRes.headers.get("set-cookie"));
+    const signInTenantId = await probeTenantId(signInCookie);
+    expect(signInTenantId).toBe(originalTenantId);
+  });
+
+  it("rejects linking an email already linked to a different account (FR-005)", async () => {
+    const other = await createDevSession();
+    const email = uniqueEmail("already-linked-different");
+    await linkMagicLinkIdentity(env.DB, email, other.userId);
+
+    const { cookie } = await createDevSession();
+    const linkRes = await requestLink(email, cookie);
+    expect(linkRes.status).toBe(200);
+    const token = await tokenFor(email);
+    const verifyRes = await verify(token);
+    expect(verifyRes.status).toBe(302);
+    expect(verifyRes.headers.get("location")).toBe("https://example.com/?magicLink=error");
+    expect(verifyRes.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("rejects linking an email already linked to the caller's own account, same as any other (FR-005)", async () => {
+    const { userId, cookie } = await createDevSession();
+    const email = uniqueEmail("already-linked-own");
+    await linkMagicLinkIdentity(env.DB, email, userId);
+
+    const linkRes = await requestLink(email, cookie);
+    expect(linkRes.status).toBe(200);
+    const token = await tokenFor(email);
+    const verifyRes = await verify(token);
+    expect(verifyRes.status).toBe(302);
+    expect(verifyRes.headers.get("location")).toBe("https://example.com/?magicLink=error");
+  });
+
+  it("refuses /link without a session, before any token is created (FR-004)", async () => {
+    const email = uniqueEmail("unauthenticated-link-attempt");
+    const res = await requestLink(email);
+    expect(res.status).toBe(401);
+
+    const row = await findMagicLinkTokenByEmail(env.DB, email);
+    expect(row).toBeNull();
   });
 });
