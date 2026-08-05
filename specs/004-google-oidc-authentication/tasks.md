@@ -15,38 +15,38 @@ explicitly.
 
 ## Phase 1: Setup
 
-- [ ] T001 [P] Add the `jose` dependency: `npm install jose`
-- [ ] T002 [P] Extend `AppEnv["Bindings"]` in `src/server/types.ts` with
+- [X] T001 [P] Add the `jose` dependency: `npm install jose`
+- [X] T002 [P] Extend `AppEnv["Bindings"]` in `src/server/types.ts` with
       `GOOGLE_CLIENT_ID: string; GOOGLE_CLIENT_SECRET: string` — these are Workers secrets
       (research.md), never declared in `wrangler.toml`, so `wrangler types`/`npm run cf-typegen`
       never generates them onto `Env`; this manual intersection is what makes them type-checked
-- [ ] T003 Create D1 migration `migrations/0004_oidc.sql` (tables `oidc_identities`, `oidc_states`
+- [X] T003 Create D1 migration `migrations/0004_oidc.sql` (tables `oidc_identities`, `oidc_states`
       per data-model.md)
 
 ## Phase 2: Foundational (blocking prerequisites)
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T004 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
-- [ ] T005 [P] Add repository functions to `src/server/db/repository.ts` per data-model.md's
+- [X] T004 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
+- [X] T005 [P] Add repository functions to `src/server/db/repository.ts` per data-model.md's
       "Repository layer additions": `findOidcIdentityByProviderAndSubject`, `createOidcUser` (D1
       `batch()` — tenant + user + identity atomically, FR-006), `createOidcState`,
       `consumeOidcState` (atomic check-and-delete, mirroring `consumeChallenge`/
       `consumeMagicLinkToken`). No existing export's signature changes.
-- [ ] T006 [P] Implement `src/server/auth/oidc/verify-id-token.ts`: `verifyGoogleIdToken(idToken,
+- [X] T006 [P] Implement `src/server/auth/oidc/verify-id-token.ts`: `verifyGoogleIdToken(idToken,
       { jwks, issuer, audience })` using `jose`'s `jwtVerify` — `jwks` is an injectable
       `JWTVerifyGetKey` (research.md's testing strategy: production passes
       `createRemoteJWKSet(new URL(GOOGLE_JWKS_URI))`, tests pass a local fixture JWKS), `issuer`
       checked against both `https://accounts.google.com` and `accounts.google.com` (research.md).
       Returns the verified claims (`sub`, `email`, `email_verified`) or throws.
-- [ ] T007 [P] Implement `src/server/auth/oidc/google.ts`: endpoint constants (authorization/token/
+- [X] T007 [P] Implement `src/server/auth/oidc/google.ts`: endpoint constants (authorization/token/
       JWKS URLs, research.md), PKCE `code_verifier`/`code_challenge` (S256) generation via Web
       Crypto (`crypto.getRandomValues`, `crypto.subtle.digest`), an authorization-URL builder
       (`client_id`, `redirect_uri`, `response_type=code`, `scope=openid email profile`, `state`,
       `code_challenge`, `code_challenge_method=S256`), and a code-for-tokens exchange function
       (`fetch()` to the token endpoint with `client_secret`, catches and surfaces failures rather
       than swallowing them, same FR-008-of-specs/003 posture)
-- [ ] T008 [P] Create `tests/server/fixtures/oidc.ts`: generate a fixture EC keypair via
+- [X] T008 [P] Create `tests/server/fixtures/oidc.ts`: generate a fixture EC keypair via
       `crypto.subtle.generateKey`, sign a fixture Google-shaped ID token (`iss`, `aud`, `sub`,
       `email`, `email_verified`, `iat`, `exp`) using `jose`'s `SignJWT`, and export a matching local
       JWKS (`jose`'s `exportJWK`/`createLocalJWKSet`) for `verify-id-token.ts`'s injectable `jwks`
@@ -66,10 +66,10 @@ identity check (FR-003a) and no-partial-state guarantee (FR-006).
 token for a subject never seen before and confirm a session is issued for a brand-new tenant; a
 second callback for the same subject resolves to the same tenant.
 
-- [ ] T009 [US1] Implement `GET /api/v1/auth/oidc/google/start` in
+- [X] T009 [US1] Implement `GET /api/v1/auth/oidc/google/start` in
       `src/server/routes/v1/auth/oidc/google.ts`: calls `createOidcState`, builds the authorization
       URL (google.ts), redirects (302) — contracts/api.md
-- [ ] T010 [US1] Implement `completeGoogleSignIn(db, idToken, { jwks, issuer, audience })` in
+- [X] T010 [US1] Implement `completeGoogleSignIn(db, idToken, { jwks, issuer, audience })` in
       `src/server/auth/oidc/google.ts` — the directly-testable core (analyze finding C1): verifies
       the ID token (verify-id-token.ts); on verification failure, returns a distinguishable failure
       result (caller redirects to `/?oidc=error`, nothing written, FR-006); on success, looks up
@@ -84,10 +84,11 @@ second callback for the same subject resolves to the same tenant.
       network call — deliberately not unit tested, same posture specs/003 took for `send_email`'s
       502 path); calls `completeGoogleSignIn` with the resulting ID token and either sets the
       session cookie and redirects to `/?oidc=ok`, or redirects to `/?oidc=error`
-- [ ] T011 [US1] Wire both routes into `src/server/index.ts` under `/api/v1/auth/oidc/google`, with
-      `rateLimitByIp` applied to both (contracts/api.md — `/callback` is not separately
-      rate-limited beyond that, same reasoning as passkey/magic-link's read-heavy paths)
-- [ ] T012 [P] [US1] Write `tests/server/oidc-auth.test.ts` (lifecycle section) — cases 1, 2, 5, and
+- [X] T011 [US1] Wire both routes into `src/server/index.ts` under `/api/v1/auth/oidc/google`, with
+      `rateLimitByIp` applied to `/start` only — `/callback` carries its own single-use secret
+      (`state`) and is not separately rate-limited (contracts/api.md, same reasoning magic-link's
+      `/verify` gave)
+- [X] T012 [P] [US1] Write `tests/server/oidc-auth.test.ts` (lifecycle section) — cases 1, 2, 5, and
       6 call `completeGoogleSignIn` directly with a fixture ID token (T008's local JWKS), never via
       `SELF.fetch`, since reaching them requires a verified ID token in hand without a real Google
       network call (analyze finding C1); cases 3 and 4 short-circuit *before* the code exchange, so
@@ -121,7 +122,7 @@ signs into an account created by a different method (D-004/FR-003a).
 Google callback whose fixture ID token reports that same email; confirm the resulting tenant is
 distinct from the passkey account's.
 
-- [ ] T013 [P] [US2] Extend `tests/server/oidc-auth.test.ts` (isolation section): seed a passkey
+- [X] T013 [P] [US2] Extend `tests/server/oidc-auth.test.ts` (isolation section): seed a passkey
       account directly via `createCredentialedUser` (reused from specs/002, same pattern
       specs/003's T012 used) for a given email, then call `completeGoogleSignIn` directly (same
       reasoning as T012's cases 1/2/5/6 — analyze finding C1) with a fixture ID token reporting that
@@ -140,7 +141,7 @@ distinct from the passkey account's.
 function signatures and confirms `provider` is a stored data value, not implied by any table/column
 name, so a second provider is a data/config change, not a migration.
 
-- [ ] T014 [P] [US3] Review `migrations/0004_oidc.sql`, `data-model.md`, and
+- [X] T014 [P] [US3] Review `migrations/0004_oidc.sql`, `data-model.md`, and
       `findOidcIdentityByProviderAndSubject`/`createOidcUser`'s signatures (both take `provider` as
       an explicit parameter, per T005) and confirm none of them hard-code `'google'` outside the
       `src/server/auth/oidc/google.ts` and `src/server/routes/v1/auth/oidc/google.ts` files
@@ -156,11 +157,11 @@ name, so a second provider is a data/config change, not a migration.
 precedent (plan.md). Unlike the other two methods, this is a plain navigation, not a fetch-driven
 ceremony — no client-side crypto or JS library involved.
 
-- [ ] T015 [P] Implement `src/client/auth/oidc.ts`: exports the `/api/v1/auth/oidc/google/start`
+- [X] T015 [P] Implement `src/client/auth/oidc.ts`: exports the `/api/v1/auth/oidc/google/start`
       path as a named constant, so `App.tsx` doesn't hardcode the string (matches passkey/
       magic-link's pattern of a thin `auth/` wrapper even though there's no ceremony logic to wrap
       here)
-- [ ] T016 Modify `src/client/App.tsx`: a "Continue with Google" link (`<a href>`, not a `<button>`
+- [X] T016 Modify `src/client/App.tsx`: a "Continue with Google" link (`<a href>`, not a `<button>`
       with a `fetch()` handler, since this is a full-page redirect) next to the existing passkey/
       magic-link controls; reads `?oidc=ok`/`?oidc=error` from `location.search` on mount, reusing
       the same outcome-banner pattern magic-link's `?magicLink=ok/error` handling already
@@ -169,8 +170,8 @@ ceremony — no client-side crypto or JS library involved.
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T017 [P] Update `src/server/db/schema.sql` reference copy with the two new tables
-- [ ] T018 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
+- [X] T017 [P] Update `src/server/db/schema.sql` reference copy with the two new tables
+- [X] T018 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
       and fix any failures across all files touched by this feature
 - [ ] T019 **Live smoke test** (research.md's residual-risk mitigation, matching specs/003's T007):
       once a real Google OAuth client exists (quickstart.md step 1 — an external, owner-performed

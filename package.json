@@ -20,6 +20,7 @@
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",
     "hono": "^4.13.0",
+    "jose": "^6.2.8",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
