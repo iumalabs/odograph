@@ -1,5 +1,10 @@
 import { createRemoteJWKSet } from "jose";
-import { createOidcUser, findOidcIdentityByProviderAndSubject } from "../../db/repository";
+import {
+  createOidcUser,
+  findOidcIdentityByProviderAndSubject,
+  isUniqueConstraintError,
+  linkOidcIdentity,
+} from "../../db/repository";
 import { issueSession } from "../session";
 import { verifyGoogleIdToken } from "./verify-id-token";
 
@@ -115,6 +120,42 @@ export async function completeGoogleSignIn(
       .userId;
 
   const { cookie } = await issueSession(db, userId);
+  return { ok: true, cookie };
+}
+
+/**
+ * Account-linking counterpart to completeGoogleSignIn (specs/005, research.md — a separate
+ * function rather than a mode flag, since the resolution logic genuinely differs): verifies the ID
+ * token exactly the same way, but never resolves-or-creates — it only ever attaches the identity
+ * to the caller-supplied `linkingUserId`, and rejects (rather than falling back to anything) if
+ * that identity is already linked to any account, including this one (FR-005).
+ */
+export async function completeGoogleLink(
+  db: D1Database,
+  idToken: string,
+  input: {
+    jwks: Parameters<typeof verifyGoogleIdToken>[1]["jwks"];
+    audience: string;
+    linkingUserId: string;
+  },
+): Promise<CompleteSignInResult> {
+  let claims;
+  try {
+    claims = await verifyGoogleIdToken(idToken, { jwks: input.jwks, audience: input.audience });
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "verification_failed" };
+  }
+
+  try {
+    await linkOidcIdentity(db, PROVIDER, claims.sub, input.linkingUserId);
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return { ok: false, error: "already_linked" };
+    }
+    throw error;
+  }
+
+  const { cookie } = await issueSession(db, input.linkingUserId);
   return { ok: true, cookie };
 }
 

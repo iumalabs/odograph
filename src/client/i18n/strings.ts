@@ -20,6 +20,12 @@ const en = {
   continueWithGoogle: "Continue with Google",
   oidcOkBanner: "Signed in with Google.",
   oidcErrorBanner: "Google sign-in didn't complete. Please try again.",
+  linkEmailLabel: "Email to link",
+  linkEmail: "Link email",
+  linkEmailSentBanner: "Check your email to confirm the link.",
+  magicLinkLinkedBanner: "Email linked to your account.",
+  linkGoogleAccount: "Link Google account",
+  oidcLinkedBanner: "Google account linked.",
   genericError: "Something went wrong. Please try again.",
 } as const;
 
