@@ -195,6 +195,9 @@ CREATE TABLE reminder_rules (
   last_done_odometer INTEGER,
   cached_status TEXT,
   last_evaluated_at TEXT,
+  -- last_notified_severity: see specs/012-email-reminder-delivery/data-model.md. Written only by
+  -- the same Cron-triggered sweep's email side effect, never by any request handler.
+  last_notified_severity TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   CHECK (interval_days IS NOT NULL OR interval_distance IS NOT NULL)
