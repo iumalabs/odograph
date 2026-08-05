@@ -140,8 +140,8 @@ their durable shape.)_
 - **SC-002**: An authenticated user can link a Google account and subsequently sign in with it,
   landing back in the same account.
 - **SC-003**: 100% of attempts to link an identity already attached to any account (same or
-  different) are rejected, verified by a test that seeds the identity first via each of the other
-  two methods in turn.
+  different) are rejected, verified by a test that seeds the identity first (a prior signup or link
+  using that same method) before attempting to link it to a different account.
 - **SC-004**: 100% of attempts to reach either linking flow without an authenticated session are
   refused, before any identity lookup or record creation.
 
