@@ -113,18 +113,18 @@ either record in a pair clears the flag automatically via the FK constraint.
 
 ## Phase 6: Client UI
 
-- [ ] T012 [P] Extend `src/client/fuel-records.ts`: add `duplicateOfId: string | null` to the
+- [X] T012 [P] Extend `src/client/fuel-records.ts`: add `duplicateOfId: string | null` to the
       `FuelRecord` type and a `dismissDuplicate(id): Promise<FuelRecord>` function
       (`POST /api/v1/fuel-records/:id/dismiss-duplicate`)
-- [ ] T013 [P] Extend `src/client/service-records.ts`: add `duplicateOfId: string | null` to the
+- [X] T013 [P] Extend `src/client/service-records.ts`: add `duplicateOfId: string | null` to the
       `ServiceRecord` type and a `dismissDuplicate(id): Promise<ServiceRecord>` function
-- [ ] T014 Modify `src/client/components/FuelRecordPanel.tsx`: when `record.duplicateOfId` is
+- [X] T014 Modify `src/client/components/FuelRecordPanel.tsx`: when `record.duplicateOfId` is
       non-null, render a `var(--warn)`-bordered badge ("possible duplicate") in place of the
       economy figure's normal position, plus a small dismiss button (reusing the existing chip/
       button visual language); wire the dismiss button to a new `onDismissDuplicate` prop
-- [ ] T015 Modify `src/client/components/ServiceRecordPanel.tsx`: same badge + dismiss button
+- [X] T015 Modify `src/client/components/ServiceRecordPanel.tsx`: same badge + dismiss button
       treatment as T014, added to each record row when `record.duplicateOfId` is non-null
-- [ ] T016 [P] Add new i18n keys to `src/client/i18n/strings.ts` (e.g. `possibleDuplicateLabel`,
+- [X] T016 [P] Add new i18n keys to `src/client/i18n/strings.ts` (e.g. `possibleDuplicateLabel`,
       `dismissDuplicate`) — FR-010; wire both panel components' new copy through them, and wire
       `App.tsx`'s handlers to call `dismissDuplicate` and update local state on success
 

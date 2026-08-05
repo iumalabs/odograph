@@ -6,10 +6,16 @@ import { GOOGLE_LINK_URL, GOOGLE_SIGN_IN_URL } from "./auth/oidc";
 import { getCurrentIdentity } from "./auth/session";
 import { createVehicle, listVehicles } from "./vehicles";
 import type { Vehicle } from "./vehicles";
-import { createServiceRecord, listServiceRecords, uploadAttachment } from "./service-records";
+import {
+  createServiceRecord,
+  dismissDuplicate as dismissServiceDuplicate,
+  listServiceRecords,
+  uploadAttachment,
+} from "./service-records";
 import type { Attachment, ServiceRecord } from "./service-records";
 import {
   createFuelRecord,
+  dismissDuplicate as dismissFuelDuplicate,
   listFuelRecords,
   uploadAttachment as uploadFuelAttachment,
 } from "./fuel-records";
@@ -140,6 +146,24 @@ export function App() {
     } catch {
       setError(t("genericError"));
     }
+  }
+
+  function handleDismissServiceDuplicate(recordId: string) {
+    handle(
+      () => dismissServiceDuplicate(recordId),
+      (updated) => {
+        setServiceRecords((current) => current.map((r) => r.id === updated.id ? updated : r));
+      },
+    );
+  }
+
+  function handleDismissFuelDuplicate(recordId: string) {
+    handle(
+      () => dismissFuelDuplicate(recordId),
+      (updated) => {
+        setFuelRecords((current) => current.map((r) => r.id === updated.id ? updated : r));
+      },
+    );
   }
 
   if (!identity) {
@@ -280,6 +304,7 @@ export function App() {
                 )}
               onUploadAttachment={handleUploadAttachment}
               attachmentsByRecordId={attachmentsByRecordId}
+              onDismissDuplicate={handleDismissServiceDuplicate}
             />
 
             <h2
@@ -320,6 +345,7 @@ export function App() {
                 )}
               onUploadAttachment={handleUploadFuelAttachment}
               attachmentsByRecordId={fuelAttachmentsByRecordId}
+              onDismissDuplicate={handleDismissFuelDuplicate}
             />
           </div>
         )}

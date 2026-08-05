@@ -49,6 +49,8 @@ const en = {
   fuelStationLabel: "Station",
   addFuelRecord: "Add fuel record",
   fuelEconomyNotEnoughData: "—",
+  possibleDuplicateLabel: "Possible duplicate",
+  dismissDuplicate: "Dismiss",
   genericError: "Something went wrong. Please try again.",
 } as const;
 

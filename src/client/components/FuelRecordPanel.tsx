@@ -16,6 +16,7 @@ type FuelRecordPanelProps = {
   onAddRecord: () => void;
   onUploadAttachment: (recordId: string, file: File) => Promise<void>;
   attachmentsByRecordId: Record<string, Attachment[]>;
+  onDismissDuplicate: (recordId: string) => void;
 };
 
 const mono9 = { font: "400 9.5px var(--font-mono)", color: "var(--dim)", letterSpacing: ".08em" };
@@ -49,6 +50,7 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
     onAddRecord,
     onUploadAttachment,
     attachmentsByRecordId,
+    onDismissDuplicate,
   } = props;
 
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
@@ -142,21 +144,55 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
                     <span style={{ font: "400 12.5px var(--font-mono)", color: "var(--fg)" }}>
                       {record.cost}
                     </span>
-                    <span
-                      style={{
-                        font: "500 12.5px var(--font-mono)",
-                        color: record.fuelEconomy != null ? "var(--acc)" : "var(--dim)",
-                        minWidth: 40,
-                        textAlign: "right",
-                      }}
-                    >
-                      {record.fuelEconomy != null
-                        ? record.fuelEconomy.toFixed(1)
-                        : t("fuelEconomyNotEnoughData")}
-                    </span>
+                    {record.duplicateOfId != null
+                      ? (
+                        <span
+                          style={{
+                            font: "500 10.5px var(--font-mono)",
+                            color: "var(--warn)",
+                            border: "1px solid var(--warn)",
+                            borderRadius: "var(--radius-sm)",
+                            padding: "4px 8px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {t("possibleDuplicateLabel")}
+                        </span>
+                      )
+                      : (
+                        <span
+                          style={{
+                            font: "500 12.5px var(--font-mono)",
+                            color: record.fuelEconomy != null ? "var(--acc)" : "var(--dim)",
+                            minWidth: 40,
+                            textAlign: "right",
+                          }}
+                        >
+                          {record.fuelEconomy != null
+                            ? record.fuelEconomy.toFixed(1)
+                            : t("fuelEconomyNotEnoughData")}
+                        </span>
+                      )}
                   </div>
 
                   <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+                    {record.duplicateOfId != null && (
+                      <button
+                        type="button"
+                        onClick={() => onDismissDuplicate(record.id)}
+                        style={{
+                          background: "transparent",
+                          border: "1px solid var(--warn)",
+                          borderRadius: "var(--radius-sm)",
+                          padding: "4px 8px",
+                          color: "var(--warn)",
+                          font: "500 10.5px var(--font-mono)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {t("dismissDuplicate")}
+                      </button>
+                    )}
                     {attachments.map((attachment) => (
                       <span
                         key={attachment.id}
