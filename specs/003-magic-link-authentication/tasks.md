@@ -6,6 +6,12 @@ spec.md, data-model.md, contracts/api.md, research.md, quickstart.md
 **Tests**: Included — D1-state assertions (no real inbox in CI, per research.md) plus the
 response-parity and cross-method-isolation checks the spec calls out explicitly.
 
+> Updated after `/speckit-analyze`: T011 now covers two cases the original description missed
+> (FR-005/SC-005 invalidate-on-new-request, and an unknown/forged token — findings C1/H1). FR-008's
+> send-failure (502) path is deliberately left without an automated test — findings M1 — since what
+> a realistic failure actually looks like depends on what T007's live smoke test reveals; a
+> synthetic test written before that risks asserting the wrong failure mode.
+
 ## Phase 1: Setup
 
 - [ ] T001 Create D1 migration `migrations/0003_magic_link.sql` (tables `magic_link_identities`,
@@ -67,11 +73,18 @@ a repeat magic-link email).
       `rateLimitByIp` applied to `request` (contracts/api.md — `verify` is not separately
       rate-limited)
 - [ ] T011 [P] [US1] Write `tests/server/magic-link-auth.test.ts` (lifecycle section) covering
-      spec.md's User Story 1 Acceptance Scenarios 1-4: a new email's request-then-verify creates
-      exactly one tenant/user/identity and issues a working session; a second request+verify cycle
-      for the _same_ email resolves to the same tenant, not a new one; following a token twice — the
-      second attempt is rejected (FR-004); an unconsumed token is queryable in D1 but grants no
-      session until followed (no session issued from the request step alone)
+      spec.md's User Story 1 Acceptance Scenarios 1-4, six _distinct_ cases (analyze pass added two
+      the original description was missing coverage for): 1. A new email's request-then-verify
+      creates exactly one tenant/user/identity and issues a working session. 2. A second
+      request+verify cycle for the _same_ email resolves to the same tenant, not a new one. 3.
+      Following a token twice — the second attempt is rejected (FR-004). 4. An unconsumed token is
+      queryable in D1 but grants no session until followed (no session issued from the request step
+      alone). 5. **Invalidate-on-new-request (FR-005/SC-005)**: request a link for an email, request
+      a _second_ link for the same email without following the first, then attempt to follow the
+      first token — it must be rejected, since the second request invalidated it. 6.
+      **Unknown/forged token (SC-003)**: a token string that was never issued by this test run is
+      rejected the same way an already-consumed one is — not just implied by case 3 sharing the same
+      code path, but asserted directly.
 
 **Checkpoint**: User Story 1 is independently complete and testable — `npm test` passes for the
 lifecycle section, and quickstart.md steps 1-2 and 4 (steps 1-3) work against `wrangler dev` with a
