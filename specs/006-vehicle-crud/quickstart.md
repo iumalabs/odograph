@@ -9,7 +9,7 @@ wrangler d1 migrations apply odograph-preview --local
 ## 2. Run the automated test suite
 
 ```sh
-npm test
+deno task test
 ```
 
 Expect `tests/server/vehicle-crud.test.ts` to pass — create/list/fetch/update/delete lifecycle and
@@ -20,7 +20,7 @@ probe route).
 ## 3. Manual smoke test end-to-end
 
 ```sh
-npm run dev
+deno task dev
 ```
 
 1. Sign in (any method).

@@ -1,4 +1,24 @@
 {
+  "nodeModulesDir": "auto",
+  "imports": {
+    "@simplewebauthn/browser": "npm:@simplewebauthn/browser@^13.3.0",
+    "@simplewebauthn/server": "npm:@simplewebauthn/server@^13.3.2",
+    "hono": "npm:hono@^4.13.0",
+    "jose": "npm:jose@^6.2.8",
+    "react": "npm:react@^19.2.8",
+    "react-dom": "npm:react-dom@^19.2.8",
+    "@cloudflare/vite-plugin": "npm:@cloudflare/vite-plugin@^1.50.0",
+    "@cloudflare/vitest-pool-workers": "npm:@cloudflare/vitest-pool-workers@^0.20.1",
+    "@types/node": "npm:@types/node@^26.1.2",
+    "@types/react": "npm:@types/react@^19.2.18",
+    "@types/react-dom": "npm:@types/react-dom@^19.2.4",
+    "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^5.2.0",
+    "fido2-helpers": "npm:fido2-helpers@^1.7.2",
+    "typescript": "npm:typescript@^5.9.3",
+    "vite": "npm:vite@^6.3.6",
+    "vitest": "npm:vitest@^4.1.10",
+    "wrangler": "npm:wrangler@^4.118.0"
+  },
   "fmt": {
     "include": ["src/", "tests/", "*.md", "docs/", "*.json"],
     "exclude": [".specify/", "dist/", ".wrangler/", "node_modules/", "worker-configuration.d.ts"],
@@ -12,10 +32,17 @@
     }
   },
   "tasks": {
-    "dev": "npm run dev",
-    "build": "npm run build",
-    "typecheck": "npm run typecheck",
-    "test": "npm run test",
-    "check": "deno fmt --check && deno lint && npm run typecheck && npm run test && bash scripts/check-repository-boundary.sh"
-  }
+    "dev": "vite dev",
+    "build": "vite build",
+    "typecheck": "tsc --build --force",
+    "test": "vitest run",
+    "cf-typegen": "wrangler types",
+    "deploy:preview": "wrangler deploy --env preview",
+    "deploy:production": "wrangler deploy --env production",
+    "delete:preview": "wrangler delete",
+    "migrate:preview": "wrangler d1 migrations apply odograph-preview --remote",
+    "migrate:production": "wrangler d1 migrations apply odograph-production --remote --env production",
+    "check": "deno fmt --check && deno lint && deno task typecheck && deno task test && bash scripts/check-repository-boundary.sh"
+  },
+  "allowScripts": ["npm:workerd@1.20260730.1"]
 }

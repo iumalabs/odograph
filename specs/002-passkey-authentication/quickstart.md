@@ -9,7 +9,7 @@ wrangler d1 migrations apply odograph-preview --local
 ## 2. Run the automated test suite
 
 ```sh
-npm test
+deno task test
 ```
 
 Expect `tests/server/passkey-auth.test.ts` to pass, exercising registration/login against fixture
@@ -22,7 +22,7 @@ Hello, or a security key; `wrangler dev` serves over `http://localhost`, and `lo
 WebAuthn's documented HTTPS exception)
 
 ```sh
-npm run dev
+deno task dev
 ```
 
 Open `http://localhost:8787` in a browser with a platform authenticator available:

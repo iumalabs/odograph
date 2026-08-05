@@ -1,8 +1,12 @@
 <!--
 Sync Impact Report
-Version change: [TEMPLATE] → 1.0.0 (initial ratification)
-Modified principles: n/a (first ratification, all principles new)
-Added sections: Core Principles (I–XII), Additional Constraints, Development Workflow, Governance
+Version change: 1.0.0 → 1.1.0
+Modified principles: X. Toolchain Discipline — Deno is now the project's package manager and
+  task runner (dependencies, including Wrangler, declared as `npm:` specifiers in `deno.json`,
+  no `package.json`), replacing the prior "Wrangler stays npm-based (via npm, not Deno)" claim.
+  The core constraint — Deno MUST NOT be a source of runtime APIs inside Worker code — is
+  unchanged.
+Added sections: none
 Removed sections: none
 Deferred / TODO placeholders: none
 -->
@@ -96,10 +100,13 @@ vehicle registered with metric units); retrofitting i18n after strings are
 scattered inline is a large, error-prone rewrite.
 
 ### X. Toolchain Discipline
-`deno fmt` MUST pass; it runs in pre-commit and in CI. Deno is a TOOLCHAIN
-only — `deno fmt` / `deno lint` / `deno test` / `deno task` — and MUST NOT be
-used as a source of runtime APIs inside Worker code, which targets `workerd`.
-Wrangler stays npm-based (`wrangler` CLI via npm, not Deno).
+`deno fmt` MUST pass; it runs in pre-commit and in CI. Deno is the project's
+package manager and task runner — every dependency, including Wrangler, is
+declared as an `npm:` specifier in `deno.json` and resolved via
+`deno install`; there is no `package.json`. Deno MUST NOT be used as a
+source of runtime APIs inside Worker code, which targets `workerd` — Deno
+resolves and runs tooling during development, build, and CI only, never
+inside the deployed Worker.
 **Rationale**: Mixing Deno-runtime APIs into code that executes in `workerd`
 produces code that only works in one of the two environments and breaks in
 the other, often in ways that only surface in production.
@@ -194,4 +201,4 @@ its description with a justification, not violate it silently. Complexity
 that isn't justified by one of the locked decisions or principles above
 should be simplified rather than merged.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-05 | **Last Amended**: 2026-08-05
+**Version**: 1.1.0 | **Ratified**: 2026-08-05 | **Last Amended**: 2026-08-05

@@ -82,7 +82,7 @@ brand-new tenant.
       client-shaped payload. A request with a stale/unknown challenge (never issued, or past
       `expires_at`) is also rejected before any row is written.
 
-**Checkpoint**: User Story 1 is independently complete and testable — `npm test` passes for the
+**Checkpoint**: User Story 1 is independently complete and testable — `deno task test` passes for the
 registration portion of `passkey-auth.test.ts`, and quickstart.md step 3.1 works against
 `wrangler dev` with a real platform authenticator.
 
@@ -121,7 +121,7 @@ ceremony with the same passkey, confirm it resolves to the same user/tenant.
       but this proves `login/verify` actually calls it with the right purpose, not just that the
       function itself works.
 
-**Checkpoint**: `npm test` passes for the login portion; quickstart.md steps 3.2-3.3 work against
+**Checkpoint**: `deno task test` passes for the login portion; quickstart.md steps 3.2-3.3 work against
 `wrangler dev`.
 
 ---
@@ -150,7 +150,7 @@ confirm both are independently usable to sign in to the same account.
       attempting to add a credential ID already registered (reusing a fixture already consumed in an
       earlier test) returns 409
 
-**Checkpoint**: `npm test` passes for the multi-credential section.
+**Checkpoint**: `deno task test` passes for the multi-credential section.
 
 ---
 

@@ -83,7 +83,7 @@ known until the PR exists and can't be pre-registered — Google will reject the
 **Decision**: Register exactly two redirect URIs on one Google OAuth client — the production URL
 (`https://odograph.dev/api/v1/auth/oidc/google/callback`) and a local-dev URL
 (`http://localhost:5173/api/v1/auth/oidc/google/callback`). Google sign-in is expected to work on
-production and local `npm run dev`, and is expected to **not** functionally complete on per-PR
+production and local `deno task dev`, and is expected to **not** functionally complete on per-PR
 preview deploys (the button/flow is present and doesn't error until the actual Google redirect,
 which is an acceptable, documented gap — not something this feature works around). This feature's
 live smoke test (mirroring magic-link's T007) therefore targets local dev and, after merge,

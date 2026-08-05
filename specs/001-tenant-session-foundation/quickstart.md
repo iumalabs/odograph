@@ -1,6 +1,6 @@
 # Quickstart: Tenant-Scoped Repository Layer & Session Foundation
 
-Validates the feature end-to-end once implemented. Assumes `npm install` has already been run (see
+Validates the feature end-to-end once implemented. Assumes `deno install` has already been run (see
 repo root README).
 
 ## 1. Apply migrations locally
@@ -15,7 +15,7 @@ wrangler d1 migrations apply odograph-preview --local
 ## 2. Run the automated test suite
 
 ```sh
-npm test
+deno task test
 ```
 
 Expect `tests/server/tenant-isolation.test.ts`, `tests/server/session.test.ts`, and
@@ -25,7 +25,7 @@ Expect `tests/server/tenant-isolation.test.ts`, `tests/server/session.test.ts`, 
 ## 3. Manual smoke test against `wrangler dev`
 
 ```sh
-npm run dev
+deno task dev
 ```
 
 In another terminal:
@@ -57,7 +57,7 @@ and the post-invalidation call also returns `401`.
 ## 4. Confirm the dev route is unreachable when `ENVIRONMENT=production`
 
 ```sh
-ENVIRONMENT=production npm run dev
+ENVIRONMENT=production deno task dev
 curl -si -X POST http://localhost:8787/api/v1/_dev/session | head -1
 ```
 

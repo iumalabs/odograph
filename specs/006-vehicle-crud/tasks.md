@@ -58,7 +58,7 @@ appears in the list with exactly the submitted values.
       that isn't `'km'`/`'mi'` (e.g. `"gallons"`) is rejected (`400`) and creates nothing (FR-009,
       analyze finding M1 — distinct from case 3's *omitted*-field check).
 
-**Checkpoint**: User Story 1 is independently complete and testable — `npm test` passes for the
+**Checkpoint**: User Story 1 is independently complete and testable — `deno task test` passes for the
 creation section.
 
 ---
@@ -86,7 +86,7 @@ the fetched record reflects only that change; confirm a different tenant can't r
       confirming it's identical to before the request (analyze finding M2; contracts/api.md
       documents this response but no prior case exercised it).
 
-**Checkpoint**: `npm test` passes for the read/update section.
+**Checkpoint**: `deno task test` passes for the read/update section.
 
 ---
 
@@ -105,7 +105,7 @@ list and fetch-by-id.
       (SC-004). 2. Deleting a different tenant's vehicle returns `404` and leaves it intact
       (verified by the owning tenant still being able to fetch it afterward).
 
-**Checkpoint**: `npm test` passes for the deletion section.
+**Checkpoint**: `deno task test` passes for the deletion section.
 
 ---
 
@@ -148,7 +148,7 @@ assertions.
       `probe_resources`
 - [X] T017 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
       and fix any failures across all files touched by this feature
-- [X] T018 Walked through quickstart.md end-to-end against `npm run dev` (curl, since the preview
+- [X] T018 Walked through quickstart.md end-to-end against `deno task dev` (curl, since the preview
       browser tool couldn't attach to a port here — unrelated processes from other projects/chat
       sessions held both 5173 and the fallback ports tried): created a vehicle with only required
       fields, created a second with all optional fields (all stored exactly), listed both, patched

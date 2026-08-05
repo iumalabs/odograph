@@ -13,19 +13,17 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: preview
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: denoland/setup-deno@v2
         with:
-          node-version: 22
-          cache: npm
+          deno-version: v2.x
 
-      - run: npm ci
+      - run: deno install
 
       - name: Delete preview worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          command: delete odograph-pr-${{ github.event.pull_request.number }} --force
+        run: deno task delete:preview odograph-pr-${{ github.event.pull_request.number }} --force

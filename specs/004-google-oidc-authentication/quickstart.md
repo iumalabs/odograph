@@ -29,7 +29,7 @@ wrangler d1 migrations apply odograph-preview --local
 ## 3. Run the automated test suite
 
 ```sh
-npm test
+deno task test
 ```
 
 Expect `tests/server/oidc-auth.test.ts` to pass — state issuance/consumption, ID token verification
@@ -40,7 +40,7 @@ an email, then confirm a Google sign-in reporting that same email resolves to a 
 ## 4. Manual smoke test end-to-end (local dev only — see research.md on preview deploys)
 
 ```sh
-npm run dev
+deno task dev
 ```
 
 1. Click "Continue with Google" and complete Google's real consent screen with an account you

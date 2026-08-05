@@ -9,7 +9,7 @@ wrangler d1 migrations apply odograph-preview --local
 ## 2. Run the automated test suite
 
 ```sh
-npm test
+deno task test
 ```
 
 Expect `tests/server/magic-link-auth.test.ts` to pass — request/verify lifecycle, cross-method
@@ -45,7 +45,7 @@ swallow) is proven correct by this exact failure being specific and actionable r
 ## 4. Manual smoke test end-to-end
 
 ```sh
-npm run dev
+deno task dev
 ```
 
 1. Submit an email you control through the "sign in with email" form.

@@ -9,7 +9,7 @@ wrangler d1 migrations apply odograph-preview --local
 ## 2. Run the automated test suite
 
 ```sh
-npm test
+deno task test
 ```
 
 Expect the extended `tests/server/magic-link-auth.test.ts` and `tests/server/oidc-auth.test.ts` to
@@ -19,7 +19,7 @@ identity already attached to any account (own or different) for both methods.
 ## 3. Manual smoke test end-to-end
 
 ```sh
-npm run dev
+deno task dev
 ```
 
 1. Sign up with a passkey (or sign in if you already have an account from earlier testing).
