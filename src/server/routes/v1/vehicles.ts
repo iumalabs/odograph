@@ -1,12 +1,16 @@
 import { Hono } from "hono";
 import {
+  createServiceRecord,
   createVehicle,
   deleteVehicle,
   findVehicleById,
+  listAttachmentKeysForVehicle,
+  listServiceRecords,
   listVehicles,
   updateVehicle,
 } from "../../db/repository";
-import type { VehicleInput } from "../../db/repository";
+import type { ServiceRecordInput, VehicleInput } from "../../db/repository";
+import { deleteAttachments } from "../../attachments/storage";
 import { rateLimitBySession } from "../../auth/rate-limit";
 import { tenantContext } from "../../middleware/tenant-context";
 import type { AppEnv } from "../../types";
@@ -110,7 +114,67 @@ vehicles.patch("/:id", rateLimitBySession, async (c) => {
 });
 
 vehicles.delete("/:id", rateLimitBySession, async (c) => {
-  const deleted = await deleteVehicle(c.env.DB, c.get("tenant"), c.req.param("id"));
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("id");
+
+  // R2 objects never cascade from a D1 delete (constitution Principle VIII) — clean them up
+  // before removing the D1 rows that reference them.
+  const attachmentKeys = await listAttachmentKeysForVehicle(c.env.DB, tenant, vehicleId);
+  await deleteAttachments(c.env.ATTACHMENTS, attachmentKeys);
+
+  const deleted = await deleteVehicle(c.env.DB, tenant, vehicleId);
   if (!deleted) return c.notFound();
   return c.body(null, 204);
+});
+
+type ServiceRecordBody = {
+  serviceDate?: unknown;
+  description?: unknown;
+  odometerReading?: unknown;
+  cost?: unknown;
+  notes?: unknown;
+};
+
+function validateServiceRecordCreate(body: ServiceRecordBody): ServiceRecordInput | null {
+  if (typeof body.serviceDate !== "string" || body.serviceDate.length === 0) return null;
+  if (typeof body.description !== "string" || body.description.length === 0) return null;
+  if (body.odometerReading !== undefined && typeof body.odometerReading !== "number") return null;
+  if (body.cost !== undefined && typeof body.cost !== "number") return null;
+  if (body.notes !== undefined && typeof body.notes !== "string") return null;
+
+  return {
+    serviceDate: body.serviceDate,
+    description: body.description,
+    odometerReading: typeof body.odometerReading === "number" ? body.odometerReading : null,
+    cost: typeof body.cost === "number" ? body.cost : null,
+    notes: typeof body.notes === "string" ? body.notes : null,
+  };
+}
+
+vehicles.post("/:vehicleId/service-records", rateLimitBySession, async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const body = await c.req.json().catch(() => ({}) as ServiceRecordBody);
+  const input = validateServiceRecordCreate(body);
+  if (!input) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+
+  const record = await createServiceRecord(c.env.DB, tenant, vehicleId, input);
+  return c.json(record, 201);
+});
+
+vehicles.get("/:vehicleId/service-records", async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const results = await listServiceRecords(c.env.DB, tenant, vehicleId);
+  return c.json({ serviceRecords: results });
 });
