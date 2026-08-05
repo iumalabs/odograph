@@ -67,3 +67,22 @@ CREATE TABLE magic_link_tokens (
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
+
+-- See specs/004-google-oidc-authentication/data-model.md for GDPR erasure
+-- decisions and the FR-008 rationale for keying oidc_identities by
+-- (provider, subject) rather than users.email.
+
+CREATE TABLE oidc_identities (
+  provider TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (provider, subject)
+);
+
+CREATE TABLE oidc_states (
+  state TEXT PRIMARY KEY,
+  code_verifier TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);

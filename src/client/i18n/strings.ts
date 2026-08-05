@@ -17,6 +17,9 @@ const en = {
   magicLinkSentBanner: "Check your email for a sign-in link.",
   magicLinkOkBanner: "Signed in via email link.",
   magicLinkErrorBanner: "That sign-in link is invalid or has expired.",
+  continueWithGoogle: "Continue with Google",
+  oidcOkBanner: "Signed in with Google.",
+  oidcErrorBanner: "Google sign-in didn't complete. Please try again.",
   genericError: "Something went wrong. Please try again.",
 } as const;
 

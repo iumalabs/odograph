@@ -440,3 +440,103 @@ export async function consumeMagicLinkToken(
   await db.prepare("DELETE FROM magic_link_tokens WHERE token = ?").bind(token).run();
   return row;
 }
+
+// --- OIDC operations ---------------------------------------------------------
+//
+// "Does this identity-provider account already have an account" is answered by
+// querying oidc_identities — never by querying users.email, which is
+// deliberately non-unique across tenants (see the `users` entity note above).
+// Querying users.email here would silently auto-link this method to an
+// account created by a different one, which D-004 prohibits.
+
+export async function findOidcIdentityByProviderAndSubject(
+  db: D1Database,
+  provider: string,
+  subject: string,
+): Promise<{ userId: string } | null> {
+  const row = await db
+    .prepare(
+      "SELECT user_id AS userId FROM oidc_identities WHERE provider = ? AND subject = ?",
+    )
+    .bind(provider, subject)
+    .first<{ userId: string }>();
+  return row ?? null;
+}
+
+/**
+ * Registration bootstrap (User Story 1): creates a tenant, a user, and their
+ * OIDC identity atomically via D1's batch() — nothing is created unless every
+ * statement succeeds (FR-006). Never called with a caller-supplied tenant/
+ * user id, mirroring createTenant/createUser, passkey's createCredentialedUser,
+ * and magic-link's createMagicLinkUser.
+ */
+export async function createOidcUser(
+  db: D1Database,
+  input: { provider: string; subject: string; email: string },
+): Promise<{ tenantId: string; userId: string }> {
+  const tenantId = crypto.randomUUID();
+  const userId = crypto.randomUUID();
+  await db.batch([
+    db.prepare("INSERT INTO tenants (id) VALUES (?)").bind(tenantId),
+    db.prepare("INSERT INTO users (id, tenant_id, email) VALUES (?, ?, ?)").bind(
+      userId,
+      tenantId,
+      input.email,
+    ),
+    db.prepare(
+      "INSERT INTO oidc_identities (provider, subject, user_id) VALUES (?, ?, ?)",
+    ).bind(input.provider, input.subject, userId),
+  ]);
+  return { tenantId, userId };
+}
+
+const OIDC_STATE_TTL_SECONDS = 10 * 60;
+
+/**
+ * Generates a state/PKCE-verifier pair for one pending "redirect to Google
+ * and back" attempt and stores them together, keyed by state (research.md —
+ * a high-entropy, single-use, short-TTL D1 row, same shape as
+ * webauthn_challenges/magic_link_tokens, deliberately with no additional
+ * cookie layer).
+ */
+export async function createOidcState(
+  db: D1Database,
+): Promise<{ state: string; codeVerifier: string }> {
+  const stateBytes = new Uint8Array(32);
+  crypto.getRandomValues(stateBytes);
+  const state = base64UrlEncode(stateBytes);
+
+  const verifierBytes = new Uint8Array(32);
+  crypto.getRandomValues(verifierBytes);
+  const codeVerifier = base64UrlEncode(verifierBytes);
+
+  const expiresAt = new Date(Date.now() + OIDC_STATE_TTL_SECONDS * 1000).toISOString();
+  await db
+    .prepare(
+      "INSERT INTO oidc_states (state, code_verifier, expires_at) VALUES (?, ?, ?)",
+    )
+    .bind(state, codeVerifier, expiresAt)
+    .run();
+  return { state, codeVerifier };
+}
+
+/**
+ * Atomically checks validity and deletes — a state value can be used to
+ * complete the flow at most once (data-model.md). Returns the associated PKCE
+ * verifier if it was valid, null otherwise.
+ */
+export async function consumeOidcState(
+  db: D1Database,
+  state: string,
+): Promise<{ codeVerifier: string } | null> {
+  const now = new Date().toISOString();
+  const row = await db
+    .prepare(
+      "SELECT code_verifier AS codeVerifier FROM oidc_states WHERE state = ? AND expires_at > ?",
+    )
+    .bind(state, now)
+    .first<{ codeVerifier: string }>();
+  if (!row) return null;
+  await db.prepare("DELETE FROM oidc_states WHERE state = ?").bind(state).run();
+  return row;
+}
