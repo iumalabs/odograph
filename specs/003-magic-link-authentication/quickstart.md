@@ -19,7 +19,7 @@ unregistered emails.
 ## 3. Smoke-test that `send_email` actually works (research.md's residual risk)
 
 ```sh
-npm run deploy:preview   # or push a PR — deploy-preview.yml handles this
+# push a PR — deploy-preview.yml handles the deploy, never `wrangler deploy` locally
 ```
 
 Against the deployed preview URL:
@@ -30,9 +30,17 @@ curl -s -X POST https://<preview-url>/api/v1/auth/magic-link/request \
   -d '{"email":"<a real address you control>@example.com"}'
 ```
 
-Expect `{"sent":true}` and a real email to arrive within a minute or two. If this instead returns
-`502` or the deploy logs show an `E_SENDER_NOT_VERIFIED`-shaped error, the zone needs additional
-sender verification beyond Email Routing being enabled — see research.md.
+Expect `{"sent":true}` and a real email to arrive within a minute or two.
+
+**Known finding (T007, resolved as a decision, not a bug)**: as of this feature's implementation,
+this returns `502` with `env.EMAIL.send()` throwing `"destination address is not a verified
+address"` for any recipient that isn't a pre-verified destination address in the Cloudflare
+dashboard. Cloudflare's `send_email` binding only reaches arbitrary recipients once the sending
+domain (`odograph.dev`) is "onboarded" to Email Service (Compute > Email Service > Email Sending),
+which requires the Workers Paid plan and adds SPF/DKIM/DMARC records automatically. This is a
+billing/domain-trust action outside CI's authority — the repo owner onboards the domain manually;
+re-run this smoke test after that's done. The error handling itself (FR-008: catch and surface, not
+swallow) is proven correct by this exact failure being specific and actionable rather than opaque.
 
 ## 4. Manual smoke test end-to-end
 

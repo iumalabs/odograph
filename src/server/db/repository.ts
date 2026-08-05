@@ -405,6 +405,24 @@ export async function invalidateAndCreateMagicLinkToken(
 }
 
 /**
+ * Test-only read path (spec.md's "retrieve the token via a test-only hook,
+ * not a real inbox") — production code never looks up a token by email,
+ * only by the token value itself (consumeMagicLinkToken).
+ */
+export async function findMagicLinkTokenByEmail(
+  db: D1Database,
+  email: string,
+): Promise<{ token: string; expiresAt: string } | null> {
+  const row = await db
+    .prepare(
+      "SELECT token, expires_at AS expiresAt FROM magic_link_tokens WHERE email = ?",
+    )
+    .bind(email)
+    .first<{ token: string; expiresAt: string }>();
+  return row ?? null;
+}
+
+/**
  * Atomically checks validity and deletes — a token can be consumed at most
  * once (FR-004). Returns the associated email if it was valid, null
  * otherwise.
