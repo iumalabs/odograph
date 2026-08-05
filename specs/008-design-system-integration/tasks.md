@@ -203,11 +203,11 @@ functionally unchanged from before.
 **Goal**: Make the T004 theme hook and T007 toggle control actually reachable and correct across
 every in-scope screen, including the signed-out `AuthScreen` (which has no `AppShell`).
 
-- [ ] T024 [US4] Add a minimal theme-toggle control (same `◐` treatment as T007's) to
+- [X] T024 [US4] Add a minimal theme-toggle control (same `◐` treatment as T007's) to
       `AuthScreen.tsx`'s corner, wired to the same `useTheme()` hook (T004) — signed-out visitors
       can toggle theme before signing in, and the choice already applies globally since `data-theme`
       lives on `document.documentElement`
-- [ ] T025 [US4] Live-verify in a browser: toggle theme from both the signed-out screen and the
+- [X] T025 [US4] Live-verify in a browser: toggle theme from both the signed-out screen and the
       signed-in `AppShell` header, confirm every visible element across all 3 in-scope screens
       re-renders legibly in the light palette (no element left hardcoded to a dark-only color),
       reload and confirm the choice persisted (FR-005), toggle back to dark and confirm that

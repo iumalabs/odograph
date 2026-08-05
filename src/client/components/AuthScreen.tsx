@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Logo } from "./Logo";
 import { t } from "../i18n/strings";
+import { useTheme } from "../theme";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
@@ -87,6 +88,8 @@ export function AuthScreen(props: AuthScreenProps) {
     error,
   } = props;
 
+  const [, toggleTheme] = useTheme();
+
   return (
     <div
       style={{
@@ -97,8 +100,30 @@ export function AuthScreen(props: AuthScreenProps) {
         background: "var(--bg)",
         color: "var(--fg)",
         padding: 24,
+        position: "relative",
       }}
     >
+      <button
+        type="button"
+        onClick={toggleTheme}
+        style={{
+          position: "absolute",
+          top: 20,
+          right: 20,
+          width: 32,
+          height: 32,
+          display: "grid",
+          placeItems: "center",
+          border: "1px solid var(--line)",
+          borderRadius: "var(--radius-md)",
+          background: "transparent",
+          cursor: "pointer",
+          fontSize: 14,
+          color: "var(--dim)",
+        }}
+      >
+        ◐
+      </button>
       <div
         style={{ width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", gap: 18 }}
       >
