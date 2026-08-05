@@ -135,3 +135,37 @@ CREATE TABLE service_record_attachments (
 
 CREATE INDEX idx_service_record_attachments_service_record_id
   ON service_record_attachments (service_record_id);
+
+-- See specs/009-fuel-record-crud/data-model.md for GDPR erasure decisions (same shape as
+-- service_records above) and why fuel_economy is not a column here — it's computed at read time
+-- from odometer deltas between a vehicle's fuel records, never stored (constitution Principle II).
+
+CREATE TABLE fuel_records (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+  vehicle_id TEXT NOT NULL REFERENCES vehicles (id) ON DELETE CASCADE,
+  fuel_date TEXT NOT NULL,
+  odometer_reading INTEGER NOT NULL,
+  volume REAL NOT NULL,
+  cost REAL NOT NULL,
+  station TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX idx_fuel_records_vehicle_id ON fuel_records (vehicle_id);
+CREATE INDEX idx_fuel_records_tenant_id ON fuel_records (tenant_id);
+
+CREATE TABLE fuel_record_attachments (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+  fuel_record_id TEXT NOT NULL REFERENCES fuel_records (id) ON DELETE CASCADE,
+  r2_key TEXT NOT NULL,
+  content_type TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX idx_fuel_record_attachments_fuel_record_id
+  ON fuel_record_attachments (fuel_record_id);

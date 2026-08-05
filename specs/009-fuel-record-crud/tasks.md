@@ -193,11 +193,11 @@ with the rest of the redesigned app.
 
 ## Phase 9: Polish & Cross-Cutting
 
-- [ ] T019 [P] Update `src/server/db/schema.sql` reference copy with `fuel_records`,
+- [X] T019 [P] Update `src/server/db/schema.sql` reference copy with `fuel_records`,
       `fuel_record_attachments`
-- [ ] T020 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary
+- [X] T020 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary
       guard) and fix any failures across all files touched by this feature
-- [ ] T021 Walk through quickstart.md end-to-end against `deno task dev`, including a live browser
+- [X] T021 Walk through quickstart.md end-to-end against `deno task dev`, including a live browser
       check of the economy figures rendering correctly and the backfill-recompute behavior
 
 ## Dependencies
