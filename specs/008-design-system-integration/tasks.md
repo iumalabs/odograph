@@ -90,7 +90,7 @@ exist and compile — no screen restyled yet.
 **Goal**: Restyle the signed-out screen to the approved design with zero change to any sign-in
 flow's behavior.
 
-- [ ] T008 [US1] Create `src/client/components/AuthScreen.tsx`: extract the signed-out JSX branch
+- [X] T008 [US1] Create `src/client/components/AuthScreen.tsx`: extract the signed-out JSX branch
       from `App.tsx` verbatim (same props/handlers/state wiring), then restyle — centered card
       (`max-width: 380px`, `margin: auto`) on `var(--bg)`, `Logo` with `withWordmark` above the
       card, tagline below in `color: var(--dim); font: 400 12px var(--font-mono)`; email input
@@ -103,10 +103,10 @@ flow's behavior.
       treatment (not a bare `<a>`); status banners (`magicLinkSentBanner`, error banners, etc.)
       styled with a left accent bar — `border-left: 2px solid var(--acc2)` for informational,
       `var(--warn)` for `role="alert"` banners
-- [ ] T009 [US1] Wire `AuthScreen` into `App.tsx`, replacing the old inline unstyled signed-out
+- [X] T009 [US1] Wire `AuthScreen` into `App.tsx`, replacing the old inline unstyled signed-out
       branch — `App.tsx` passes down the same state/handlers it already owns (email, identity
       setters, `handle()`), no new state introduced
-- [ ] T010 [US1] Live-verify in a browser (`deno task dev`): signed-out screen matches the design
+- [X] T010 [US1] Live-verify in a browser (`deno task dev`): signed-out screen matches the design
       tokens (inspect computed colors/fonts via the preview tool, not just visual screenshot), and
       each of the 3 sign-in paths (passkey, magic link, Google) still completes and lands on the
       signed-in view — confirms FR-003 (no behavior change)
@@ -122,7 +122,7 @@ fields the `Vehicle` entity actually has (name, make, model, year, VIN, odometer
 fuel-consumption or next-service stats, since those aren't tracked at the vehicle level yet
 (constitution Principle IV: no invented data).
 
-- [ ] T011 [US2] Create `src/client/components/Garage.tsx`: each vehicle renders as a card —
+- [X] T011 [US2] Create `src/client/components/Garage.tsx`: each vehicle renders as a card —
       `border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding:
       16px`, name in `font: 600 20px var(--font-ui); letter-spacing: -.02em`, make/model/year (only
       the fields present) as a `font: 400 11px var(--font-mono); color: var(--dim)` line next to
@@ -130,23 +130,23 @@ fuel-consumption or next-service stats, since those aren't tracked at the vehicl
       var(--font-mono); border: 1px solid var(--line); border-radius: 5px; padding: 4px 8px;
       color: var(--dim)` — below the name, wrapping the mockups' card structure exactly but with
       the photo placeholder and fuel/service stat columns omitted (no backing data)
-- [ ] T012 [US2] Empty state in `Garage.tsx` (same file as T011, not parallel — sequenced after
+- [X] T012 [US2] Empty state in `Garage.tsx` (same file as T011, not parallel — sequenced after
       it): when the vehicle list is empty, render a dashed
       card — `border: 1px dashed var(--line); border-radius: 12px; padding: 18px` — with
       `CarIcon`, inviting copy via a new i18n key, and the add-vehicle form directly below/within
       it (mockups' pattern: an inline dashed "add" affordance, not a separate modal)
-- [ ] T013 [US2] Add-vehicle form in `Garage.tsx` styled per the mockups' text-input pattern (the
+- [X] T013 [US2] Add-vehicle form in `Garage.tsx` styled per the mockups' text-input pattern (the
       ТО form's "РАБОТА" field, which is prose not telemetry): `background: var(--panel2); border:
       1px solid var(--line); border-radius: 8px; padding: 11px 12px; color: var(--fg); font: 500
       14px var(--font-ui)` for the name field, same treatment for the `<select>` odometer-unit
       control, and a solid `AddIcon` + label submit button matching the primary-button treatment
       from T008
-- [ ] T014 [US2] [P] Add new i18n keys to `src/client/i18n/strings.ts` for any new copy this story
+- [X] T014 [US2] [P] Add new i18n keys to `src/client/i18n/strings.ts` for any new copy this story
       needs (e.g. an empty-state invite string) — FR-009; reuse existing keys
       (`vehiclesHeading`, `vehicleNameLabel`, etc.) wherever they already say what's needed
-- [ ] T015 [US2] Wire `Garage` into `App.tsx` inside the new `AppShell` (T007), replacing the old
+- [X] T015 [US2] Wire `Garage` into `App.tsx` inside the new `AppShell` (T007), replacing the old
       inline unstyled vehicle list/form — same state/handlers, no behavior change
-- [ ] T016 [US2] Live-verify in a browser: existing vehicles render as styled cards with correct
+- [X] T016 [US2] Live-verify in a browser: existing vehicles render as styled cards with correct
       field omission for missing optional fields (no blank space, no "null"), the empty state
       renders when a fresh tenant has none, and adding a vehicle appends a new card with no reload
 
@@ -161,7 +161,7 @@ functionally unchanged from before.
 adapted to the fields this project's `ServiceRecord`/`Attachment` entities actually have (no
 self/shop toggle — that field doesn't exist in this schema).
 
-- [ ] T017 [US3] Create `src/client/components/ServiceRecordPanel.tsx`: extract the service-record
+- [X] T017 [US3] Create `src/client/components/ServiceRecordPanel.tsx`: extract the service-record
       section from `App.tsx`, restyle as a table-like list matching the mockups' ТО row structure
       — header row `font: 400 9.5px var(--font-mono); color: var(--dim); letter-spacing: .08em;
       text-transform: uppercase; background: var(--panel2)` over columns DATE/DESCRIPTION/ODOMETER/
@@ -169,27 +169,27 @@ self/shop toggle — that field doesn't exist in this schema).
       var(--font-ui)` with `notes` (when present) as a secondary `font: 400 10.5px var(--font-mono);
       color: var(--dim)` line beneath it (mirroring the mockups' work+parts two-line cell),
       odometer/cost right-aligned in `font: 400 12.5px var(--font-mono)`
-- [ ] T018 [US3] Empty state in `ServiceRecordPanel.tsx` (same file as T017, not parallel —
+- [X] T018 [US3] Empty state in `ServiceRecordPanel.tsx` (same file as T017, not parallel —
       sequenced after it): dashed card (same treatment as T012)
       with `ServiceIcon` and an inviting new i18n string when the selected vehicle has no records
-- [ ] T019 [US3] Add-service-record form in `ServiceRecordPanel.tsx`: an accent-bordered panel when
+- [X] T019 [US3] Add-service-record form in `ServiceRecordPanel.tsx`: an accent-bordered panel when
       open (`border: 1px solid var(--acc); background: var(--panel); border-radius: 12px; padding:
       16px 18px`), description field styled like T013's text input (Onest, prose), date/odometer/
       cost fields styled with `font: 500 14px var(--font-mono)` (numeric/telemetry, per the
       mockups' distinction between the "РАБОТА" text field and the "ОДОМЕТР"/"СТОИМОСТЬ" mono
       fields), a solid accent SAVE button matching T008/T013's primary-button treatment
-- [ ] T020 [US3] Attachment UI in `ServiceRecordPanel.tsx`: an `UploadIcon` + label control per
+- [X] T020 [US3] Attachment UI in `ServiceRecordPanel.tsx`: an `UploadIcon` + label control per
       record that opens a file input; on successful upload, show inline success feedback styled
       like the mockups' toast (`background: var(--panel2); border: 1px solid var(--line);
       border-radius: 9px; padding: 10px 14px; animation: tin .14s ease` — define the `tin`
       keyframe, `opacity 0→1` + `translateY(8px)→0`, in `base.css`), and list existing attachments
       per record as small chips using `ReceiptIcon` (same chip treatment as T011's VIN chip)
-- [ ] T021 [US3] [P] Add new i18n keys to `src/client/i18n/strings.ts` for any new copy this story
+- [X] T021 [US3] [P] Add new i18n keys to `src/client/i18n/strings.ts` for any new copy this story
       needs (empty-state invite, upload success message) — FR-009; reuse existing keys
       (`serviceDateLabel`, `uploadAttachment`, etc.) wherever they already say what's needed
-- [ ] T022 [US3] Wire `ServiceRecordPanel` into `App.tsx`/`Garage.tsx`'s vehicle-selection flow,
+- [X] T022 [US3] Wire `ServiceRecordPanel` into `App.tsx`/`Garage.tsx`'s vehicle-selection flow,
       replacing the old inline unstyled service-record UI — same state/handlers, no behavior change
-- [ ] T023 [US3] Live-verify in a browser: add a service record, upload a JPEG attachment, confirm
+- [X] T023 [US3] Live-verify in a browser: add a service record, upload a JPEG attachment, confirm
       the styled success feedback and that the attachment lists correctly, confirm download of the
       attachment still works exactly as before (FR-003)
 
