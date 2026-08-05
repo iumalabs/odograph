@@ -14,8 +14,28 @@ function cookieValue(setCookie: string | null): string {
   return setCookie.split(";")[0] ?? "";
 }
 
-async function createSession(): Promise<{ cookie: string; tenantId: string }> {
+async function createSession(): Promise<{ cookie: string; tenantId: string; userId: string }> {
   const res = await SELF.fetch("https://example.com/api/v1/_dev/session", { method: "POST" });
+  const body = (await res.json()) as { tenantId: string; userId: string };
+  return {
+    cookie: cookieValue(res.headers.get("set-cookie")),
+    tenantId: body.tenantId,
+    userId: body.userId,
+  };
+}
+
+// The default createSession() above leaves the email unset, which /_dev/session (per
+// src/server/auth/dev-session.ts) defaults to a @example.invalid placeholder — exactly what
+// isPlaceholderEmail/findDeliverableReminderRecipient are built to skip. Every notify-path test
+// (US1-US3) needs a session with a real-looking, non-placeholder email instead, or it would
+// silently exercise the skip path rather than the send path (tasks.md T006's fixture note).
+async function createDeliverableSession(): Promise<{ cookie: string; tenantId: string }> {
+  const email = `owner-${crypto.randomUUID()}@example.com`;
+  const res = await SELF.fetch("https://example.com/api/v1/_dev/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
   const body = (await res.json()) as { tenantId: string };
   return { cookie: cookieValue(res.headers.get("set-cookie")), tenantId: body.tenantId };
 }
@@ -96,6 +116,16 @@ function markDone(cookie: string, id: string): Promise<Response> {
     method: "POST",
     headers: { Cookie: cookie },
   });
+}
+
+async function lastNotifiedSeverityOf(id: string): Promise<string | null> {
+  const row = await env.DB
+    .prepare(
+      "SELECT last_notified_severity AS lastNotifiedSeverity FROM reminder_rules WHERE id = ?",
+    )
+    .bind(id)
+    .first<{ lastNotifiedSeverity: string | null }>();
+  return row?.lastNotifiedSeverity ?? null;
 }
 
 function isoDateDaysFromNow(days: number): string {
@@ -614,5 +644,216 @@ describe("Cron scheduling (User Story 5)", () => {
       .first<{ cachedStatus: string }>();
     expect(good1Cached?.cachedStatus).toBe("on_track");
     expect(good2Cached?.cachedStatus).toBe("on_track");
+  });
+});
+
+describe("email notification on escalation (User Story 1)", () => {
+  it("notifies once when a reminder first becomes coming_up", async () => {
+    const owner = await createDeliverableSession();
+    const vehicleId = await createVehicleId(owner.cookie);
+    const rule = (await (await createReminderRule(owner.cookie, vehicleId, {
+      label: "Coming up",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(-95),
+    })).json()) as { id: string };
+
+    const result = await evaluateAllReminders(env);
+    expect(result.notified).toBe(1);
+    expect(await lastNotifiedSeverityOf(rule.id)).toBe("coming_up");
+  });
+
+  it("notifies directly at overdue without requiring a coming_up email first", async () => {
+    const owner = await createDeliverableSession();
+    const vehicleId = await createVehicleId(owner.cookie);
+    const rule = (await (await createReminderRule(owner.cookie, vehicleId, {
+      label: "Overdue",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(-110),
+    })).json()) as { id: string };
+
+    const result = await evaluateAllReminders(env);
+    expect(result.notified).toBe(1);
+    expect(await lastNotifiedSeverityOf(rule.id)).toBe("overdue");
+  });
+
+  it("never notifies for not_enough_data", async () => {
+    const owner = await createDeliverableSession();
+    const vehicleId = await createVehicleId(owner.cookie);
+    const rule = (await (await createReminderRule(owner.cookie, vehicleId, {
+      label: "No data yet",
+      intervalDistance: 5000,
+      lastDoneOdometer: 0,
+    })).json()) as { id: string };
+
+    const result = await evaluateAllReminders(env);
+    expect(result.notified).toBe(0);
+    expect(await lastNotifiedSeverityOf(rule.id)).toBeNull();
+  });
+});
+
+describe("no repeat notification for an unchanged severity (User Story 2)", () => {
+  it("does not notify again while a reminder stays overdue", async () => {
+    const owner = await createDeliverableSession();
+    const vehicleId = await createVehicleId(owner.cookie);
+    const rule = (await (await createReminderRule(owner.cookie, vehicleId, {
+      label: "Stays overdue",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(-110),
+    })).json()) as { id: string };
+
+    const first = await evaluateAllReminders(env);
+    expect(first.notified).toBe(1);
+
+    const second = await evaluateAllReminders(env);
+    expect(second.notified).toBe(0);
+    expect(await lastNotifiedSeverityOf(rule.id)).toBe("overdue");
+  });
+
+  it("does not notify again while a reminder stays coming_up", async () => {
+    const owner = await createDeliverableSession();
+    const vehicleId = await createVehicleId(owner.cookie);
+    const rule = (await (await createReminderRule(owner.cookie, vehicleId, {
+      label: "Stays coming up",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(-95),
+    })).json()) as { id: string };
+
+    const first = await evaluateAllReminders(env);
+    expect(first.notified).toBe(1);
+
+    const second = await evaluateAllReminders(env);
+    expect(second.notified).toBe(0);
+    expect(await lastNotifiedSeverityOf(rule.id)).toBe("coming_up");
+  });
+});
+
+describe("notifications resume after mark-done and recurrence (User Story 3)", () => {
+  it("resets on return to on_track and notifies again on the next escalation", async () => {
+    const owner = await createDeliverableSession();
+    const vehicleId = await createVehicleId(owner.cookie);
+    const rule = (await (await createReminderRule(owner.cookie, vehicleId, {
+      label: "Recurring",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(-110),
+    })).json()) as { id: string };
+
+    const firstNotify = await evaluateAllReminders(env);
+    expect(firstNotify.notified).toBe(1);
+    expect(await lastNotifiedSeverityOf(rule.id)).toBe("overdue");
+
+    await markDone(owner.cookie, rule.id);
+    const afterMarkDone = await evaluateAllReminders(env);
+    expect(afterMarkDone.notified).toBe(0);
+    expect(await lastNotifiedSeverityOf(rule.id)).toBeNull();
+
+    await patchReminderRule(owner.cookie, rule.id, { lastDoneDate: isoDateDaysFromNow(-95) });
+    const secondNotify = await evaluateAllReminders(env);
+    expect(secondNotify.notified).toBe(1);
+    expect(await lastNotifiedSeverityOf(rule.id)).toBe("coming_up");
+  });
+});
+
+describe("owners without a deliverable email (User Story 4)", () => {
+  it("skips a placeholder-only account without erroring, and does not block the rest of the sweep", async () => {
+    const placeholderOwner = await createSession();
+    const placeholderVehicleId = await createVehicleId(placeholderOwner.cookie);
+    const placeholderRule =
+      (await (await createReminderRule(placeholderOwner.cookie, placeholderVehicleId, {
+        label: "No deliverable email",
+        intervalDays: 100,
+        lastDoneDate: isoDateDaysFromNow(-110),
+      })).json()) as { id: string };
+
+    const deliverableOwner = await createDeliverableSession();
+    const deliverableVehicleId = await createVehicleId(deliverableOwner.cookie);
+    const deliverableRule =
+      (await (await createReminderRule(deliverableOwner.cookie, deliverableVehicleId, {
+        label: "Has deliverable email",
+        intervalDays: 100,
+        lastDoneDate: isoDateDaysFromNow(-110),
+      })).json()) as { id: string };
+
+    const result = await evaluateAllReminders(env);
+
+    // Placeholder-address skip is a no-attempt outcome, not a failure — it must not perturb
+    // `failed` at all (data-model.md); this doesn't assert `failed === 0` overall since an
+    // unrelated malformed row from an earlier test in this file (spec 011's cron-sweep section)
+    // persists in storage for the rest of the run and legitimately contributes to `failed` on
+    // every subsequent sweep call (F2's documented storage-accumulation caveat).
+    expect(await lastNotifiedSeverityOf(placeholderRule.id)).toBeNull();
+    expect(await lastNotifiedSeverityOf(deliverableRule.id)).toBe("overdue");
+    expect(result.notified).toBeGreaterThanOrEqual(1);
+  });
+
+  it("notifies once a real email is later linked to a previously placeholder-only account", async () => {
+    const owner = await createSession();
+    const vehicleId = await createVehicleId(owner.cookie);
+    const rule = (await (await createReminderRule(owner.cookie, vehicleId, {
+      label: "Still due once linked",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(-110),
+    })).json()) as { id: string };
+
+    const beforeLinking = await evaluateAllReminders(env);
+    expect(beforeLinking.notified).toBe(0);
+    expect(await lastNotifiedSeverityOf(rule.id)).toBeNull();
+
+    await env.DB
+      .prepare(
+        "INSERT INTO magic_link_identities (email, user_id, created_at) VALUES (?, ?, ?)",
+      )
+      .bind(`linked-${crypto.randomUUID()}@example.com`, owner.userId, new Date().toISOString())
+      .run();
+
+    const afterLinking = await evaluateAllReminders(env);
+    expect(afterLinking.notified).toBe(1);
+    expect(await lastNotifiedSeverityOf(rule.id)).toBe("overdue");
+  });
+
+  it("counts a genuine send failure separately from a placeholder skip, without blocking the sweep", async () => {
+    // Miniflare's local send_email simulator doesn't reject malformed addresses (verified: an
+    // intentionally corrupted `to` still "sends" successfully), so a genuine send failure can't be
+    // forced through the real binding in this environment. Instead, stub env.EMAIL.send to throw
+    // only for this test's specific recipient — sendReminderDueEmail's contract is to catch
+    // whatever env.EMAIL.send throws and return { sent: false }, so this exercises the exact same
+    // code path a real provider-side failure would (contracts/internal.md, analyze finding F3).
+    const failingEmail = `fails-${crypto.randomUUID()}@example.com`;
+    const failingSession = await SELF.fetch("https://example.com/api/v1/_dev/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: failingEmail }),
+    });
+    const failingCookie = cookieValue(failingSession.headers.get("set-cookie"));
+    const failingVehicleId = await createVehicleId(failingCookie);
+    const failingRule = (await (await createReminderRule(failingCookie, failingVehicleId, {
+      label: "Send fails",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(-110),
+    })).json()) as { id: string };
+
+    const other = await createDeliverableSession();
+    const otherVehicleId = await createVehicleId(other.cookie);
+    const otherRule = (await (await createReminderRule(other.cookie, otherVehicleId, {
+      label: "Still notifies",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(-110),
+    })).json()) as { id: string };
+
+    const stubbedEnv = {
+      ...env,
+      EMAIL: {
+        send: (message: { to: string }) => {
+          if (message.to === failingEmail) {
+            throw new Error("simulated provider failure");
+          }
+          return env.EMAIL.send(message as Parameters<typeof env.EMAIL.send>[0]);
+        },
+      },
+    };
+    const result = await evaluateAllReminders(stubbedEnv as unknown as Env);
+
+    expect(result.failed).toBeGreaterThanOrEqual(1);
+    expect(await lastNotifiedSeverityOf(failingRule.id)).toBeNull();
+    expect(await lastNotifiedSeverityOf(otherRule.id)).toBe("overdue");
   });
 });
