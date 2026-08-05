@@ -17,6 +17,8 @@
     "deploy:production": "wrangler deploy --env production"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.2",
     "hono": "^4.13.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
@@ -28,6 +30,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^5.2.0",
+    "fido2-helpers": "^1.7.2",
     "typescript": "^5.9.3",
     "vite": "^6.3.6",
     "vitest": "^4.1.10",

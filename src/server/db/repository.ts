@@ -35,6 +35,14 @@ export type ProbeResource = {
   tenantId: string;
 };
 
+export type WebAuthnCredentialRecord = {
+  id: string;
+  userId: string;
+  publicKey: Uint8Array;
+  counter: number;
+  transports: string[] | null;
+};
+
 // --- Bootstrap operations -------------------------------------------------
 //
 // These create a brand new tenant/user/session from scratch and are only
@@ -158,4 +166,167 @@ export async function findProbeResourceById(
     .bind(id, ctx.tenantId)
     .first<ProbeResource>();
   return row ?? null;
+}
+
+// --- Passkey (WebAuthn) operations ------------------------------------------
+
+/**
+ * True when a D1 error is a UNIQUE constraint violation — D1 doesn't expose a
+ * structured error code, only a message from the underlying SQLite driver
+ * (e.g. "D1_ERROR: UNIQUE constraint failed: webauthn_credentials.id:
+ * SQLITE_CONSTRAINT"), so callers that need to distinguish "already exists"
+ * from other failures check the message shape via this helper.
+ */
+export function isUniqueConstraintError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("UNIQUE constraint failed");
+}
+
+/**
+ * Registration bootstrap (User Story 1): creates a tenant, a user, and their
+ * first passkey credential atomically via D1's batch() — nothing is created
+ * unless every statement succeeds (FR-010). Throws (isUniqueConstraintError)
+ * if the credential id is already registered to any account (FR-006) — never
+ * called with a caller-supplied tenant/user id, mirroring createTenant/
+ * createUser's bootstrap-only contract.
+ */
+export async function createCredentialedUser(
+  db: D1Database,
+  input: {
+    email: string;
+    credentialId: string;
+    publicKey: Uint8Array;
+    counter: number;
+    transports: string[] | null;
+  },
+): Promise<{ tenantId: string; userId: string }> {
+  const tenantId = crypto.randomUUID();
+  const userId = crypto.randomUUID();
+  await db.batch([
+    db.prepare("INSERT INTO tenants (id) VALUES (?)").bind(tenantId),
+    db.prepare("INSERT INTO users (id, tenant_id, email) VALUES (?, ?, ?)").bind(
+      userId,
+      tenantId,
+      input.email,
+    ),
+    db.prepare(
+      "INSERT INTO webauthn_credentials (id, user_id, public_key, counter, transports) VALUES (?, ?, ?, ?, ?)",
+    ).bind(
+      input.credentialId,
+      userId,
+      input.publicKey.buffer as ArrayBuffer,
+      input.counter,
+      input.transports ? JSON.stringify(input.transports) : null,
+    ),
+  ]);
+  return { tenantId, userId };
+}
+
+export async function findCredentialById(
+  db: D1Database,
+  credentialId: string,
+): Promise<WebAuthnCredentialRecord | null> {
+  const row = await db
+    .prepare(
+      "SELECT id, user_id AS userId, public_key AS publicKey, counter, transports FROM webauthn_credentials WHERE id = ?",
+    )
+    .bind(credentialId)
+    .first<{
+      id: string;
+      userId: string;
+      publicKey: ArrayBuffer;
+      counter: number;
+      transports: string | null;
+    }>();
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.userId,
+    publicKey: new Uint8Array(row.publicKey),
+    counter: row.counter,
+    transports: row.transports ? JSON.parse(row.transports) : null,
+  };
+}
+
+/**
+ * User Story 3 — adds a passkey to an already-authenticated user. Relies on
+ * webauthn_credentials.id's primary-key uniqueness (isUniqueConstraintError)
+ * to reject a credential already registered elsewhere (FR-006), rather than
+ * checking-then-inserting.
+ */
+export async function addCredentialToUser(
+  db: D1Database,
+  input: {
+    userId: string;
+    credentialId: string;
+    publicKey: Uint8Array;
+    counter: number;
+    transports: string[] | null;
+  },
+): Promise<void> {
+  await db
+    .prepare(
+      "INSERT INTO webauthn_credentials (id, user_id, public_key, counter, transports) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(
+      input.credentialId,
+      input.userId,
+      input.publicKey.buffer as ArrayBuffer,
+      input.counter,
+      input.transports ? JSON.stringify(input.transports) : null,
+    )
+    .run();
+}
+
+export async function updateCredentialCounter(
+  db: D1Database,
+  credentialId: string,
+  counter: number,
+): Promise<void> {
+  await db
+    .prepare("UPDATE webauthn_credentials SET counter = ? WHERE id = ?")
+    .bind(counter, credentialId)
+    .run();
+}
+
+const CHALLENGE_TTL_SECONDS = 5 * 60;
+
+export async function createChallenge(
+  db: D1Database,
+  purpose: "registration" | "authentication",
+): Promise<string> {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const challenge = base64UrlEncode(bytes);
+  const expiresAt = new Date(Date.now() + CHALLENGE_TTL_SECONDS * 1000).toISOString();
+  await db
+    .prepare("INSERT INTO webauthn_challenges (challenge, purpose, expires_at) VALUES (?, ?, ?)")
+    .bind(challenge, purpose, expiresAt)
+    .run();
+  return challenge;
+}
+
+/**
+ * Atomically checks validity and deletes — a challenge can be consumed at
+ * most once (FR-007). Returns whether it was valid; callers reject the
+ * ceremony (400) on false.
+ */
+export async function consumeChallenge(
+  db: D1Database,
+  challenge: string,
+  purpose: "registration" | "authentication",
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const result = await db
+    .prepare(
+      "DELETE FROM webauthn_challenges WHERE challenge = ? AND purpose = ? AND expires_at > ?",
+    )
+    .bind(challenge, purpose, now)
+    .run();
+  return result.meta.changes > 0;
+}
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
