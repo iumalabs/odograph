@@ -14,7 +14,7 @@ repository/test file organization matches spec 007's shape task-for-task except 
 
 ## Phase 1: Setup
 
-- [ ] T001 Create D1 migration `migrations/0008_fuel_records.sql`: `fuel_records`,
+- [X] T001 Create D1 migration `migrations/0008_fuel_records.sql`: `fuel_records`,
       `fuel_record_attachments` per data-model.md — no `wrangler.toml` change needed (reuses the
       existing `ATTACHMENTS` R2 binding from spec 007)
 
@@ -22,8 +22,8 @@ repository/test file organization matches spec 007's shape task-for-task except 
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T002 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
-- [ ] T003 In `src/server/db/repository.ts`, per data-model.md's "Repository layer additions":
+- [X] T002 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
+- [X] T003 In `src/server/db/repository.ts`, per data-model.md's "Repository layer additions":
       `FuelRecord`/`FuelRecordInput` types, `createFuelRecord`, `listFuelRecordsWithEconomy` (the
       core new logic — fetches all of a vehicle's fuel records ordered by `odometer_reading ASC,
       created_at ASC`, walks the list computing `fuelEconomy` per research.md's formulas:
