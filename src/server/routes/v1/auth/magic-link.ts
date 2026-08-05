@@ -32,7 +32,7 @@ magicLinkAuth.post("/request", rateLimitByIp, async (c) => {
   });
 
   if (!result.sent) {
-    return c.json({ error: "send_failed", detail: result.error }, 502);
+    return c.json({ error: "send_failed" }, 502);
   }
   return c.json({ sent: true });
 });
