@@ -9,6 +9,7 @@ import { vehicles } from "./routes/v1/vehicles";
 import { serviceRecords } from "./routes/v1/service-records";
 import { fuelRecords } from "./routes/v1/fuel-records";
 import { reminderRules } from "./routes/v1/reminder-rules";
+import { evaluateAllReminders } from "./db/repository";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
@@ -24,4 +25,11 @@ app.route("/api/v1/service-records", serviceRecords);
 app.route("/api/v1/fuel-records", fuelRecords);
 app.route("/api/v1/reminder-rules", reminderRules);
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // The daily sweep (wrangler.toml's [triggers]) — the only entry point in this codebase
+  // reaching evaluateAllReminders, which deliberately has no per-request TenantContext.
+  scheduled: async (_controller: ScheduledController, env: Env, _ctx: ExecutionContext) => {
+    await evaluateAllReminders(env.DB);
+  },
+} satisfies ExportedHandler<Env>;

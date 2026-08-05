@@ -1747,3 +1747,39 @@ export async function deleteReminderRule(
     .run();
   return result.meta.changes > 0;
 }
+
+/**
+ * The Cron-triggered sweep (research.md decision 3) — deliberately takes no TenantContext,
+ * unlike every other function in this file, since it must evaluate every tenant's rules in one
+ * run (data-model.md's documented cross-tenant exception). Persists cached_status/last_evaluated_at
+ * per row; a single row's failure is isolated so the rest of the sweep still completes (FR-011).
+ */
+export async function evaluateAllReminders(
+  db: D1Database,
+): Promise<{ evaluated: number; failed: number }> {
+  const { results } = await db
+    .prepare(`SELECT ${REMINDER_RULE_COLUMNS} FROM reminder_rules`)
+    .all<ReminderRule>();
+
+  const now = new Date();
+  let evaluated = 0;
+  let failed = 0;
+
+  for (const rule of results) {
+    try {
+      const currentOdometer = await currentOdometerQuery(db, rule.tenantId, rule.vehicleId);
+      const { status } = computeReminderStatus(rule, currentOdometer, now);
+      await db
+        .prepare(
+          "UPDATE reminder_rules SET cached_status = ?, last_evaluated_at = ? WHERE id = ?",
+        )
+        .bind(status, now.toISOString(), rule.id)
+        .run();
+      evaluated++;
+    } catch {
+      failed++;
+    }
+  }
+
+  return { evaluated, failed };
+}

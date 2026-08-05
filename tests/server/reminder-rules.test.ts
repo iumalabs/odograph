@@ -1,6 +1,13 @@
-import { createScheduledController, env, SELF, waitOnExecutionContext } from "cloudflare:test";
+import {
+  createExecutionContext,
+  createScheduledController,
+  env,
+  SELF,
+  waitOnExecutionContext,
+} from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import worker from "../../src/server/index";
+import { evaluateAllReminders } from "../../src/server/db/repository";
 
 function cookieValue(setCookie: string | null): string {
   if (!setCookie) throw new Error("missing Set-Cookie header");
@@ -505,5 +512,107 @@ describe("update and delete reminder rules (User Story 4)", () => {
       label: string;
     };
     expect(stillOwned.label).toBe("Owned");
+  });
+});
+
+describe("Cron scheduling (User Story 5)", () => {
+  it("evaluates every tenant's reminder rules and caches the same status GET computes fresh", async () => {
+    const tenantA = await createSession();
+    const tenantB = await createSession();
+    const vehicleA = await createVehicleId(tenantA.cookie);
+    const vehicleB = await createVehicleId(tenantB.cookie);
+
+    const overdue = (await (await createReminderRule(tenantA.cookie, vehicleA, {
+      label: "Overdue",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(-110),
+    })).json()) as { id: string };
+    const onTrack = (await (await createReminderRule(tenantA.cookie, vehicleA, {
+      label: "On track",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(0),
+    })).json()) as { id: string };
+    const comingUp = (await (await createReminderRule(tenantB.cookie, vehicleB, {
+      label: "Coming up",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(-95),
+    })).json()) as { id: string };
+
+    const ctx = createExecutionContext();
+    await worker.scheduled(createScheduledController(), env, ctx);
+    await waitOnExecutionContext(ctx);
+
+    for (
+      const [rule, cookie] of [
+        [overdue, tenantA.cookie],
+        [onTrack, tenantA.cookie],
+        [comingUp, tenantB.cookie],
+      ] as const
+    ) {
+      const cached = await env.DB
+        .prepare(
+          "SELECT cached_status AS cachedStatus, last_evaluated_at AS lastEvaluatedAt FROM reminder_rules WHERE id = ?",
+        )
+        .bind(rule.id)
+        .first<{ cachedStatus: string; lastEvaluatedAt: string | null }>();
+      const fresh = (await (await getReminderRule(cookie, rule.id)).json()) as { status: string };
+      expect(cached?.cachedStatus).toBe(fresh.status);
+      expect(cached?.lastEvaluatedAt).not.toBeNull();
+    }
+  });
+
+  it("isolates a single rule's evaluation failure so the rest of the sweep still completes", async () => {
+    const tenant = await createSession();
+    const vehicleId = await createVehicleId(tenant.cookie);
+
+    const good1 = (await (await createReminderRule(tenant.cookie, vehicleId, {
+      label: "Good 1",
+      intervalDays: 30,
+      lastDoneDate: isoDateDaysFromNow(0),
+    })).json()) as { id: string };
+    const good2 = (await (await createReminderRule(tenant.cookie, vehicleId, {
+      label: "Good 2",
+      intervalDays: 30,
+      lastDoneDate: isoDateDaysFromNow(0),
+    })).json()) as { id: string };
+
+    // A malformed row (unparseable last_done_date) inserted directly, bypassing the API's
+    // format-agnostic string validation, to force computeReminderStatus to throw mid-sweep.
+    const now = new Date().toISOString();
+    await env.DB
+      .prepare(
+        `INSERT INTO reminder_rules
+         (id, tenant_id, vehicle_id, label, interval_days, interval_distance, last_done_date, last_done_odometer, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, NULL, ?, NULL, ?, ?)`,
+      )
+      .bind(
+        crypto.randomUUID(),
+        tenant.tenantId,
+        vehicleId,
+        "Malformed",
+        30,
+        "not-a-date",
+        now,
+        now,
+      )
+      .run();
+
+    // Storage accumulates across tests within this file, so other tests' legitimately-created
+    // rules are also swept here — only this test ever inserts a malformed row, so `failed` is
+    // exactly 1 regardless of how many other rows have piled up.
+    const result = await evaluateAllReminders(env.DB);
+    expect(result.evaluated).toBeGreaterThanOrEqual(2);
+    expect(result.failed).toBe(1);
+
+    const good1Cached = await env.DB
+      .prepare("SELECT cached_status AS cachedStatus FROM reminder_rules WHERE id = ?")
+      .bind(good1.id)
+      .first<{ cachedStatus: string }>();
+    const good2Cached = await env.DB
+      .prepare("SELECT cached_status AS cachedStatus FROM reminder_rules WHERE id = ?")
+      .bind(good2.id)
+      .first<{ cachedStatus: string }>();
+    expect(good1Cached?.cachedStatus).toBe("on_track");
+    expect(good2Cached?.cachedStatus).toBe("on_track");
   });
 });
