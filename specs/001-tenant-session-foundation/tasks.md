@@ -26,8 +26,8 @@ public API surface needing its own test layer.
       "migrations"` to each `d1_databases` entry
 - [X] T003 Add an `ENVIRONMENT` plain-text var to `wrangler.toml` (`"development"` at the top level,
       `"preview"` under `env.preview`, `"production"` under `env.production`)
-- [X] T004 Run `npm run cf-typegen` to regenerate `worker-configuration.d.ts` with the new bindings'
-      types, and confirm `npm run typecheck` still passes with no bindings referenced yet
+- [X] T004 Run `deno task cf-typegen` to regenerate `worker-configuration.d.ts` with the new bindings'
+      types, and confirm `deno task typecheck` still passes with no bindings referenced yet
 
 ## Phase 2: Foundational (blocking prerequisites)
 
@@ -104,7 +104,7 @@ never overrides the session's own tenant.
       with an `{ ENVIRONMENT: "production" }` env override and confirm the routes are absent, rather
       than only checking response status against the default test env.
 
-**Checkpoint**: User Story 1 is independently complete and testable — `npm test` passes for
+**Checkpoint**: User Story 1 is independently complete and testable — `deno task test` passes for
 `tenant-isolation.test.ts` and `dev-routes-production-gating.test.ts`, and the manual smoke test in
 quickstart.md steps 1-3 (through the isolation checks) works against `wrangler dev`.
 
@@ -124,7 +124,7 @@ attributes, confirm resolution works and stops working after invalidation.
       to the correct tenant with no other credential needed, and a request using an invalidated
       session's cookie is treated as anonymous (same rejection as Scenario 3 in User Story 1)
 
-**Checkpoint**: `npm test` passes for `session.test.ts`; quickstart.md step 3's invalidation check
+**Checkpoint**: `deno task test` passes for `session.test.ts`; quickstart.md step 3's invalidation check
 and step 4 (dev route unreachable when `ENVIRONMENT=production`) both work.
 
 ---
@@ -147,7 +147,7 @@ confirm rejection without a database write, while a different session is unaffec
       are rejected with no underlying write performed, and a second session is unaffected by the
       first session's throttling
 
-**Checkpoint**: `npm test` passes for `rate-limit.test.ts`.
+**Checkpoint**: `deno task test` passes for `rate-limit.test.ts`.
 
 ---
 

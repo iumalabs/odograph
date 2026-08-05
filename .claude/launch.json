@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "deno",
+      "runtimeArgs": ["task", "dev"],
       "port": 5173
     }
   ]

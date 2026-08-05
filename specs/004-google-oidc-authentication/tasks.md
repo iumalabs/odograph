@@ -15,10 +15,10 @@ explicitly.
 
 ## Phase 1: Setup
 
-- [X] T001 [P] Add the `jose` dependency: `npm install jose`
+- [X] T001 [P] Add the `jose` dependency: `deno install jose`
 - [X] T002 [P] Extend `AppEnv["Bindings"]` in `src/server/types.ts` with
       `GOOGLE_CLIENT_ID: string; GOOGLE_CLIENT_SECRET: string` — these are Workers secrets
-      (research.md), never declared in `wrangler.toml`, so `wrangler types`/`npm run cf-typegen`
+      (research.md), never declared in `wrangler.toml`, so `wrangler types`/`deno task cf-typegen`
       never generates them onto `Env`; this manual intersection is what makes them type-checked
 - [X] T003 Create D1 migration `migrations/0004_oidc.sql` (tables `oidc_identities`, `oidc_states`
       per data-model.md)
@@ -105,8 +105,8 @@ second callback for the same subject resolves to the same tenant.
       like any other — the field is stored but never gates or changes resolution behavior (FR-009,
       analyze finding M1).
 
-**Checkpoint**: User Story 1 is independently complete and testable — `npm test` passes for the
-lifecycle section, and quickstart.md steps 1-4 work against `wrangler dev`/`npm run dev` with real
+**Checkpoint**: User Story 1 is independently complete and testable — `deno task test` passes for the
+lifecycle section, and quickstart.md steps 1-4 work against `wrangler dev`/`deno task dev` with real
 Google credentials once they exist (T019 tracks that separately, per research.md's residual-risk
 note — this checkpoint doesn't block on it).
 
@@ -129,7 +129,7 @@ distinct from the passkey account's.
       exact email but a `sub` never seen before — confirm the resulting `tenantId` is different from
       the passkey account's (D-004), proving resolution never falls back to `users.email`.
 
-**Checkpoint**: `npm test` passes for the isolation section.
+**Checkpoint**: `deno task test` passes for the isolation section.
 
 ---
 
@@ -176,7 +176,7 @@ ceremony — no client-side crypto or JS library involved.
 - [ ] T019 **Live smoke test** (research.md's residual-risk mitigation, matching specs/003's T007):
       once a real Google OAuth client exists (quickstart.md step 1 — an external, owner-performed
       action this agent cannot do on its own), walk through quickstart.md steps 2-4 against
-      `npm run dev`. Confirm a real Google sign-in actually issues a session, a repeat sign-in
+      `deno task dev`. Confirm a real Google sign-in actually issues a session, a repeat sign-in
       resolves to the same tenant, and declining consent produces `/?oidc=error` with no rows
       written. Record the outcome in this task's completion note — if this reveals anything the
       fixture-based tests couldn't (e.g. a claim shape mismatch with what Google actually returns),

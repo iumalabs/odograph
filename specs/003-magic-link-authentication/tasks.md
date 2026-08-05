@@ -18,8 +18,8 @@ response-parity and cross-method-isolation checks the spec calls out explicitly.
       `magic_link_tokens` per data-model.md)
 - [X] T002 Add a `[[send_email]] name = "EMAIL"` binding to `wrangler.toml` for the default
       (local/test), `env.preview`, and `env.production` sections
-- [X] T003 Run `npm run cf-typegen` to regenerate `worker-configuration.d.ts` with the new binding's
-      type, confirm `npm run typecheck` still passes
+- [X] T003 Run `deno task cf-typegen` to regenerate `worker-configuration.d.ts` with the new binding's
+      type, confirm `deno task typecheck` still passes
 
 ## Phase 2: Foundational (blocking prerequisites)
 
@@ -93,7 +93,7 @@ a repeat magic-link email).
       rejected the same way an already-consumed one is — not just implied by case 3 sharing the same
       code path, but asserted directly.
 
-**Checkpoint**: User Story 1 is independently complete and testable — `npm test` passes for the
+**Checkpoint**: User Story 1 is independently complete and testable — `deno task test` passes for the
 lifecycle section, and quickstart.md steps 1-2 and 4 (steps 1-3) work against `wrangler dev` with a
 real inbox.
 
@@ -119,7 +119,7 @@ signing into the passkey one.
       from specs/002, reusing that repository function) results in a _different_ `tenantId` after
       verify than the passkey account's — proving no auto-link occurred (D-004)
 
-**Checkpoint**: `npm test` passes for the parity/isolation section.
+**Checkpoint**: `deno task test` passes for the parity/isolation section.
 
 ---
 
@@ -141,7 +141,7 @@ passkeys' "minimal, no design polish" precedent (plan.md).
 - [X] T015 [P] Update `src/server/db/schema.sql` reference copy with the two new tables
 - [X] T016 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
       and fix any failures across all files touched by this feature
-- [X] T017 Walked through quickstart.md end-to-end against `npm run dev`: request step shows the
+- [X] T017 Walked through quickstart.md end-to-end against `deno task dev`: request step shows the
       "check your email" banner, the local Miniflare `send_email` fake logs the message (no real
       inbox available locally — confirmed separately via the live T007 smoke test), following the
       verify link (confirmed via direct HTTP since the preview browser tool's synthetic in-page

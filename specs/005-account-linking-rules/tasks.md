@@ -84,8 +84,8 @@ the original account.
       /auth/magic-link/link` without a session cookie returns `401` before any token is created
       (FR-004).
 
-**Checkpoint**: `npm test` passes for the linking section; quickstart.md steps 1-4 work against
-`npm run dev`.
+**Checkpoint**: `deno task test` passes for the linking section; quickstart.md steps 1-4 work against
+`deno task dev`.
 
 ---
 
@@ -120,7 +120,7 @@ the original account.
       before any state row is created (FR-004, via `SELF.fetch` since this doesn't touch the
       exchange step).
 
-**Checkpoint**: `npm test` passes for the linking section.
+**Checkpoint**: `deno task test` passes for the linking section.
 
 ---
 
@@ -143,7 +143,7 @@ existing "minimal, no design polish" precedent.
       `linking_user_id` columns
 - [X] T015 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
       and fix any failures across all files touched by this feature
-- [X] T016 Walked through quickstart.md's magic-link half against `npm run dev` (curl, since the
+- [X] T016 Walked through quickstart.md's magic-link half against `deno task dev` (curl, since the
       preview browser tool couldn't attach to a port here — another chat session held 5173):
       linked an email, followed the link (`/?magicLink=linked`, correct), confirmed the linked
       session resolves to the same tenant as the original, and confirmed re-linking the same email

@@ -20,8 +20,10 @@ they land.
 - **Data**: D1 (relational), R2 (attachments), KV (sessions / settings cache)
 - **Scheduled work**: Cron Triggers
 - **E2E**: [Playwright](https://playwright.dev/)
-- **Toolchain**: [Deno](https://deno.com/) for `fmt` / `lint` / `test` / `task` only — never as a
-  runtime dependency inside Worker code. Wrangler stays npm-based.
+- **Toolchain**: [Deno](https://deno.com/) — package manager (`npm:` specifiers in `deno.json`, no
+  `package.json`), task runner, `fmt`, `lint`, `test`. Never a runtime dependency inside deployed
+  Worker code, which still runs on `workerd` — Deno only resolves/runs dependencies during
+  development, build, and CI.
 
 ## Development process
 
@@ -51,18 +53,21 @@ no local `wrangler deploy` path to either environment.
 
 ## Getting started
 
-Requires Node.js 22+, [Deno](https://deno.com/) (toolchain only), and Wrangler (installed as a dev
-dependency below).
+Requires [Deno](https://deno.com/) 2.x — the project's sole package manager and task runner.
+Dependencies (Vite, Wrangler, React, etc.) are declared as `npm:` specifiers in `deno.json` and
+resolved into a Deno-managed `node_modules/` — there is no `package.json`.
 
 ```sh
-npm install      # also generates worker-configuration.d.ts (postinstall)
-npm run dev      # vite dev — local Worker + client, hot reload
-deno task check  # fmt --check + lint + typecheck + test, same as CI runs
+deno install          # resolves dependencies into node_modules/
+deno task cf-typegen  # generates worker-configuration.d.ts (no postinstall hook under Deno)
+deno task dev          # vite dev — local Worker + client, hot reload
+deno task check         # fmt --check + lint + typecheck + test, same as CI runs
 ```
 
-Other useful commands: `npm run build` (production build), `npm test` (Vitest against the real
-Workers runtime via `@cloudflare/vitest-pool-workers`), `npm run typecheck`. There is no
-`npm run deploy` — see [Environments](#environments) and [docs/deployment.md](docs/deployment.md).
+Other useful tasks: `deno task build` (production build), `deno task test` (Vitest against the real
+Workers runtime via `@cloudflare/vitest-pool-workers`), `deno task typecheck`. There is no `deploy`
+task runnable from a laptop — see [Environments](#environments) and
+[docs/deployment.md](docs/deployment.md).
 
 ## License
 

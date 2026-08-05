@@ -17,38 +17,31 @@ jobs:
     environment:
       name: production
       url: https://odograph.dev
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
 
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
-      - run: npm ci
+      - run: deno install
+
+      - name: Generate Cloudflare runtime types
+        run: deno task cf-typegen
 
       - name: fmt, lint, typecheck, test
         run: deno task check
 
       - name: build
-        run: npm run build
+        run: deno task build
 
       # Idempotent — only applies migrations not already applied, safe to run
       # on every deploy.
       - name: Apply D1 migrations (production)
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          command: d1 migrations apply odograph-production --remote --env production
+        run: deno task migrate:production
 
       - name: Deploy to Cloudflare Workers (production)
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --env production
+        run: deno task deploy:production
