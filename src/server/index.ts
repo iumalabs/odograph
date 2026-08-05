@@ -8,6 +8,7 @@ import { whoami } from "./routes/v1/auth/whoami";
 import { vehicles } from "./routes/v1/vehicles";
 import { serviceRecords } from "./routes/v1/service-records";
 import { fuelRecords } from "./routes/v1/fuel-records";
+import { reminderRules } from "./routes/v1/reminder-rules";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
@@ -21,5 +22,6 @@ app.route("/api/v1/auth/whoami", whoami);
 app.route("/api/v1/vehicles", vehicles);
 app.route("/api/v1/service-records", serviceRecords);
 app.route("/api/v1/fuel-records", fuelRecords);
+app.route("/api/v1/reminder-rules", reminderRules);
 
 export default app;

@@ -45,7 +45,7 @@ objects — no route or CRUD wired up yet.
 **Goal**: Complete create → list end-to-end, rejecting a rule with neither interval and refusing a
 cross-tenant/nonexistent vehicle.
 
-- [ ] T005 [US1] Add `createReminderRule(db, ctx, vehicleId, input)` to `repository.ts` (same
+- [X] T005 [US1] Add `createReminderRule(db, ctx, vehicleId, input)` to `repository.ts` (same
       bootstrap shape as `createFuelRecord`). Implement `POST /:vehicleId/reminder-rules` and
       `GET /:vehicleId/reminder-rules` **directly in the existing**
       `src/server/routes/v1/vehicles.ts` (one-file-one-prefix convention established since spec
@@ -54,7 +54,7 @@ cross-tenant/nonexistent vehicle.
       non-empty, at least one of `intervalDays`/`intervalDistance` present, and the matching
       anchor field(s) present — `400` with nothing created on failure; `GET` returns
       `{ reminderRules: [...] }` via T004's `listReminderRulesWithStatus`
-- [ ] T006 [P] [US1] Create `tests/server/reminder-rules.test.ts` (creation section): 1. Creating
+- [X] T006 [P] [US1] Create `tests/server/reminder-rules.test.ts` (creation section): 1. Creating
       a rule with only a date interval, only a mileage interval, and both, all succeed and appear
       in the vehicle's list. 2. Creating a rule with neither interval is rejected (`400`) and
       creates nothing. 3. Creating a date-interval rule without `lastDoneDate` (or a
@@ -71,12 +71,12 @@ cross-tenant/nonexistent vehicle.
 **Goal**: Fetch-by-id and the full status-computation contract proven correct across its key
 cases, including the "not enough data" and both-intervals-disagree cases.
 
-- [ ] T007 [US2] Implement `GET /api/v1/reminder-rules/:id` in new
+- [X] T007 [US2] Implement `GET /api/v1/reminder-rules/:id` in new
       `src/server/routes/v1/reminder-rules.ts` (mounted at `/api/v1/reminder-rules` in
       `src/server/index.ts`, matching `fuel-records.ts`'s structure), using T004's
       `findReminderRuleById`: `404` under the not-found-or-not-yours contract; response includes
       the same computed-status shape as the list endpoint
-- [ ] T008 [P] [US2] Extend `reminder-rules.test.ts` (status computation section): 1. A date rule
+- [X] T008 [P] [US2] Extend `reminder-rules.test.ts` (status computation section): 1. A date rule
       due far in the future is `on_track`; one due within its 10% threshold is `coming_up`; one
       past due is `overdue`. 2. The same three cases for a mileage rule, using a logged fuel
       record to establish the vehicle's current odometer reading. 3. A mileage-only rule on a
