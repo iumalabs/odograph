@@ -1649,3 +1649,38 @@ export async function findReminderRuleById(
   const currentOdometer = await currentOdometerQuery(db, ctx.tenantId, row.vehicleId);
   return { ...row, ...computeReminderStatus(row, currentOdometer, new Date()) };
 }
+
+/**
+ * Resets last_done_date to today, and (only if the rule has a mileage interval)
+ * last_done_odometer to the vehicle's current known odometer reading — an odometer-only rule
+ * doesn't get a date reset and vice versa (spec.md Edge Cases). Same not-found-or-not-yours
+ * contract as findReminderRuleById.
+ */
+export async function markReminderRuleDone(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<ReminderRuleWithStatus | null> {
+  const existing = await db
+    .prepare(`SELECT ${REMINDER_RULE_COLUMNS} FROM reminder_rules WHERE id = ? AND tenant_id = ?`)
+    .bind(id, ctx.tenantId)
+    .first<ReminderRule>();
+  if (!existing) return null;
+
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const lastDoneDate = existing.intervalDays !== null ? today : existing.lastDoneDate;
+  const lastDoneOdometer = existing.intervalDistance !== null
+    ? await currentOdometerQuery(db, ctx.tenantId, existing.vehicleId)
+    : existing.lastDoneOdometer;
+
+  await db
+    .prepare(
+      `UPDATE reminder_rules SET last_done_date = ?, last_done_odometer = ?, updated_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(lastDoneDate, lastDoneOdometer, now.toISOString(), id, ctx.tenantId)
+    .run();
+
+  return findReminderRuleById(db, ctx, id);
+}

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { findReminderRuleById } from "../../db/repository";
+import { findReminderRuleById, markReminderRuleDone } from "../../db/repository";
+import { rateLimitBySession } from "../../auth/rate-limit";
 import { tenantContext } from "../../middleware/tenant-context";
 import type { AppEnv } from "../../types";
 
@@ -13,4 +14,10 @@ reminderRules.get("/:id", async (c) => {
   return c.json(rule);
 });
 
-// Routes added incrementally: PATCH/DELETE /:id, POST /:id/mark-done.
+reminderRules.post("/:id/mark-done", rateLimitBySession, async (c) => {
+  const rule = await markReminderRuleDone(c.env.DB, c.get("tenant"), c.req.param("id"));
+  if (!rule) return c.notFound();
+  return c.json(rule);
+});
+
+// Routes added incrementally: PATCH/DELETE /:id.

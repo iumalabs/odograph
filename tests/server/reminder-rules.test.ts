@@ -330,3 +330,82 @@ describe("reminder rule status computation (User Story 2)", () => {
     expect(crossList.status).toBe(404);
   });
 });
+
+describe("mark reminder rule done (User Story 3)", () => {
+  let sharedCookie: string;
+
+  beforeAll(async () => {
+    sharedCookie = (await createSession()).cookie;
+  });
+
+  it("resets an overdue date-based rule to on_track and leaves its odometer anchor untouched", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    const created = (await (await createReminderRule(sharedCookie, vehicleId, {
+      label: "Overdue by date",
+      intervalDays: 100,
+      lastDoneDate: isoDateDaysFromNow(-110),
+    })).json()) as { id: string; lastDoneOdometer: number | null };
+    expect(created.lastDoneOdometer).toBeNull();
+
+    const res = await markDone(sharedCookie, created.id);
+    expect(res.status).toBe(200);
+    const updated = (await res.json()) as {
+      status: string;
+      lastDoneDate: string;
+      lastDoneOdometer: number | null;
+    };
+    expect(updated.status).toBe("on_track");
+    expect(updated.lastDoneDate).toBe(isoDateDaysFromNow(0));
+    expect(updated.lastDoneOdometer).toBeNull();
+  });
+
+  it("resets an overdue mileage-based rule's odometer anchor to the vehicle's current odometer, leaving its date anchor untouched", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    await createFuelRecordReq(sharedCookie, vehicleId, {
+      fuelDate: isoDateDaysFromNow(0),
+      odometerReading: 5000,
+      volume: 40,
+      cost: 60,
+    });
+
+    const created = (await (await createReminderRule(sharedCookie, vehicleId, {
+      label: "Overdue by mileage",
+      intervalDistance: 1000,
+      lastDoneOdometer: 3800, // due 4800, overdue against current 5000
+    })).json()) as { id: string; status: string; lastDoneDate: string | null };
+    expect(created.status).toBe("overdue");
+    expect(created.lastDoneDate).toBeNull();
+
+    const res = await markDone(sharedCookie, created.id);
+    expect(res.status).toBe(200);
+    const updated = (await res.json()) as {
+      status: string;
+      lastDoneOdometer: number;
+      lastDoneDate: string | null;
+    };
+    expect(updated.status).toBe("on_track");
+    expect(updated.lastDoneOdometer).toBe(5000);
+    expect(updated.lastDoneDate).toBeNull();
+  });
+
+  it("refuses to mark a different tenant's rule done, identically to a made-up id, and leaves it untouched", async () => {
+    const other = await createSession();
+    const vehicleId = await createVehicleId(sharedCookie);
+    const created = (await (await createReminderRule(sharedCookie, vehicleId, {
+      label: "Owned",
+      intervalDays: 30,
+      lastDoneDate: isoDateDaysFromNow(-20),
+    })).json()) as { id: string };
+
+    const crossMark = await markDone(other.cookie, created.id);
+    const madeUpMark = await markDone(other.cookie, crypto.randomUUID());
+    expect(crossMark.status).toBe(404);
+    expect(madeUpMark.status).toBe(404);
+    expect(await crossMark.text()).toBe(await madeUpMark.text());
+
+    const stillOwned = (await (await getReminderRule(sharedCookie, created.id)).json()) as {
+      lastDoneDate: string;
+    };
+    expect(stillOwned.lastDoneDate).toBe(isoDateDaysFromNow(-20));
+  });
+});
