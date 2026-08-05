@@ -80,7 +80,12 @@ export async function verifyRegistration(
 ): Promise<RegistrationVerification> {
   const challenge = extractChallenge(response.response.clientDataJSON);
   const challengeValid = await consumeChallenge(db, challenge, "registration");
-  if (!challengeValid) return { verified: false, reason: "challenge" };
+  if (!challengeValid) {
+    // Logged distinctly from a verification failure below (issue #46) — a stale/already-consumed
+    // challenge points at a client retry or a slow ceremony, not an rpID/origin mismatch.
+    console.error("passkey registration failed: challenge not found or already consumed");
+    return { verified: false, reason: "challenge" };
+  }
 
   const { rpID, origin } = deriveRp(requestUrl);
   try {
@@ -93,7 +98,12 @@ export async function verifyRegistration(
       // not requiring it here that wasn't asked for at registration.
       requireUserVerification: false,
     });
-    if (!result.verified) return { verified: false, reason: "verification" };
+    if (!result.verified) {
+      console.error(
+        `passkey registration verification failed: expectedRPID=${rpID} expectedOrigin=${origin}`,
+      );
+      return { verified: false, reason: "verification" };
+    }
     const { credential } = result.registrationInfo;
     return {
       verified: true,
@@ -102,7 +112,12 @@ export async function verifyRegistration(
       counter: credential.counter,
       transports: credential.transports ?? null,
     };
-  } catch {
+  } catch (error) {
+    console.error(
+      `passkey registration verification threw: expectedRPID=${rpID} expectedOrigin=${origin} error=${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
     return { verified: false, reason: "verification" };
   }
 }
@@ -130,7 +145,10 @@ export async function verifyAuthentication(
 ): Promise<AuthenticationVerification> {
   const challenge = extractChallenge(response.response.clientDataJSON);
   const challengeValid = await consumeChallenge(db, challenge, "authentication");
-  if (!challengeValid) return { verified: false, reason: "challenge" };
+  if (!challengeValid) {
+    console.error("passkey authentication failed: challenge not found or already consumed");
+    return { verified: false, reason: "challenge" };
+  }
 
   const { rpID, origin } = deriveRp(requestUrl);
   try {
@@ -142,11 +160,21 @@ export async function verifyAuthentication(
       credential: storedCredential,
       requireUserVerification: false,
     });
-    if (!result.verified) return { verified: false, reason: "verification" };
+    if (!result.verified) {
+      console.error(
+        `passkey authentication verification failed: expectedRPID=${rpID} expectedOrigin=${origin}`,
+      );
+      return { verified: false, reason: "verification" };
+    }
     return { verified: true, newCounter: result.authenticationInfo.newCounter };
-  } catch {
+  } catch (error) {
     // Includes the library's own thrown counter-regression error (clone
     // detection) — treated identically to any other verification failure.
+    console.error(
+      `passkey authentication verification threw: expectedRPID=${rpID} expectedOrigin=${origin} error=${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
     return { verified: false, reason: "verification" };
   }
 }
