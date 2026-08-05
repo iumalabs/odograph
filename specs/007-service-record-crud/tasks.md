@@ -62,7 +62,7 @@ yet (Miniflare's local simulation covers tests).
 **Goal**: Complete create → list end-to-end, refusing a cross-tenant/nonexistent vehicle before
 anything is written.
 
-- [ ] T009 [US1] Implement `POST /:vehicleId/service-records` and `GET
+- [X] T009 [US1] Implement `POST /:vehicleId/service-records` and `GET
       /:vehicleId/service-records` **directly in the existing** `src/server/routes/v1/vehicles.ts`
       (analyze finding C1 — not a new mount point: `vehicles.ts` is already mounted at
       `/api/v1/vehicles` with its own scoped `tenantContext`, so adding these two routes there
@@ -73,11 +73,11 @@ anything is written.
       body), validates `serviceDate`/`description` (non-empty) and optional
       `odometerReading`/`cost`/`notes` — `400` with nothing created on failure; `GET` returns
       `{ serviceRecords: [...] }`
-- [ ] T010 [US1] Create `src/server/routes/v1/service-records.ts` (empty of routes yet — T012/T014/
+- [X] T010 [US1] Create `src/server/routes/v1/service-records.ts` (empty of routes yet — T012/T014/
       T016/T017 add them) and wire it into `src/server/index.ts` under `/api/v1/service-records`,
       following the normal one-file-one-prefix convention every other route file uses (analyze
       finding C1)
-- [ ] T011 [P] [US1] Create `tests/server/service-record-crud.test.ts` (creation section): 1.
+- [X] T011 [P] [US1] Create `tests/server/service-record-crud.test.ts` (creation section): 1.
       Creating a record with only the two required fields succeeds and appears in the vehicle's
       list. 2. Creating one with all optional fields stores every value exactly. 3. Omitting
       `serviceDate` or `description` is rejected (`400`) and creates nothing. 4. Creating a record
@@ -168,7 +168,7 @@ Principle V proof.
 **Goal**: Close the gap this feature's own R2 usage newly creates: `deleteVehicle` (specs/006)
 cascades D1 rows but has never had R2 objects to clean up until now.
 
-- [ ] T019 Modify `DELETE /api/v1/vehicles/:id` in `src/server/routes/v1/vehicles.ts`: before
+- [X] T019 Modify `DELETE /api/v1/vehicles/:id` in `src/server/routes/v1/vehicles.ts`: before
       calling the existing `deleteVehicle` repository function, call
       `listAttachmentKeysForVehicle` (T004) and `deleteAttachments` (T007) to remove every R2
       object belonging to that vehicle's service records' attachments — no change to the route's

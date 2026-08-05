@@ -26,6 +26,11 @@ export function stripJpegExif(bytes: Uint8Array): Uint8Array {
     }
 
     const marker = bytes[i + 1];
+    if (marker === undefined) {
+      // Truncated marker at the very end — nothing more to walk.
+      chunks.push(bytes.subarray(i));
+      break;
+    }
 
     if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd9)) {
       chunks.push(bytes.subarray(i, i + 2));
@@ -34,7 +39,15 @@ export function stripJpegExif(bytes: Uint8Array): Uint8Array {
       continue;
     }
 
-    const length = (bytes[i + 2] << 8) | bytes[i + 3];
+    const lengthHigh = bytes[i + 2];
+    const lengthLow = bytes[i + 3];
+    if (lengthHigh === undefined || lengthLow === undefined) {
+      // Truncated length field — bail safely, copy the rest through unmodified.
+      chunks.push(bytes.subarray(i));
+      break;
+    }
+
+    const length = (lengthHigh << 8) | lengthLow;
     const segmentEnd = i + 2 + length;
 
     if (marker === 0xe1) {

@@ -6,6 +6,7 @@ import { magicLinkAuth } from "./routes/v1/auth/magic-link";
 import { googleOidcAuth } from "./routes/v1/auth/oidc/google";
 import { whoami } from "./routes/v1/auth/whoami";
 import { vehicles } from "./routes/v1/vehicles";
+import { serviceRecords } from "./routes/v1/service-records";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
@@ -17,5 +18,6 @@ app.route("/api/v1/auth/magic-link", magicLinkAuth);
 app.route("/api/v1/auth/oidc/google", googleOidcAuth);
 app.route("/api/v1/auth/whoami", whoami);
 app.route("/api/v1/vehicles", vehicles);
+app.route("/api/v1/service-records", serviceRecords);
 
 export default app;

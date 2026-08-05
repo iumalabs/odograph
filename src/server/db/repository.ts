@@ -956,7 +956,9 @@ export async function findAttachmentById(
   id: string,
 ): Promise<Attachment | null> {
   const row = await db
-    .prepare(`SELECT ${ATTACHMENT_COLUMNS} FROM service_record_attachments WHERE id = ? AND tenant_id = ?`)
+    .prepare(
+      `SELECT ${ATTACHMENT_COLUMNS} FROM service_record_attachments WHERE id = ? AND tenant_id = ?`,
+    )
     .bind(id, ctx.tenantId)
     .first<Attachment>();
   return row ?? null;

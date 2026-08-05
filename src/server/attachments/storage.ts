@@ -24,7 +24,7 @@ export async function putAttachment(
   await bucket.put(key, bytes, { httpMetadata: { contentType } });
 }
 
-export async function getAttachment(bucket: R2Bucket, key: string): Promise<R2ObjectBody | null> {
+export function getAttachment(bucket: R2Bucket, key: string): Promise<R2ObjectBody | null> {
   return bucket.get(key);
 }
 
