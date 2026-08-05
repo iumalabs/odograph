@@ -169,21 +169,21 @@ attachment type outlives the D1 rows that referenced it.
 
 ## Phase 8: Client UI
 
-- [ ] T015 [P] Implement `src/client/fuel-records.ts`: thin wrapper for the 7 endpoints
+- [X] T015 [P] Implement `src/client/fuel-records.ts`: thin wrapper for the 7 endpoints
       (`listFuelRecords`, `createFuelRecord`, `getFuelRecord`, `updateFuelRecord`,
       `deleteFuelRecord`, `uploadAttachment`, attachment download URL builder), mirroring
       `service-records.ts`'s exact structure and `FuelRecord`/`Attachment` types including
       `fuelEconomy: number | null`
-- [ ] T016 Create `src/client/components/FuelRecordPanel.tsx`, styled per spec 008's design system
+- [X] T016 Create `src/client/components/FuelRecordPanel.tsx`, styled per spec 008's design system
       (mirrors `ServiceRecordPanel.tsx`'s list/empty-state/form/attachment structure exactly):
       list shows date, odometer reading, volume, cost, and `fuelEconomy` right-aligned in
       `var(--acc)` when present or an explicit "—" in `var(--dim)` when `null` (never a blank
       cell); add-record form with the four required fields plus optional station/notes; attachment
       upload reusing the same upload-button/success-toast/chip pattern as `ServiceRecordPanel.tsx`
-- [ ] T017 Modify `src/client/App.tsx`: render `FuelRecordPanel` alongside `ServiceRecordPanel`
+- [X] T017 Modify `src/client/App.tsx`: render `FuelRecordPanel` alongside `ServiceRecordPanel`
       for the selected vehicle (two sections under the same vehicle-selected block), wiring the
       same `handle()` error-handling pattern already used for service records
-- [ ] T018 [P] Add new i18n keys to `src/client/i18n/strings.ts` for fuel-record UI copy
+- [X] T018 [P] Add new i18n keys to `src/client/i18n/strings.ts` for fuel-record UI copy
       (heading, field labels, empty state, "not enough data" label) — FR-013
 
 **Checkpoint**: Fuel records are fully usable end-to-end from the garage UI, styled consistently

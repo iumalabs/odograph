@@ -8,11 +8,18 @@ import { createVehicle, listVehicles } from "./vehicles";
 import type { Vehicle } from "./vehicles";
 import { createServiceRecord, listServiceRecords, uploadAttachment } from "./service-records";
 import type { Attachment, ServiceRecord } from "./service-records";
+import {
+  createFuelRecord,
+  listFuelRecords,
+  uploadAttachment as uploadFuelAttachment,
+} from "./fuel-records";
+import type { FuelRecord } from "./fuel-records";
 import { t } from "./i18n/strings";
 import { AppShell } from "./components/AppShell";
 import { AuthScreen } from "./components/AuthScreen";
 import { Garage } from "./components/Garage";
 import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
+import { FuelRecordPanel } from "./components/FuelRecordPanel";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
@@ -36,6 +43,14 @@ export function App() {
   const [attachmentsByRecordId, setAttachmentsByRecordId] = useState<Record<string, Attachment[]>>(
     {},
   );
+  const [fuelRecords, setFuelRecords] = useState<FuelRecord[]>([]);
+  const [fuelDate, setFuelDate] = useState("");
+  const [fuelOdometerReading, setFuelOdometerReading] = useState("");
+  const [fuelVolume, setFuelVolume] = useState("");
+  const [fuelCost, setFuelCost] = useState("");
+  const [fuelAttachmentsByRecordId, setFuelAttachmentsByRecordId] = useState<
+    Record<string, Attachment[]>
+  >({});
 
   // GET /api/v1/auth/magic-link/verify redirects here with ?magicLink=ok/
   // error/linked, and GET /api/v1/auth/oidc/google/callback with
@@ -82,6 +97,16 @@ export function App() {
     );
   }, [selectedVehicleId]);
 
+  useEffect(() => {
+    if (!selectedVehicleId) {
+      setFuelRecords([]);
+      return;
+    }
+    listFuelRecords(selectedVehicleId).then(setFuelRecords).catch(() =>
+      setError(t("genericError"))
+    );
+  }, [selectedVehicleId]);
+
   async function handle<T>(action: () => Promise<T>, onSuccess: (result: T) => void) {
     setError(null);
     try {
@@ -96,6 +121,19 @@ export function App() {
     try {
       const attachment = await uploadAttachment(recordId, file);
       setAttachmentsByRecordId((current) => ({
+        ...current,
+        [recordId]: [...(current[recordId] ?? []), attachment],
+      }));
+    } catch {
+      setError(t("genericError"));
+    }
+  }
+
+  async function handleUploadFuelAttachment(recordId: string, file: File) {
+    setError(null);
+    try {
+      const attachment = await uploadFuelAttachment(recordId, file);
+      setFuelAttachmentsByRecordId((current) => ({
         ...current,
         [recordId]: [...(current[recordId] ?? []), attachment],
       }));
@@ -242,6 +280,46 @@ export function App() {
                 )}
               onUploadAttachment={handleUploadAttachment}
               attachmentsByRecordId={attachmentsByRecordId}
+            />
+
+            <h2
+              style={{
+                font: "600 14px var(--font-ui)",
+                letterSpacing: "-.01em",
+                marginTop: 20,
+              }}
+            >
+              {t("fuelRecordsHeading")}
+            </h2>
+            <FuelRecordPanel
+              records={fuelRecords}
+              fuelDate={fuelDate}
+              onFuelDateChange={setFuelDate}
+              odometerReading={fuelOdometerReading}
+              onOdometerReadingChange={setFuelOdometerReading}
+              volume={fuelVolume}
+              onVolumeChange={setFuelVolume}
+              cost={fuelCost}
+              onCostChange={setFuelCost}
+              onAddRecord={() =>
+                handle(
+                  () =>
+                    createFuelRecord(selectedVehicleId, {
+                      fuelDate,
+                      odometerReading: Number(fuelOdometerReading),
+                      volume: Number(fuelVolume),
+                      cost: Number(fuelCost),
+                    }),
+                  (record) => {
+                    setFuelRecords((current) => [...current, record]);
+                    setFuelDate("");
+                    setFuelOdometerReading("");
+                    setFuelVolume("");
+                    setFuelCost("");
+                  },
+                )}
+              onUploadAttachment={handleUploadFuelAttachment}
+              attachmentsByRecordId={fuelAttachmentsByRecordId}
             />
           </div>
         )}

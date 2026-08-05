@@ -36,6 +36,16 @@ export function ServiceIcon({ size = 20 }: IconProps) {
   );
 }
 
+export function FuelIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M6 20V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v14" />
+      <path d="M4 20h12" />
+      <path d="M14 9.5h2.5a2 2 0 0 1 2 2v4.5a1.75 1.75 0 0 0 3.5 0V8.5L20 6.5" />
+    </svg>
+  );
+}
+
 export function CarIcon({ size = 20 }: IconProps) {
   return (
     <svg width={size} height={size} {...commonProps}>
