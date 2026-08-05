@@ -36,7 +36,7 @@ jobs:
         run: deno task check
 
       - name: build
-        run: deno task build
+        run: deno task build:production
 
       # Idempotent — only applies migrations not already applied, safe to run
       # on every deploy.

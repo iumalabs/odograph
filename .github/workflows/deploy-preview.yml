@@ -40,7 +40,7 @@ jobs:
         run: deno task check
 
       - name: build
-        run: deno task build
+        run: deno task build:preview
 
       # Idempotent — only applies migrations not already applied, safe to run
       # on every deploy. Shared across all open PRs, same as the preview D1
