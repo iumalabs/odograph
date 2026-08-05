@@ -600,7 +600,7 @@ describe("Cron scheduling (User Story 5)", () => {
     // Storage accumulates across tests within this file, so other tests' legitimately-created
     // rules are also swept here — only this test ever inserts a malformed row, so `failed` is
     // exactly 1 regardless of how many other rows have piled up.
-    const result = await evaluateAllReminders(env.DB);
+    const result = await evaluateAllReminders(env);
     expect(result.evaluated).toBeGreaterThanOrEqual(2);
     expect(result.failed).toBe(1);
 
