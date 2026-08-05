@@ -7,6 +7,7 @@ export type ServiceRecord = {
   odometerReading: number | null;
   cost: number | null;
   notes: string | null;
+  duplicateOfId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -88,4 +89,8 @@ export async function uploadAttachment(serviceRecordId: string, file: File): Pro
 
 export function attachmentDownloadUrl(serviceRecordId: string, attachmentId: string): string {
   return `/api/v1/service-records/${serviceRecordId}/attachments/${attachmentId}`;
+}
+
+export function dismissDuplicate(id: string): Promise<ServiceRecord> {
+  return jsonFetch(`/api/v1/service-records/${id}/dismiss-duplicate`, { method: "POST" });
 }

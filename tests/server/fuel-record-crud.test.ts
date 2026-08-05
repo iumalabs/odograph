@@ -1,5 +1,5 @@
 import { env, SELF } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { buildFixtureJpeg, GPS_MARKER } from "./fixtures/jpeg";
 import { attachmentKey } from "../../src/server/attachments/storage";
 
@@ -103,6 +103,13 @@ function downloadAttachment(
     `https://example.com/api/v1/fuel-records/${fuelRecordId}/attachments/${attachmentId}`,
     { headers: { Cookie: cookie } },
   );
+}
+
+function dismissDuplicate(cookie: string, id: string): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/fuel-records/${id}/dismiss-duplicate`, {
+    method: "POST",
+    headers: { Cookie: cookie },
+  });
 }
 
 async function createFuelRecordId(
@@ -605,5 +612,224 @@ describe("vehicle deletion cleans up both fuel and service record R2 attachments
 
     expect(await env.ATTACHMENTS.get(fuelKey)).toBeNull();
     expect(await env.ATTACHMENTS.get(serviceKey)).toBeNull();
+  });
+});
+
+describe("fuel record semantic duplicate detection & resolution (constitution D-005)", () => {
+  // Rate-limited session creation (30/window/IP — src/server/auth/rate-limit.ts) is shared across
+  // every request in this file's single execution window, so these tests share one session
+  // wherever tenant isolation isn't the thing being tested, and use a fresh vehicle per test
+  // (cheap, unlimited) to avoid cross-test duplicate-detection pollution.
+  let sharedCookie: string;
+
+  beforeAll(async () => {
+    sharedCookie = (await createSession()).cookie;
+  });
+
+  it("flags a same-date, near-odometer second record as a possible duplicate, without touching the original", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+
+    const first = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    })).json()) as { id: string; duplicateOfId: string | null };
+    expect(first.duplicateOfId).toBeNull();
+
+    const second = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1003,
+      volume: 38,
+      cost: 57,
+    })).json()) as { duplicateOfId: string | null };
+    expect(second.duplicateOfId).toBe(first.id);
+
+    // The original is untouched — still present, still fetchable, still unflagged (FR-004).
+    const refetchedFirst = (await (await getFuelRecord(sharedCookie, first.id)).json()) as {
+      odometerReading: number;
+      volume: number;
+      cost: number;
+      duplicateOfId: string | null;
+    };
+    expect(refetchedFirst).toMatchObject({ odometerReading: 1000, volume: 40, cost: 60 });
+    expect(refetchedFirst.duplicateOfId).toBeNull();
+  });
+
+  it("does not flag a meaningfully different second record", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    });
+
+    const differentDate = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-15",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    })).json()) as { duplicateOfId: string | null };
+    expect(differentDate.duplicateOfId).toBeNull();
+
+    const differentOdometer = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1200,
+      volume: 40,
+      cost: 60,
+    })).json()) as { duplicateOfId: string | null };
+    expect(differentOdometer.duplicateOfId).toBeNull();
+  });
+
+  it("never compares across tenants or across different vehicles", async () => {
+    const other = await createSession();
+    const ownVehicle = await createVehicleId(sharedCookie);
+    const otherVehicle = await createVehicleId(other.cookie);
+    const secondOwnVehicle = await createVehicleId(sharedCookie);
+
+    await createFuelRecord(sharedCookie, ownVehicle, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    });
+
+    const crossTenant = (await (await createFuelRecord(other.cookie, otherVehicle, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    })).json()) as { duplicateOfId: string | null };
+    expect(crossTenant.duplicateOfId).toBeNull();
+
+    const differentVehicle = (await (await createFuelRecord(sharedCookie, secondOwnVehicle, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    })).json()) as { duplicateOfId: string | null };
+    expect(differentVehicle.duplicateOfId).toBeNull();
+  });
+
+  it("excludes a flagged duplicate from the fuel-economy calculation entirely (Principle II)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+
+    const a = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    })).json()) as { id: string };
+
+    const b = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1003,
+      volume: 38,
+      cost: 57,
+    })).json()) as { id: string; duplicateOfId: string | null; fuelEconomy: number | null };
+    expect(b.duplicateOfId).toBe(a.id);
+    expect(b.fuelEconomy).toBeNull();
+
+    const c = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-02-01",
+      odometerReading: 1500,
+      volume: 40,
+      cost: 60,
+    })).json()) as { fuelEconomy: number | null };
+    // 500km (1500-1000, skipping B entirely) / 40L = 8 L/100km
+    expect(c.fuelEconomy).toBeCloseTo(8, 5);
+  });
+
+  it("dismissing a flag clears it and lets the record participate normally in economy calculations again", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    });
+    const b = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1003,
+      volume: 38,
+      cost: 57,
+    })).json()) as { id: string };
+    const c = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-02-01",
+      odometerReading: 1500,
+      volume: 40,
+      cost: 60,
+    })).json()) as { id: string; fuelEconomy: number };
+    expect(c.fuelEconomy).toBeCloseTo(8, 5); // computed from A, skipping flagged B
+
+    const dismissRes = await dismissDuplicate(sharedCookie, b.id);
+    expect(dismissRes.status).toBe(200);
+    const dismissed = (await dismissRes.json()) as { duplicateOfId: string | null };
+    expect(dismissed.duplicateOfId).toBeNull();
+
+    // C now recomputes against B (the closer, now-unflagged record), not A: 40L / (497km/100) ≈
+    // 8.048 L/100km, close to but distinct from the pre-dismiss figure computed against A (8.0).
+    const refetchedC = (await (await getFuelRecord(sharedCookie, c.id)).json()) as {
+      fuelEconomy: number;
+    };
+    expect(refetchedC.fuelEconomy).toBeCloseTo(8.0483, 3);
+    expect(Math.abs(refetchedC.fuelEconomy - c.fuelEconomy)).toBeGreaterThan(0.01);
+  });
+
+  it("refuses to dismiss an already-unflagged record, a made-up id, or a different tenant's record", async () => {
+    const other = await createSession();
+    const vehicleId = await createVehicleId(sharedCookie);
+    const unflagged = await createFuelRecordId(sharedCookie, vehicleId);
+
+    const notFlagged = await dismissDuplicate(sharedCookie, unflagged);
+    expect(notFlagged.status).toBe(404);
+
+    const madeUp = await dismissDuplicate(sharedCookie, crypto.randomUUID());
+    expect(madeUp.status).toBe(404);
+
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-03-01",
+      odometerReading: 2000,
+      volume: 40,
+      cost: 60,
+    });
+    const b = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-03-01",
+      odometerReading: 2003,
+      volume: 38,
+      cost: 57,
+    })).json()) as { id: string };
+
+    const crossTenant = await dismissDuplicate(other.cookie, b.id);
+    expect(crossTenant.status).toBe(404);
+  });
+
+  it("deleting the original record of a still-flagged pair clears the flag on the remaining record", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+
+    const original = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    })).json()) as { id: string };
+    const flagged = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1003,
+      volume: 38,
+      cost: 57,
+    })).json()) as { id: string; duplicateOfId: string | null };
+    expect(flagged.duplicateOfId).toBe(original.id);
+
+    const del = await deleteFuelRecordReq(sharedCookie, original.id);
+    expect(del.status).toBe(204);
+
+    const refetchedFlagged = (await (await getFuelRecord(sharedCookie, flagged.id)).json()) as {
+      duplicateOfId: string | null;
+    };
+    expect(refetchedFlagged.duplicateOfId).toBeNull();
   });
 });

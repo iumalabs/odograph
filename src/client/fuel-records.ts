@@ -9,6 +9,7 @@ export type FuelRecord = {
   station: string | null;
   notes: string | null;
   fuelEconomy: number | null;
+  duplicateOfId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -91,4 +92,8 @@ export async function uploadAttachment(fuelRecordId: string, file: File): Promis
 
 export function attachmentDownloadUrl(fuelRecordId: string, attachmentId: string): string {
   return `/api/v1/fuel-records/${fuelRecordId}/attachments/${attachmentId}`;
+}
+
+export function dismissDuplicate(id: string): Promise<FuelRecord> {
+  return jsonFetch(`/api/v1/fuel-records/${id}/dismiss-duplicate`, { method: "POST" });
 }

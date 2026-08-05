@@ -107,6 +107,10 @@ CREATE TABLE vehicles (
 -- from vehicles) and why R2 attachment objects are never cleaned up by this cascade — every
 -- deletion code path must explicitly delete the matching R2 objects itself.
 
+-- duplicate_of_id: see specs/010-semantic-duplicate-detection/data-model.md (constitution D-005)
+-- — self-referencing, ON DELETE SET NULL so deleting the referenced record never blocks or
+-- cascades into deleting the record that flagged it.
+
 CREATE TABLE service_records (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
@@ -116,12 +120,14 @@ CREATE TABLE service_records (
   odometer_reading INTEGER,
   cost REAL,
   notes TEXT,
+  duplicate_of_id TEXT REFERENCES service_records (id) ON DELETE SET NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 
 CREATE INDEX idx_service_records_vehicle_id ON service_records (vehicle_id);
 CREATE INDEX idx_service_records_tenant_id ON service_records (tenant_id);
+CREATE INDEX idx_service_records_duplicate_of_id ON service_records (duplicate_of_id);
 
 CREATE TABLE service_record_attachments (
   id TEXT PRIMARY KEY,
@@ -140,6 +146,8 @@ CREATE INDEX idx_service_record_attachments_service_record_id
 -- service_records above) and why fuel_economy is not a column here — it's computed at read time
 -- from odometer deltas between a vehicle's fuel records, never stored (constitution Principle II).
 
+-- duplicate_of_id: see specs/010-semantic-duplicate-detection/data-model.md (constitution D-005).
+
 CREATE TABLE fuel_records (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
@@ -150,12 +158,14 @@ CREATE TABLE fuel_records (
   cost REAL NOT NULL,
   station TEXT,
   notes TEXT,
+  duplicate_of_id TEXT REFERENCES fuel_records (id) ON DELETE SET NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 
 CREATE INDEX idx_fuel_records_vehicle_id ON fuel_records (vehicle_id);
 CREATE INDEX idx_fuel_records_tenant_id ON fuel_records (tenant_id);
+CREATE INDEX idx_fuel_records_duplicate_of_id ON fuel_records (duplicate_of_id);
 
 CREATE TABLE fuel_record_attachments (
   id TEXT PRIMARY KEY,
