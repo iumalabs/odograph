@@ -30,6 +30,6 @@ export default {
   // The daily sweep (wrangler.toml's [triggers]) — the only entry point in this codebase
   // reaching evaluateAllReminders, which deliberately has no per-request TenantContext.
   scheduled: async (_controller: ScheduledController, env: Env, _ctx: ExecutionContext) => {
-    await evaluateAllReminders(env.DB);
+    await evaluateAllReminders(env);
   },
 } satisfies ExportedHandler<Env>;

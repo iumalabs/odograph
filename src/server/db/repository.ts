@@ -3,6 +3,8 @@
 // through a TenantContext produced by the session middleware, never a bare
 // id, and reaches D1 only by calling functions exported from here.
 
+import { sendReminderDueEmail } from "../email/reminder-notification";
+
 export type TenantContext = {
   tenantId: string;
   userId: string;
@@ -1442,6 +1444,7 @@ export type ReminderRule = {
   lastDoneOdometer: number | null;
   cachedStatus: ReminderStatus | null;
   lastEvaluatedAt: string | null;
+  lastNotifiedSeverity: "coming_up" | "overdue" | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -1465,7 +1468,7 @@ export type ReminderStatusResult = {
 export type ReminderRuleWithStatus = ReminderRule & ReminderStatusResult;
 
 const REMINDER_RULE_COLUMNS =
-  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, label, interval_days AS intervalDays, interval_distance AS intervalDistance, last_done_date AS lastDoneDate, last_done_odometer AS lastDoneOdometer, cached_status AS cachedStatus, last_evaluated_at AS lastEvaluatedAt, created_at AS createdAt, updated_at AS updatedAt";
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, label, interval_days AS intervalDays, interval_distance AS intervalDistance, last_done_date AS lastDoneDate, last_done_odometer AS lastDoneOdometer, cached_status AS cachedStatus, last_evaluated_at AS lastEvaluatedAt, last_notified_severity AS lastNotifiedSeverity, created_at AS createdAt, updated_at AS updatedAt";
 
 const REMINDER_COMING_UP_THRESHOLD = 0.1; // last 10% of the interval remaining (research.md)
 
@@ -1605,6 +1608,7 @@ export async function createReminderRule(
     lastDoneOdometer: input.lastDoneOdometer,
     cachedStatus: null,
     lastEvaluatedAt: null,
+    lastNotifiedSeverity: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -1749,14 +1753,54 @@ export async function deleteReminderRule(
 }
 
 /**
+ * Matches the placeholder domain src/server/routes/v1/auth/passkey.ts generates when a passkey
+ * registration supplies no email (`${uuid}@example.invalid`) — a syntactically valid but
+ * non-deliverable address (spec 012 research.md Decision 3).
+ */
+export function isPlaceholderEmail(email: string): boolean {
+  return email.endsWith("@example.invalid");
+}
+
+/**
+ * Resolves the email to notify for a tenant, or null if none is deliverable (spec 012 research.md
+ * Decision 3): users.email is set once at account bootstrap and never updated afterward, even when
+ * a real magic-link identity is later linked to a passkey-only account — so a placeholder
+ * users.email doesn't necessarily mean the tenant has no real address, only that the real one (if
+ * any) lives in magic_link_identities instead.
+ */
+export async function findDeliverableReminderRecipient(
+  db: D1Database,
+  tenantId: string,
+): Promise<string | null> {
+  const user = await db
+    .prepare("SELECT id, email FROM users WHERE tenant_id = ?")
+    .bind(tenantId)
+    .first<{ id: string; email: string }>();
+  if (!user) return null;
+  if (!isPlaceholderEmail(user.email)) return user.email;
+
+  const linked = await db
+    .prepare("SELECT email FROM magic_link_identities WHERE user_id = ?")
+    .bind(user.id)
+    .first<{ email: string }>();
+  return linked?.email ?? null;
+}
+
+/**
  * The Cron-triggered sweep (research.md decision 3) — deliberately takes no TenantContext,
  * unlike every other function in this file, since it must evaluate every tenant's rules in one
  * run (data-model.md's documented cross-tenant exception). Persists cached_status/last_evaluated_at
  * per row; a single row's failure is isolated so the rest of the sweep still completes (FR-011).
+ *
+ * Also drives spec 012's email side effect: on_track clears last_notified_severity; a
+ * coming_up/overdue status more severe than what was already notified triggers one email attempt,
+ * advancing last_notified_severity only on a successful send (spec 012 data-model.md) — never on a
+ * skip (no deliverable recipient) or a send failure, so both retry naturally on the next sweep.
  */
 export async function evaluateAllReminders(
-  db: D1Database,
-): Promise<{ evaluated: number; failed: number }> {
+  env: Env,
+): Promise<{ evaluated: number; failed: number; notified: number }> {
+  const db = env.DB;
   const { results } = await db
     .prepare(`SELECT ${REMINDER_RULE_COLUMNS} FROM reminder_rules`)
     .all<ReminderRule>();
@@ -1764,6 +1808,7 @@ export async function evaluateAllReminders(
   const now = new Date();
   let evaluated = 0;
   let failed = 0;
+  let notified = 0;
 
   for (const rule of results) {
     try {
@@ -1776,10 +1821,45 @@ export async function evaluateAllReminders(
         .bind(status, now.toISOString(), rule.id)
         .run();
       evaluated++;
+
+      if (status === "on_track") {
+        if (rule.lastNotifiedSeverity !== null) {
+          await db
+            .prepare("UPDATE reminder_rules SET last_notified_severity = NULL WHERE id = ?")
+            .bind(rule.id)
+            .run();
+        }
+      } else if (status === "coming_up" || status === "overdue") {
+        const notifiedSeverity = REMINDER_URGENCY[rule.lastNotifiedSeverity ?? "on_track"];
+        if (REMINDER_URGENCY[status] > notifiedSeverity) {
+          const recipient = await findDeliverableReminderRecipient(db, rule.tenantId);
+          if (recipient !== null) {
+            const vehicle = await db
+              .prepare("SELECT name FROM vehicles WHERE id = ?")
+              .bind(rule.vehicleId)
+              .first<{ name: string }>();
+            const result = await sendReminderDueEmail(env, {
+              to: recipient,
+              vehicleName: vehicle?.name ?? "your vehicle",
+              ruleLabel: rule.label,
+              status,
+            });
+            if (result.sent) {
+              await db
+                .prepare("UPDATE reminder_rules SET last_notified_severity = ? WHERE id = ?")
+                .bind(status, rule.id)
+                .run();
+              notified++;
+            } else {
+              failed++;
+            }
+          }
+        }
+      }
     } catch {
       failed++;
     }
   }
 
-  return { evaluated, failed };
+  return { evaluated, failed, notified };
 }
