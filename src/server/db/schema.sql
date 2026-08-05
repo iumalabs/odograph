@@ -179,3 +179,26 @@ CREATE TABLE fuel_record_attachments (
 
 CREATE INDEX idx_fuel_record_attachments_fuel_record_id
   ON fuel_record_attachments (fuel_record_id);
+
+-- See specs/011-reminder-rules-cron/data-model.md. cached_status/last_evaluated_at are written
+-- only by the Cron-triggered sweep (evaluateAllReminders) and never read by this feature's own
+-- API responses, which always recompute status fresh (constitution Principle II).
+
+CREATE TABLE reminder_rules (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+  vehicle_id TEXT NOT NULL REFERENCES vehicles (id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  interval_days INTEGER,
+  interval_distance INTEGER,
+  last_done_date TEXT,
+  last_done_odometer INTEGER,
+  cached_status TEXT,
+  last_evaluated_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (interval_days IS NOT NULL OR interval_distance IS NOT NULL)
+);
+
+CREATE INDEX idx_reminder_rules_vehicle_id ON reminder_rules (vehicle_id);
+CREATE INDEX idx_reminder_rules_tenant_id ON reminder_rules (tenant_id);

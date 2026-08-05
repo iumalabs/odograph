@@ -20,12 +20,20 @@ import {
   uploadAttachment as uploadFuelAttachment,
 } from "./fuel-records";
 import type { FuelRecord } from "./fuel-records";
+import {
+  createReminderRule,
+  deleteReminderRule,
+  listReminderRules,
+  markDone as markReminderDone,
+} from "./reminder-rules";
+import type { ReminderRule } from "./reminder-rules";
 import { t } from "./i18n/strings";
 import { AppShell } from "./components/AppShell";
 import { AuthScreen } from "./components/AuthScreen";
 import { Garage } from "./components/Garage";
 import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
 import { FuelRecordPanel } from "./components/FuelRecordPanel";
+import { ReminderRulePanel } from "./components/ReminderRulePanel";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
@@ -57,6 +65,12 @@ export function App() {
   const [fuelAttachmentsByRecordId, setFuelAttachmentsByRecordId] = useState<
     Record<string, Attachment[]>
   >({});
+  const [reminderRules, setReminderRules] = useState<ReminderRule[]>([]);
+  const [reminderLabel, setReminderLabel] = useState("");
+  const [reminderIntervalDays, setReminderIntervalDays] = useState("");
+  const [reminderIntervalDistance, setReminderIntervalDistance] = useState("");
+  const [reminderLastDoneDate, setReminderLastDoneDate] = useState("");
+  const [reminderLastDoneOdometer, setReminderLastDoneOdometer] = useState("");
 
   // GET /api/v1/auth/magic-link/verify redirects here with ?magicLink=ok/
   // error/linked, and GET /api/v1/auth/oidc/google/callback with
@@ -113,6 +127,16 @@ export function App() {
     );
   }, [selectedVehicleId]);
 
+  useEffect(() => {
+    if (!selectedVehicleId) {
+      setReminderRules([]);
+      return;
+    }
+    listReminderRules(selectedVehicleId).then(setReminderRules).catch(() =>
+      setError(t("genericError"))
+    );
+  }, [selectedVehicleId]);
+
   async function handle<T>(action: () => Promise<T>, onSuccess: (result: T) => void) {
     setError(null);
     try {
@@ -162,6 +186,24 @@ export function App() {
       () => dismissFuelDuplicate(recordId),
       (updated) => {
         setFuelRecords((current) => current.map((r) => r.id === updated.id ? updated : r));
+      },
+    );
+  }
+
+  function handleMarkReminderDone(ruleId: string) {
+    handle(
+      () => markReminderDone(ruleId),
+      (updated) => {
+        setReminderRules((current) => current.map((r) => r.id === updated.id ? updated : r));
+      },
+    );
+  }
+
+  function handleDeleteReminderRule(ruleId: string) {
+    handle(
+      () => deleteReminderRule(ruleId),
+      () => {
+        setReminderRules((current) => current.filter((r) => r.id !== ruleId));
       },
     );
   }
@@ -346,6 +388,58 @@ export function App() {
               onUploadAttachment={handleUploadFuelAttachment}
               attachmentsByRecordId={fuelAttachmentsByRecordId}
               onDismissDuplicate={handleDismissFuelDuplicate}
+            />
+
+            <h2
+              style={{
+                font: "600 14px var(--font-ui)",
+                letterSpacing: "-.01em",
+                marginTop: 20,
+              }}
+            >
+              {t("reminderRulesHeading")}
+            </h2>
+            <ReminderRulePanel
+              rules={reminderRules}
+              label={reminderLabel}
+              onLabelChange={setReminderLabel}
+              intervalDays={reminderIntervalDays}
+              onIntervalDaysChange={setReminderIntervalDays}
+              intervalDistance={reminderIntervalDistance}
+              onIntervalDistanceChange={setReminderIntervalDistance}
+              lastDoneDate={reminderLastDoneDate}
+              onLastDoneDateChange={setReminderLastDoneDate}
+              lastDoneOdometer={reminderLastDoneOdometer}
+              onLastDoneOdometerChange={setReminderLastDoneOdometer}
+              onAddRule={() =>
+                handle(
+                  () =>
+                    createReminderRule(selectedVehicleId, {
+                      label: reminderLabel,
+                      ...(reminderIntervalDays !== ""
+                        ? { intervalDays: Number(reminderIntervalDays) }
+                        : {}),
+                      ...(reminderIntervalDistance !== ""
+                        ? { intervalDistance: Number(reminderIntervalDistance) }
+                        : {}),
+                      ...(reminderLastDoneDate !== ""
+                        ? { lastDoneDate: reminderLastDoneDate }
+                        : {}),
+                      ...(reminderLastDoneOdometer !== ""
+                        ? { lastDoneOdometer: Number(reminderLastDoneOdometer) }
+                        : {}),
+                    }),
+                  (rule) => {
+                    setReminderRules((current) => [...current, rule]);
+                    setReminderLabel("");
+                    setReminderIntervalDays("");
+                    setReminderIntervalDistance("");
+                    setReminderLastDoneDate("");
+                    setReminderLastDoneOdometer("");
+                  },
+                )}
+              onMarkDone={handleMarkReminderDone}
+              onDeleteRule={handleDeleteReminderRule}
             />
           </div>
         )}

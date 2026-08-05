@@ -94,3 +94,13 @@ export function CloseIcon({ size = 20 }: IconProps) {
     </svg>
   );
 }
+
+// Not in the mockup's icon sheet — hand-rolled to the same spec (see CloseIcon).
+export function BellIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.75 2.5H4.25z" />
+      <path d="M10 20.5a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}

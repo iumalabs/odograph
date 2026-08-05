@@ -1,19 +1,27 @@
 import { Hono } from "hono";
 import {
   createFuelRecord,
+  createReminderRule,
   createServiceRecord,
   createVehicle,
   deleteVehicle,
   findFuelRecordById,
+  findReminderRuleById,
   findVehicleById,
   listAttachmentKeysForVehicle,
   listAttachmentKeysForVehicleFuelRecords,
   listFuelRecordsWithEconomy,
+  listReminderRulesWithStatus,
   listServiceRecords,
   listVehicles,
   updateVehicle,
 } from "../../db/repository";
-import type { FuelRecordInput, ServiceRecordInput, VehicleInput } from "../../db/repository";
+import type {
+  FuelRecordInput,
+  ReminderRuleInput,
+  ServiceRecordInput,
+  VehicleInput,
+} from "../../db/repository";
 import { deleteAttachments } from "../../attachments/storage";
 import { rateLimitBySession } from "../../auth/rate-limit";
 import { tenantContext } from "../../middleware/tenant-context";
@@ -245,4 +253,62 @@ vehicles.get("/:vehicleId/fuel-records", async (c) => {
 
   const results = await listFuelRecordsWithEconomy(c.env.DB, tenant, vehicleId);
   return c.json({ fuelRecords: results });
+});
+
+type ReminderRuleBody = {
+  label?: unknown;
+  intervalDays?: unknown;
+  intervalDistance?: unknown;
+  lastDoneDate?: unknown;
+  lastDoneOdometer?: unknown;
+};
+
+function validateReminderRuleCreate(body: ReminderRuleBody): ReminderRuleInput | null {
+  if (typeof body.label !== "string" || body.label.length === 0) return null;
+
+  const hasIntervalDays = body.intervalDays !== undefined;
+  const hasIntervalDistance = body.intervalDistance !== undefined;
+  if (!hasIntervalDays && !hasIntervalDistance) return null;
+  if (hasIntervalDays && typeof body.intervalDays !== "number") return null;
+  if (hasIntervalDistance && typeof body.intervalDistance !== "number") return null;
+
+  if (hasIntervalDays && typeof body.lastDoneDate !== "string") return null;
+  if (hasIntervalDistance && typeof body.lastDoneOdometer !== "number") return null;
+
+  return {
+    label: body.label,
+    intervalDays: typeof body.intervalDays === "number" ? body.intervalDays : null,
+    intervalDistance: typeof body.intervalDistance === "number" ? body.intervalDistance : null,
+    lastDoneDate: typeof body.lastDoneDate === "string" ? body.lastDoneDate : null,
+    lastDoneOdometer: typeof body.lastDoneOdometer === "number" ? body.lastDoneOdometer : null,
+  };
+}
+
+vehicles.post("/:vehicleId/reminder-rules", rateLimitBySession, async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const body = await c.req.json().catch(() => ({}) as ReminderRuleBody);
+  const input = validateReminderRuleCreate(body);
+  if (!input) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+
+  const rule = await createReminderRule(c.env.DB, tenant, vehicleId, input);
+  const withStatus = await findReminderRuleById(c.env.DB, tenant, rule.id);
+  return c.json(withStatus, 201);
+});
+
+vehicles.get("/:vehicleId/reminder-rules", async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const results = await listReminderRulesWithStatus(c.env.DB, tenant, vehicleId);
+  return c.json({ reminderRules: results });
 });

@@ -9,6 +9,13 @@ not_found_handling = "single-page-application"
 [observability]
 enabled = true
 
+# Once daily — every reminder interval this feature supports is measured in days/weeks/months,
+# never minutes/hours, so this keeps a reminder never more than about a day stale between
+# scheduled checks without invoking the Worker far more often than that could ever need (see
+# specs/011-reminder-rules-cron/research.md).
+[triggers]
+crons = ["0 8 * * *"]
+
 [vars]
 ENVIRONMENT = "development"
 
@@ -46,6 +53,9 @@ name = "odograph-preview"
 [env.preview.observability]
 enabled = true
 
+[env.preview.triggers]
+crons = ["0 8 * * *"]
+
 [env.preview.vars]
 ENVIRONMENT = "preview"
 
@@ -72,6 +82,9 @@ routes = [{ pattern = "odograph.dev/*", custom_domain = true }]
 
 [env.production.observability]
 enabled = true
+
+[env.production.triggers]
+crons = ["0 8 * * *"]
 
 [env.production.vars]
 ENVIRONMENT = "production"
