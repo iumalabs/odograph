@@ -219,17 +219,17 @@ every in-scope screen, including the signed-out `AuthScreen` (which has no `AppS
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T026 [P] Responsive pass: at a 375px-wide viewport, confirm no horizontal page scroll and
+- [X] T026 [P] Responsive pass: at a 375px-wide viewport, confirm no horizontal page scroll and
       every control from Phases 3-6 remains reachable — adjust `Garage.tsx`'s and
       `ServiceRecordPanel.tsx`'s grid/flex layouts to collapse to a single column below a
       reasonable breakpoint (FR-007/SC-004/Edge Cases)
-- [ ] T027 [P] Font-fallback check: block the `@fontsource` CSS/font requests in devtools, reload,
+- [X] T027 [P] Font-fallback check: block the `@fontsource` CSS/font requests in devtools, reload,
       and confirm all text remains legible via the `--font-ui`/`--font-mono` system-font fallback
       stacks defined in T003 (FR-010)
-- [ ] T028 Run `deno task check` (fmt, lint, typecheck, full existing test suite, repository-
+- [X] T028 Run `deno task check` (fmt, lint, typecheck, full existing test suite, repository-
       boundary guard) and fix any failures — expect zero server-side or data-client file changes,
       so the existing suite should pass unchanged (FR-003/SC-002)
-- [ ] T029 Walk `quickstart.md` end-to-end against `deno task dev` in a real browser, all 7
+- [X] T029 Walk `quickstart.md` end-to-end against `deno task dev` in a real browser, all 7
       sections, confirming SC-001 through SC-004
 
 ## Dependencies
