@@ -12,18 +12,18 @@ scope — this feature only establishes computed/cached status for those to buil
 
 ## Phase 1: Setup
 
-- [ ] T001 Create D1 migration `migrations/0010_reminder_rules.sql`: `reminder_rules` per
+- [X] T001 Create D1 migration `migrations/0010_reminder_rules.sql`: `reminder_rules` per
       data-model.md, including the `CHECK (interval_days IS NOT NULL OR interval_distance IS NOT
       NULL)` table constraint (FR-002) and both indexes
-- [ ] T002 [P] Add `[triggers]` sections with `crons = ["0 8 * * *"]` (research.md — once daily,
+- [X] T002 [P] Add `[triggers]` sections with `crons = ["0 8 * * *"]` (research.md — once daily,
       08:00 UTC) to `wrangler.toml`'s default, `[env.preview]`, and `[env.production]` sections
 
 ## Phase 2: Foundational (blocking prerequisites)
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T003 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
-- [ ] T004 In `src/server/db/repository.ts`: `ReminderRule`/`ReminderRuleInput` types,
+- [X] T003 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
+- [X] T004 In `src/server/db/repository.ts`: `ReminderRule`/`ReminderRuleInput` types,
       `ReminderStatus` union type, `getVehicleCurrentOdometer(db, ctx, vehicleId)` (the `MAX()`-
       over-`UNION` query from research.md, `null` if no fuel/service records exist yet), and
       `computeReminderStatus(rule, currentOdometer, now)` — a pure function (no D1 access) per

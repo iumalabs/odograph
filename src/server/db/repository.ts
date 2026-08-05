@@ -1426,3 +1426,226 @@ export async function listAttachmentsForFuelRecord(
     .all<FuelAttachment>();
   return results;
 }
+
+// --- Reminder rules --------------------------------------------------------
+
+export type ReminderStatus = "on_track" | "coming_up" | "overdue" | "not_enough_data";
+
+export type ReminderRule = {
+  id: string;
+  tenantId: string;
+  vehicleId: string;
+  label: string;
+  intervalDays: number | null;
+  intervalDistance: number | null;
+  lastDoneDate: string | null;
+  lastDoneOdometer: number | null;
+  cachedStatus: ReminderStatus | null;
+  lastEvaluatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ReminderRuleInput = {
+  label: string;
+  intervalDays: number | null;
+  intervalDistance: number | null;
+  lastDoneDate: string | null;
+  lastDoneOdometer: number | null;
+};
+
+export type ReminderStatusResult = {
+  status: ReminderStatus;
+  byDate: ReminderStatus | null;
+  byMileage: ReminderStatus | null;
+  dueDate: string | null;
+  dueOdometer: number | null;
+};
+
+export type ReminderRuleWithStatus = ReminderRule & ReminderStatusResult;
+
+const REMINDER_RULE_COLUMNS =
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, label, interval_days AS intervalDays, interval_distance AS intervalDistance, last_done_date AS lastDoneDate, last_done_odometer AS lastDoneOdometer, cached_status AS cachedStatus, last_evaluated_at AS lastEvaluatedAt, created_at AS createdAt, updated_at AS updatedAt";
+
+const REMINDER_COMING_UP_THRESHOLD = 0.1; // last 10% of the interval remaining (research.md)
+
+const REMINDER_URGENCY: Record<"on_track" | "coming_up" | "overdue", number> = {
+  on_track: 0,
+  coming_up: 1,
+  overdue: 2,
+};
+
+function classifyRemainingFraction(
+  remainingFraction: number,
+): "on_track" | "coming_up" | "overdue" {
+  if (remainingFraction < 0) return "overdue";
+  if (remainingFraction <= REMINDER_COMING_UP_THRESHOLD) return "coming_up";
+  return "on_track";
+}
+
+/**
+ * Pure function, no D1 access (data-model.md) — the four-state logic (research.md's
+ * proportional-remaining threshold) is directly unit-testable. `currentOdometer` is null when the
+ * vehicle has no fuel/service records yet; a mileage side with no odometer data always reports
+ * "not_enough_data", never a guessed status (constitution Principle IV).
+ */
+export function computeReminderStatus(
+  rule: ReminderRule,
+  currentOdometer: number | null,
+  now: Date,
+): ReminderStatusResult {
+  let byDate: ReminderStatus | null = null;
+  let dueDate: string | null = null;
+  if (rule.intervalDays !== null && rule.lastDoneDate !== null) {
+    const lastDoneMs = Date.parse(rule.lastDoneDate);
+    const dueMs = lastDoneMs + rule.intervalDays * 86_400_000;
+    dueDate = new Date(dueMs).toISOString().slice(0, 10);
+    const remainingDays = (dueMs - now.getTime()) / 86_400_000;
+    byDate = classifyRemainingFraction(remainingDays / rule.intervalDays);
+  }
+
+  let byMileage: ReminderStatus | null = null;
+  let dueOdometer: number | null = null;
+  if (rule.intervalDistance !== null) {
+    if (rule.lastDoneOdometer !== null && currentOdometer !== null) {
+      dueOdometer = rule.lastDoneOdometer + rule.intervalDistance;
+      const remainingDistance = dueOdometer - currentOdometer;
+      byMileage = classifyRemainingFraction(remainingDistance / rule.intervalDistance);
+    } else {
+      byMileage = "not_enough_data";
+    }
+  }
+
+  let status: ReminderStatus;
+  if (byDate !== null && byMileage !== null && byMileage !== "not_enough_data") {
+    // Both sides computable — the more urgent one wins ("whichever comes first", FR-006).
+    status = REMINDER_URGENCY[byDate as "on_track" | "coming_up" | "overdue"] >=
+        REMINDER_URGENCY[byMileage as "on_track" | "coming_up" | "overdue"]
+      ? byDate
+      : byMileage;
+  } else if (byDate !== null) {
+    // Either mileage-side data is missing (ignored per FR-007) or there's no mileage interval.
+    status = byDate;
+  } else {
+    status = byMileage ?? "not_enough_data";
+  }
+
+  return { status, byDate, byMileage, dueDate, dueOdometer };
+}
+
+/**
+ * The MAX()-over-UNION query from research.md — a vehicle's current known odometer reading is the
+ * highest reading among all of its fuel and service records combined (service records'
+ * odometer_reading is nullable; only non-null rows count). Null if neither table has a row yet.
+ * Not tenant-context-scoped at this level so the scheduled sweep (which has no TenantContext) can
+ * reuse it directly; `getVehicleCurrentOdometer` below is the normal tenant-scoped entry point.
+ */
+async function currentOdometerQuery(
+  db: D1Database,
+  tenantId: string,
+  vehicleId: string,
+): Promise<number | null> {
+  const row = await db
+    .prepare(
+      `SELECT MAX(odometer_reading) AS maxOdometer FROM (
+         SELECT odometer_reading FROM fuel_records WHERE vehicle_id = ? AND tenant_id = ?
+         UNION ALL
+         SELECT odometer_reading FROM service_records
+         WHERE vehicle_id = ? AND tenant_id = ? AND odometer_reading IS NOT NULL
+       )`,
+    )
+    .bind(vehicleId, tenantId, vehicleId, tenantId)
+    .first<{ maxOdometer: number | null }>();
+  return row?.maxOdometer ?? null;
+}
+
+export function getVehicleCurrentOdometer(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<number | null> {
+  return currentOdometerQuery(db, ctx.tenantId, vehicleId);
+}
+
+export async function createReminderRule(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+  input: ReminderRuleInput,
+): Promise<ReminderRule> {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO reminder_rules
+       (id, tenant_id, vehicle_id, label, interval_days, interval_distance, last_done_date, last_done_odometer, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      id,
+      ctx.tenantId,
+      vehicleId,
+      input.label,
+      input.intervalDays,
+      input.intervalDistance,
+      input.lastDoneDate,
+      input.lastDoneOdometer,
+      now,
+      now,
+    )
+    .run();
+  return {
+    id,
+    tenantId: ctx.tenantId,
+    vehicleId,
+    label: input.label,
+    intervalDays: input.intervalDays,
+    intervalDistance: input.intervalDistance,
+    lastDoneDate: input.lastDoneDate,
+    lastDoneOdometer: input.lastDoneOdometer,
+    cachedStatus: null,
+    lastEvaluatedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Fetches the vehicle's rules and its current odometer reading once, then maps
+ * computeReminderStatus over each rule — avoids an N+1 odometer lookup per rule.
+ */
+export async function listReminderRulesWithStatus(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<ReminderRuleWithStatus[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${REMINDER_RULE_COLUMNS} FROM reminder_rules
+       WHERE vehicle_id = ? AND tenant_id = ? ORDER BY created_at`,
+    )
+    .bind(vehicleId, ctx.tenantId)
+    .all<ReminderRule>();
+
+  const currentOdometer = await currentOdometerQuery(db, ctx.tenantId, vehicleId);
+  const now = new Date();
+  return results.map((rule) => ({ ...rule, ...computeReminderStatus(rule, currentOdometer, now) }));
+}
+
+/**
+ * Same not-found-or-not-yours contract as findFuelRecordById (FR-003).
+ */
+export async function findReminderRuleById(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<ReminderRuleWithStatus | null> {
+  const row = await db
+    .prepare(`SELECT ${REMINDER_RULE_COLUMNS} FROM reminder_rules WHERE id = ? AND tenant_id = ?`)
+    .bind(id, ctx.tenantId)
+    .first<ReminderRule>();
+  if (!row) return null;
+
+  const currentOdometer = await currentOdometerQuery(db, ctx.tenantId, row.vehicleId);
+  return { ...row, ...computeReminderStatus(row, currentOdometer, new Date()) };
+}
