@@ -7,15 +7,16 @@ import { getCurrentIdentity } from "./auth/session";
 import { createVehicle, listVehicles } from "./vehicles";
 import type { Vehicle } from "./vehicles";
 import { createServiceRecord, listServiceRecords, uploadAttachment } from "./service-records";
-import type { ServiceRecord } from "./service-records";
+import type { Attachment, ServiceRecord } from "./service-records";
 import { t } from "./i18n/strings";
+import { AppShell } from "./components/AppShell";
+import { AuthScreen } from "./components/AuthScreen";
+import { Garage } from "./components/Garage";
+import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
 
-// Minimal, unstyled — proves the passkey/magic-link/Google ceremonies work
-// end-to-end (plan.md). Real visual design lands once the Claude-design
-// mockups are integrated as their own feature.
 export function App() {
   const [email, setEmail] = useState("");
   const [linkEmail, setLinkEmail] = useState("");
@@ -32,7 +33,9 @@ export function App() {
   const [serviceRecords, setServiceRecords] = useState<ServiceRecord[]>([]);
   const [serviceDate, setServiceDate] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
-  const [attachmentTargetId, setAttachmentTargetId] = useState<string | null>(null);
+  const [attachmentsByRecordId, setAttachmentsByRecordId] = useState<Record<string, Attachment[]>>(
+    {},
+  );
 
   // GET /api/v1/auth/magic-link/verify redirects here with ?magicLink=ok/
   // error/linked, and GET /api/v1/auth/oidc/google/callback with
@@ -88,203 +91,167 @@ export function App() {
     }
   }
 
+  async function handleUploadAttachment(recordId: string, file: File) {
+    setError(null);
+    try {
+      const attachment = await uploadAttachment(recordId, file);
+      setAttachmentsByRecordId((current) => ({
+        ...current,
+        [recordId]: [...(current[recordId] ?? []), attachment],
+      }));
+    } catch {
+      setError(t("genericError"));
+    }
+  }
+
+  if (!identity) {
+    return (
+      <AuthScreen
+        email={email}
+        onEmailChange={setEmail}
+        onSignUpPasskey={() => handle(() => registerWithPasskey(email), setIdentity)}
+        onSignInPasskey={() => handle(loginWithPasskey, setIdentity)}
+        onSendMagicLink={() => handle(() => requestMagicLink(email), () => setMagicLinkSent(true))}
+        magicLinkSent={magicLinkSent}
+        magicLinkOutcome={magicLinkOutcome}
+        oidcOutcome={oidcOutcome}
+        googleSignInUrl={GOOGLE_SIGN_IN_URL}
+        error={error}
+      />
+    );
+  }
+
   return (
-    <main>
-      <h1>{t("appTitle")}</h1>
-      <p>{t("appTagline")}</p>
-
-      {magicLinkOutcome === "ok" && <p role="status">{t("magicLinkOkBanner")}</p>}
-      {magicLinkOutcome === "error" && <p role="alert">{t("magicLinkErrorBanner")}</p>}
-      {magicLinkOutcome === "linked" && <p role="status">{t("magicLinkLinkedBanner")}</p>}
-      {oidcOutcome === "ok" && <p role="status">{t("oidcOkBanner")}</p>}
-      {oidcOutcome === "error" && <p role="alert">{t("oidcErrorBanner")}</p>}
-      {oidcOutcome === "linked" && <p role="status">{t("oidcLinkedBanner")}</p>}
-
-      {identity
-        ? (
-          <div>
-            <p>{t("signedInAs", { tenantId: identity.tenantId ?? "" })}</p>
-            <button type="button" onClick={() => handle(addPasskey, () => {})}>
-              {t("addAnotherPasskey")}
-            </button>
-            <label>
+    <AppShell title={t("vehiclesHeading")}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ font: "400 11.5px var(--font-mono)", color: "var(--dim)" }}>
+            {t("signedInAs", { tenantId: identity.tenantId ?? "" })}
+          </span>
+          <button
+            type="button"
+            onClick={() => handle(addPasskey, () => {})}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-md)",
+              padding: "6px 10px",
+              color: "var(--dim)",
+              font: "500 10.5px var(--font-mono)",
+              cursor: "pointer",
+            }}
+          >
+            {t("addAnotherPasskey")}
+          </button>
+          <a
+            href={GOOGLE_LINK_URL}
+            style={{
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-md)",
+              padding: "6px 10px",
+              color: "var(--dim)",
+              font: "500 10.5px var(--font-mono)",
+              textDecoration: "none",
+            }}
+          >
+            {t("linkGoogleAccount")}
+          </a>
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ font: "400 10.5px var(--font-mono)", color: "var(--dim)" }}>
               {t("linkEmailLabel")}
-              <input
-                type="email"
-                value={linkEmail}
-                onChange={(event) => setLinkEmail(event.target.value)}
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() =>
-                handle(() => requestMagicLinkLink(linkEmail), () => setLinkEmailSent(true))}
-            >
-              {t("linkEmail")}
-            </button>
-            {linkEmailSent && <p role="status">{t("linkEmailSentBanner")}</p>}
-            <a href={GOOGLE_LINK_URL}>{t("linkGoogleAccount")}</a>
+            </span>
+            <input
+              type="email"
+              value={linkEmail}
+              onChange={(event) => setLinkEmail(event.target.value)}
+              style={{
+                background: "var(--panel2)",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--radius-md)",
+                padding: "6px 8px",
+                color: "var(--fg)",
+                font: "400 12px var(--font-ui)",
+                outline: "none",
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() =>
+              handle(() => requestMagicLinkLink(linkEmail), () => setLinkEmailSent(true))}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-md)",
+              padding: "6px 10px",
+              color: "var(--dim)",
+              font: "500 10.5px var(--font-mono)",
+              cursor: "pointer",
+            }}
+          >
+            {t("linkEmail")}
+          </button>
+          {linkEmailSent && (
+            <span style={{ font: "400 11px var(--font-mono)", color: "var(--acc)" }}>
+              {t("linkEmailSentBanner")}
+            </span>
+          )}
+        </div>
 
-            <h2>{t("vehiclesHeading")}</h2>
-            {vehicles.length === 0 ? <p>{t("noVehiclesYet")}</p> : (
-              <ul>
-                {vehicles.map((vehicle) => (
-                  <li key={vehicle.id}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSelectedVehicleId(
-                          selectedVehicleId === vehicle.id ? null : vehicle.id,
-                        )}
-                    >
-                      {vehicle.name}
-                      {vehicle.make ? ` — ${vehicle.make}` : ""}
-                      {vehicle.model ? ` ${vehicle.model}` : ""}
-                      {vehicle.year ? ` (${vehicle.year})` : ""}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+        <Garage
+          vehicles={vehicles}
+          selectedVehicleId={selectedVehicleId}
+          onSelectVehicle={(id) => setSelectedVehicleId(selectedVehicleId === id ? null : id)}
+          vehicleName={vehicleName}
+          onVehicleNameChange={setVehicleName}
+          vehicleOdometerUnit={vehicleOdometerUnit}
+          onVehicleOdometerUnitChange={setVehicleOdometerUnit}
+          onAddVehicle={() =>
+            handle(
+              () => createVehicle({ name: vehicleName, odometerUnit: vehicleOdometerUnit }),
+              (vehicle) => {
+                setVehicles((current) => [...current, vehicle]);
+                setVehicleName("");
+              },
             )}
-            <label>
-              {t("vehicleNameLabel")}
-              <input
-                type="text"
-                value={vehicleName}
-                onChange={(event) => setVehicleName(event.target.value)}
-              />
-            </label>
-            <label>
-              {t("vehicleOdometerUnitLabel")}
-              <select
-                value={vehicleOdometerUnit}
-                onChange={(event) => setVehicleOdometerUnit(event.target.value as "km" | "mi")}
-              >
-                <option value="km">km</option>
-                <option value="mi">mi</option>
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={() =>
+        />
+
+        {selectedVehicleId && (
+          <div>
+            <h2 style={{ font: "600 14px var(--font-ui)", letterSpacing: "-.01em" }}>
+              {t("serviceRecordsHeading")}
+            </h2>
+            <ServiceRecordPanel
+              records={serviceRecords}
+              serviceDate={serviceDate}
+              onServiceDateChange={setServiceDate}
+              serviceDescription={serviceDescription}
+              onServiceDescriptionChange={setServiceDescription}
+              onAddRecord={() =>
                 handle(
-                  () => createVehicle({ name: vehicleName, odometerUnit: vehicleOdometerUnit }),
-                  (vehicle) => {
-                    setVehicles((current) => [...current, vehicle]);
-                    setVehicleName("");
+                  () =>
+                    createServiceRecord(selectedVehicleId, {
+                      serviceDate,
+                      description: serviceDescription,
+                    }),
+                  (record) => {
+                    setServiceRecords((current) => [...current, record]);
+                    setServiceDate("");
+                    setServiceDescription("");
                   },
                 )}
-            >
-              {t("addVehicle")}
-            </button>
-
-            {selectedVehicleId && (
-              <div>
-                <h3>{t("serviceRecordsHeading")}</h3>
-                {serviceRecords.length === 0 ? <p>{t("noServiceRecordsYet")}</p> : (
-                  <ul>
-                    {serviceRecords.map((record) => (
-                      <li key={record.id}>
-                        {record.serviceDate} — {record.description}
-                        {record.odometerReading != null ? ` (${record.odometerReading})` : ""}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setAttachmentTargetId(
-                              attachmentTargetId === record.id ? null : record.id,
-                            )}
-                        >
-                          {t("attachmentUploadLabel")}
-                        </button>
-                        {attachmentTargetId === record.id && (
-                          <input
-                            type="file"
-                            onChange={(event) => {
-                              const file = event.target.files?.[0];
-                              if (!file) return;
-                              handle(
-                                () => uploadAttachment(record.id, file),
-                                () => setAttachmentTargetId(null),
-                              );
-                            }}
-                          />
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <label>
-                  {t("serviceDateLabel")}
-                  <input
-                    type="date"
-                    value={serviceDate}
-                    onChange={(event) => setServiceDate(event.target.value)}
-                  />
-                </label>
-                <label>
-                  {t("serviceDescriptionLabel")}
-                  <input
-                    type="text"
-                    value={serviceDescription}
-                    onChange={(event) => setServiceDescription(event.target.value)}
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handle(
-                      () =>
-                        createServiceRecord(selectedVehicleId, {
-                          serviceDate,
-                          description: serviceDescription,
-                        }),
-                      (record) => {
-                        setServiceRecords((current) => [...current, record]);
-                        setServiceDate("");
-                        setServiceDescription("");
-                      },
-                    )}
-                >
-                  {t("addServiceRecord")}
-                </button>
-                <button type="button" onClick={() => setSelectedVehicleId(null)}>
-                  {t("closeVehicle")}
-                </button>
-              </div>
-            )}
-          </div>
-        )
-        : (
-          <div>
-            <label>
-              {t("emailLabel")}
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => handle(() => registerWithPasskey(email), setIdentity)}
-            >
-              {t("signUpWithPasskey")}
-            </button>
-            <button type="button" onClick={() => handle(loginWithPasskey, setIdentity)}>
-              {t("signInWithPasskey")}
-            </button>
-            <button
-              type="button"
-              onClick={() => handle(() => requestMagicLink(email), () => setMagicLinkSent(true))}
-            >
-              {t("sendMagicLink")}
-            </button>
-            {magicLinkSent && <p role="status">{t("magicLinkSentBanner")}</p>}
-            <a href={GOOGLE_SIGN_IN_URL}>{t("continueWithGoogle")}</a>
+              onUploadAttachment={handleUploadAttachment}
+              attachmentsByRecordId={attachmentsByRecordId}
+            />
           </div>
         )}
 
-      {error && <p role="alert">{error}</p>}
-    </main>
+        {error && (
+          <p role="alert" style={{ color: "var(--warn)", font: "400 12.5px var(--font-ui)" }}>
+            {error}
+          </p>
+        )}
+      </div>
+    </AppShell>
   );
 }

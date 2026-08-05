@@ -9,6 +9,8 @@
     "react-dom": "npm:react-dom@^19.2.8",
     "@cloudflare/vite-plugin": "npm:@cloudflare/vite-plugin@^1.50.0",
     "@cloudflare/vitest-pool-workers": "npm:@cloudflare/vitest-pool-workers@^0.20.1",
+    "@fontsource/jetbrains-mono": "npm:@fontsource/jetbrains-mono@^5.3.0",
+    "@fontsource/onest": "npm:@fontsource/onest@^5.3.0",
     "@types/node": "npm:@types/node@^26.1.2",
     "@types/react": "npm:@types/react@^19.2.18",
     "@types/react-dom": "npm:@types/react-dom@^19.2.4",
