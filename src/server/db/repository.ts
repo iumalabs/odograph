@@ -330,3 +330,95 @@ function base64UrlEncode(bytes: Uint8Array): string {
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
+
+// --- Magic link operations ---------------------------------------------------
+//
+// "Has this email signed up via magic link before" is answered by querying
+// magic_link_identities — never by querying users.email, which is
+// deliberately non-unique across tenants (see the `users` entity note
+// above). Querying users.email here would silently auto-link this method to
+// an account created by a different one, which D-004 prohibits.
+
+export async function findMagicLinkIdentityByEmail(
+  db: D1Database,
+  email: string,
+): Promise<{ userId: string } | null> {
+  const row = await db
+    .prepare("SELECT user_id AS userId FROM magic_link_identities WHERE email = ?")
+    .bind(email)
+    .first<{ userId: string }>();
+  return row ?? null;
+}
+
+/**
+ * Registration bootstrap (User Story 1): creates a tenant, a user, and their
+ * magic-link identity atomically via D1's batch() — nothing is created
+ * unless every statement succeeds (FR-002). Never called with a
+ * caller-supplied tenant/user id, mirroring createTenant/createUser and
+ * passkey's createCredentialedUser.
+ */
+export async function createMagicLinkUser(
+  db: D1Database,
+  email: string,
+): Promise<{ tenantId: string; userId: string }> {
+  const tenantId = crypto.randomUUID();
+  const userId = crypto.randomUUID();
+  await db.batch([
+    db.prepare("INSERT INTO tenants (id) VALUES (?)").bind(tenantId),
+    db.prepare("INSERT INTO users (id, tenant_id, email) VALUES (?, ?, ?)").bind(
+      userId,
+      tenantId,
+      email,
+    ),
+    db.prepare("INSERT INTO magic_link_identities (email, user_id) VALUES (?, ?)").bind(
+      email,
+      userId,
+    ),
+  ]);
+  return { tenantId, userId };
+}
+
+const MAGIC_LINK_TOKEN_TTL_SECONDS = 15 * 60;
+
+/**
+ * Deletes any existing unconsumed token for `email` and inserts a fresh one,
+ * in one function so no caller can invalidate without also issuing a
+ * replacement, or vice versa (FR-005). Returns the new token value.
+ */
+export async function invalidateAndCreateMagicLinkToken(
+  db: D1Database,
+  email: string,
+): Promise<string> {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const token = base64UrlEncode(bytes);
+  const expiresAt = new Date(Date.now() + MAGIC_LINK_TOKEN_TTL_SECONDS * 1000).toISOString();
+  await db.batch([
+    db.prepare("DELETE FROM magic_link_tokens WHERE email = ?").bind(email),
+    db.prepare("INSERT INTO magic_link_tokens (token, email, expires_at) VALUES (?, ?, ?)").bind(
+      token,
+      email,
+      expiresAt,
+    ),
+  ]);
+  return token;
+}
+
+/**
+ * Atomically checks validity and deletes — a token can be consumed at most
+ * once (FR-004). Returns the associated email if it was valid, null
+ * otherwise.
+ */
+export async function consumeMagicLinkToken(
+  db: D1Database,
+  token: string,
+): Promise<{ email: string } | null> {
+  const now = new Date().toISOString();
+  const row = await db
+    .prepare("SELECT email FROM magic_link_tokens WHERE token = ? AND expires_at > ?")
+    .bind(token, now)
+    .first<{ email: string }>();
+  if (!row) return null;
+  await db.prepare("DELETE FROM magic_link_tokens WHERE token = ?").bind(token).run();
+  return row;
+}
