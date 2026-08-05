@@ -46,7 +46,7 @@ against hand-constructed fuel-record rows — no route wired up yet.
 **Goal**: Complete create → list end-to-end, refusing a cross-tenant/nonexistent vehicle before
 anything is written — same shape as spec 007's Phase 3.
 
-- [ ] T004 [US1] Implement `POST /:vehicleId/fuel-records` and `GET /:vehicleId/fuel-records`
+- [X] T004 [US1] Implement `POST /:vehicleId/fuel-records` and `GET /:vehicleId/fuel-records`
       **directly in the existing** `src/server/routes/v1/vehicles.ts` (same one-file-one-prefix
       convention spec 007's analyze finding C1 established — not a new mount point). `POST`
       behind `rateLimitBySession`: resolves `vehicleId` via the existing `findVehicleById` first
@@ -54,7 +54,7 @@ anything is written — same shape as spec 007's Phase 3.
       (non-empty), `odometerReading`/`volume`/`cost` (all required numbers) and optional
       `station`/`notes` — `400` with nothing created on failure; `GET` returns
       `{ fuelRecords: [...] }` with each record including `fuelEconomy`
-- [ ] T005 [P] [US1] Create `tests/server/fuel-record-crud.test.ts` (creation section): 1.
+- [X] T005 [P] [US1] Create `tests/server/fuel-record-crud.test.ts` (creation section): 1.
       Creating a record with only the four required fields succeeds, appears in the vehicle's
       list, and has `fuelEconomy: null` (it's the vehicle's first record). 2. Creating one with
       `station`/`notes` set stores every value exactly. 3. Omitting any required field is rejected
@@ -70,12 +70,12 @@ anything is written — same shape as spec 007's Phase 3.
 **Goal**: Fetch-by-id (with attachments array), full tenant-isolation, and the fuel-economy
 calculation proven correct across its key edge cases.
 
-- [ ] T006 [US2] Implement `GET /api/v1/fuel-records/:id` in `src/server/routes/v1/fuel-records.ts`
+- [X] T006 [US2] Implement `GET /api/v1/fuel-records/:id` in `src/server/routes/v1/fuel-records.ts`
       (new file, mounted at `/api/v1/fuel-records` in `src/server/index.ts`, matching
       `service-records.ts`'s exact structure): `404` under the not-found-or-not-yours contract;
       response includes `fuelEconomy` and an `attachments` array (id, contentType, size,
       createdAt — never the raw `r2Key`)
-- [ ] T007 [P] [US2] Extend `fuel-record-crud.test.ts` (read + economy section): 1. Logging a
+- [X] T007 [P] [US2] Extend `fuel-record-crud.test.ts` (read + economy section): 1. Logging a
       second fuel-up at a higher odometer reading than the first shows a computed `fuelEconomy` on
       the second record, correct for the vehicle's `odometerUnit` (L/100km for `km`, MPG for
       `mi`). 2. Logging a third fuel-up at the *same* odometer reading as the second shows
@@ -92,13 +92,13 @@ core Principle II proof.
 
 **Goal**: Partial update (including the backfill-recompute guarantee) and delete.
 
-- [ ] T008 [US3] Implement `PATCH /api/v1/fuel-records/:id` and
+- [X] T008 [US3] Implement `PATCH /api/v1/fuel-records/:id` and
       `DELETE /api/v1/fuel-records/:id` in `fuel-records.ts`, both behind `rateLimitBySession`:
       `PATCH` validates only included fields, applies a partial update, refreshes `updatedAt`,
       returns the record with `fuelEconomy` recomputed against the vehicle's current full
       ordering; `DELETE` calls `deleteFuelRecord` to get the record's attachments' R2 keys, then
       `deleteAttachments` to remove them from R2, *then* returns `204`
-- [ ] T009 [P] [US3] Extend `fuel-record-crud.test.ts` (update/delete section): 1. Updating one
+- [X] T009 [P] [US3] Extend `fuel-record-crud.test.ts` (update/delete section): 1. Updating one
       field leaves every other field unchanged. 2. `PATCH` with an invalid field value is rejected
       (`400`) with no change applied. 3. Editing an earlier record's `odometerReading` upward (a
       backfill correction) changes a later record's `fuelEconomy` on the next fetch, proving
@@ -119,19 +119,19 @@ backfill-recompute proof.
 **Goal**: Validated upload and ownership-checked download, reusing spec 007's attachment pipeline
 completely unchanged.
 
-- [ ] T010 [US4] Implement `POST /api/v1/fuel-records/:id/attachments` in `fuel-records.ts` behind
+- [X] T010 [US4] Implement `POST /api/v1/fuel-records/:id/attachments` in `fuel-records.ts` behind
       `rateLimitBySession`: resolves `:id` via `findFuelRecordById` first (`404` if not found/not
       yours); reads the body via `c.req.arrayBuffer()` with the same `Content-Length` fast-fail as
       spec 007; runs `detectFileType` — `400` if not in the allowlist; runs `stripJpegExif` for
       JPEG; writes via `putAttachment` at `attachmentKey(tenant, fuelRecordId, newId)` (same
       `attachmentKey` function from spec 007 — the key convention already takes any parent-record
       id, no code change needed there); calls `createFuelAttachment`; returns `201`
-- [ ] T011 [US4] Implement
+- [X] T011 [US4] Implement
       `GET /api/v1/fuel-records/:id/attachments/:attachmentId` in `fuel-records.ts`: resolves
       both ids via `findFuelRecordById`/`findFuelAttachmentById` (`404` under the
       not-found-or-not-yours contract for either); streams the R2 object back via `getAttachment`
       with `Content-Type` set to the stored type — never a redirect
-- [ ] T012 [P] [US4] Extend `fuel-record-crud.test.ts` (attachments section), reusing
+- [X] T012 [P] [US4] Extend `fuel-record-crud.test.ts` (attachments section), reusing
       `tests/server/fixtures/jpeg.ts` unchanged: 1. Uploading a valid JPEG succeeds and appears on
       the record. 2. Uploading a file whose magic bytes don't match any allowed format is rejected
       (`400`) and creates nothing, even with a spoofed `Content-Type`. 3. Uploading an oversized
@@ -149,13 +149,13 @@ completely unchanged.
 **Goal**: Extend spec 007's existing vehicle-delete R2-cleanup retrofit to also cover this
 feature's new attachment type — no fuel attachment may outlive its vehicle (FR-012).
 
-- [ ] T013 Modify `DELETE /api/v1/vehicles/:id` in `src/server/routes/v1/vehicles.ts`: alongside
+- [X] T013 Modify `DELETE /api/v1/vehicles/:id` in `src/server/routes/v1/vehicles.ts`: alongside
       the existing `listAttachmentKeysForVehicle`/`deleteAttachments` call for service-record
       attachments, add a second call to `listAttachmentKeysForVehicleFuelRecords` (T003) and
       include those keys in the same `deleteAttachments` batch (or a second call) before
       `deleteVehicle` runs — no change to the route's request/response contract, only its side
       effects
-- [ ] T014 [P] Extend `fuel-record-crud.test.ts` (retrofit section, mirroring spec 007's T020):
+- [X] T014 [P] Extend `fuel-record-crud.test.ts` (retrofit section, mirroring spec 007's T020):
       create a vehicle, a fuel record on it, and an attachment on that record; delete the vehicle;
       confirm the fuel record, its attachment's D1 row, *and* the R2 object are all gone (verified
       by attempting a direct `getAttachment` against the same key and confirming it's null) —
