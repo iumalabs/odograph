@@ -64,10 +64,13 @@ deno task dev          # vite dev — local Worker + client, hot reload
 deno task check         # fmt --check + lint + typecheck + test, same as CI runs
 ```
 
-Other useful tasks: `deno task build` (production build), `deno task test` (Vitest against the real
-Workers runtime via `@cloudflare/vitest-pool-workers`), `deno task typecheck`. There is no `deploy`
-task runnable from a laptop — see [Environments](#environments) and
-[docs/deployment.md](docs/deployment.md).
+Other useful tasks: `deno task build` (a locally-oriented build using wrangler.toml's default
+top-level bindings — CI uses `build:preview`/`build:production` instead, which resolve Wrangler's
+named `[env.preview]`/`[env.production]` bindings explicitly; see vite.config.ts), `deno task test`
+(Vitest against the real Workers runtime via `@cloudflare/vitest-pool-workers`),
+`deno task
+typecheck`. There is no `deploy` task runnable from a laptop — see
+[Environments](#environments) and [docs/deployment.md](docs/deployment.md).
 
 ## License
 

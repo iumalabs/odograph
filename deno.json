@@ -36,6 +36,8 @@
   "tasks": {
     "dev": "vite dev",
     "build": "vite build",
+    "build:preview": "WRANGLER_ENV=preview vite build",
+    "build:production": "WRANGLER_ENV=production vite build",
     "typecheck": "tsc --build --force",
     "test": "vitest run",
     "cf-typegen": "wrangler types",
