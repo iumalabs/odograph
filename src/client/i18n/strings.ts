@@ -26,6 +26,11 @@ const en = {
   magicLinkLinkedBanner: "Email linked to your account.",
   linkGoogleAccount: "Link Google account",
   oidcLinkedBanner: "Google account linked.",
+  vehiclesHeading: "Your vehicles",
+  vehicleNameLabel: "Name",
+  vehicleOdometerUnitLabel: "Odometer unit",
+  addVehicle: "Add vehicle",
+  noVehiclesYet: "No vehicles yet.",
   genericError: "Something went wrong. Please try again.",
 } as const;
 

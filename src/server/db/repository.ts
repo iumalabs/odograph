@@ -30,9 +30,17 @@ export type ResolvedSession = {
   tenantId: string;
 };
 
-export type ProbeResource = {
+export type Vehicle = {
   id: string;
   tenantId: string;
+  name: string;
+  make: string | null;
+  model: string | null;
+  year: number | null;
+  vin: string | null;
+  odometerUnit: "km" | "mi";
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type WebAuthnCredentialRecord = {
@@ -139,33 +147,142 @@ export async function deleteUser(db: D1Database, userId: string): Promise<void> 
 // Every function below takes a resolved TenantContext (never a bare id from
 // a caller) and scopes its query by ctx.tenantId internally.
 
-export async function createProbeResource(
+const VEHICLE_COLUMNS =
+  "id, tenant_id AS tenantId, name, make, model, year, vin, odometer_unit AS odometerUnit, created_at AS createdAt, updated_at AS updatedAt";
+
+export type VehicleInput = {
+  name: string;
+  make: string | null;
+  model: string | null;
+  year: number | null;
+  vin: string | null;
+  odometerUnit: "km" | "mi";
+};
+
+export async function createVehicle(
   db: D1Database,
   ctx: TenantContext,
-): Promise<ProbeResource> {
+  input: VehicleInput,
+): Promise<Vehicle> {
   const id = crypto.randomUUID();
+  const now = new Date().toISOString();
   await db
-    .prepare("INSERT INTO probe_resources (id, tenant_id) VALUES (?, ?)")
-    .bind(id, ctx.tenantId)
+    .prepare(
+      `INSERT INTO vehicles (id, tenant_id, name, make, model, year, vin, odometer_unit, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      id,
+      ctx.tenantId,
+      input.name,
+      input.make,
+      input.model,
+      input.year,
+      input.vin,
+      input.odometerUnit,
+      now,
+      now,
+    )
     .run();
-  return { id, tenantId: ctx.tenantId };
+  return {
+    id,
+    tenantId: ctx.tenantId,
+    name: input.name,
+    make: input.make,
+    model: input.model,
+    year: input.year,
+    vin: input.vin,
+    odometerUnit: input.odometerUnit,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export async function listVehicles(db: D1Database, ctx: TenantContext): Promise<Vehicle[]> {
+  const { results } = await db
+    .prepare(`SELECT ${VEHICLE_COLUMNS} FROM vehicles WHERE tenant_id = ? ORDER BY created_at`)
+    .bind(ctx.tenantId)
+    .all<Vehicle>();
+  return results;
 }
 
 /**
  * Returns null both when no row has this id and when the row exists but
  * belongs to a different tenant — the two cases are indistinguishable by
- * design (spec.md Acceptance Scenario 1).
+ * design (FR-007, same contract findProbeResourceById established).
  */
-export async function findProbeResourceById(
+export async function findVehicleById(
   db: D1Database,
   ctx: TenantContext,
   id: string,
-): Promise<ProbeResource | null> {
+): Promise<Vehicle | null> {
   const row = await db
-    .prepare("SELECT id, tenant_id AS tenantId FROM probe_resources WHERE id = ? AND tenant_id = ?")
+    .prepare(`SELECT ${VEHICLE_COLUMNS} FROM vehicles WHERE id = ? AND tenant_id = ?`)
     .bind(id, ctx.tenantId)
-    .first<ProbeResource>();
+    .first<Vehicle>();
   return row ?? null;
+}
+
+/**
+ * Applies only the fields present in `patch` — everything else keeps its
+ * stored value (FR-005/SC-003). Returns null under the same
+ * not-found-or-not-yours contract as findVehicleById.
+ */
+export async function updateVehicle(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+  patch: Partial<VehicleInput>,
+): Promise<Vehicle | null> {
+  const existing = await findVehicleById(db, ctx, id);
+  if (!existing) return null;
+
+  const merged: VehicleInput = {
+    name: patch.name ?? existing.name,
+    make: "make" in patch ? patch.make ?? null : existing.make,
+    model: "model" in patch ? patch.model ?? null : existing.model,
+    year: "year" in patch ? patch.year ?? null : existing.year,
+    vin: "vin" in patch ? patch.vin ?? null : existing.vin,
+    odometerUnit: patch.odometerUnit ?? existing.odometerUnit,
+  };
+  const updatedAt = new Date().toISOString();
+
+  await db
+    .prepare(
+      `UPDATE vehicles
+       SET name = ?, make = ?, model = ?, year = ?, vin = ?, odometer_unit = ?, updated_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(
+      merged.name,
+      merged.make,
+      merged.model,
+      merged.year,
+      merged.vin,
+      merged.odometerUnit,
+      updatedAt,
+      id,
+      ctx.tenantId,
+    )
+    .run();
+
+  return { ...existing, ...merged, updatedAt };
+}
+
+/**
+ * Returns whether a row was actually deleted — false if it didn't exist or
+ * belonged to a different tenant, same not-found-or-not-yours contract.
+ */
+export async function deleteVehicle(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare("DELETE FROM vehicles WHERE id = ? AND tenant_id = ?")
+    .bind(id, ctx.tenantId)
+    .run();
+  return result.meta.changes > 0;
 }
 
 // --- Passkey (WebAuthn) operations ------------------------------------------

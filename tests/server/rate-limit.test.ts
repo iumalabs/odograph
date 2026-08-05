@@ -28,9 +28,10 @@ async function createSession(): Promise<string> {
 }
 
 function probeWrite(cookie: string): Promise<Response> {
-  return SELF.fetch("https://example.com/api/v1/_tenant-isolation-probe", {
+  return SELF.fetch("https://example.com/api/v1/vehicles", {
     method: "POST",
-    headers: { Cookie: cookie },
+    headers: { Cookie: cookie, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "probe", odometerUnit: "km" }),
   });
 }
 
@@ -45,7 +46,7 @@ describe("rate limiting (User Story 3)", () => {
 
     for (let i = 0; i < MAX_REQUESTS_PER_WINDOW; i++) {
       const res = await probeWrite(cookie);
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       const { id } = (await res.json()) as { id: string };
       createdIds.add(id);
     }
@@ -70,6 +71,6 @@ describe("rate limiting (User Story 3)", () => {
 
     const otherCookie = await createSession();
     const otherRes = await probeWrite(otherCookie);
-    expect(otherRes.status).toBe(200);
+    expect(otherRes.status).toBe(201);
   });
 });
