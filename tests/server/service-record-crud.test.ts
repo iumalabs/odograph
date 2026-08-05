@@ -1,5 +1,7 @@
-import { SELF } from "cloudflare:test";
+import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { buildFixtureJpeg, GPS_MARKER } from "./fixtures/jpeg";
+import { attachmentKey } from "../../src/server/attachments/storage";
 
 function cookieValue(setCookie: string | null): string {
   if (!setCookie) throw new Error("missing Set-Cookie header");
@@ -22,6 +24,13 @@ async function createVehicleId(cookie: string, body: VehicleBody = {}): Promise<
   });
   const created = (await res.json()) as { id: string };
   return created.id;
+}
+
+function deleteVehicleReq(cookie: string, id: string): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/vehicles/${id}`, {
+    method: "DELETE",
+    headers: { Cookie: cookie },
+  });
 }
 
 type ServiceRecordBody = {
@@ -73,6 +82,30 @@ function deleteServiceRecordReq(cookie: string, id: string): Promise<Response> {
     method: "DELETE",
     headers: { Cookie: cookie },
   });
+}
+
+function uploadAttachment(
+  cookie: string,
+  serviceRecordId: string,
+  bytes: Uint8Array,
+  contentType = "application/octet-stream",
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/service-records/${serviceRecordId}/attachments`, {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": contentType },
+    body: bytes,
+  });
+}
+
+function downloadAttachment(
+  cookie: string,
+  serviceRecordId: string,
+  attachmentId: string,
+): Promise<Response> {
+  return SELF.fetch(
+    `https://example.com/api/v1/service-records/${serviceRecordId}/attachments/${attachmentId}`,
+    { headers: { Cookie: cookie } },
+  );
 }
 
 async function createServiceRecordId(
@@ -296,5 +329,112 @@ describe("service record update/delete (User Story 3)", () => {
     const ownFetch = await getServiceRecord(owner.cookie, id);
     expect(ownFetch.status).toBe(200);
     expect(((await ownFetch.json()) as { description: string }).description).toBe("Protected");
+  });
+});
+
+describe("service record attachments (User Story 4)", () => {
+  it("uploading a valid JPEG (no EXIF) succeeds and appears on the record", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+    const recordId = await createServiceRecordId(cookie, vehicleId);
+    const jpeg = buildFixtureJpeg({ includeExif: false });
+
+    const res = await uploadAttachment(cookie, recordId, jpeg);
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as { id: string; contentType: string; size: number };
+    expect(created.contentType).toBe("image/jpeg");
+
+    const record = (await (await getServiceRecord(cookie, recordId)).json()) as {
+      attachments: { id: string }[];
+    };
+    expect(record.attachments.some((a) => a.id === created.id)).toBe(true);
+  });
+
+  it("rejects a body whose magic bytes don't match any allowed format, even with a spoofed Content-Type, and creates nothing (SC-003)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+    const recordId = await createServiceRecordId(cookie, vehicleId);
+    const notActuallyJpeg = new TextEncoder().encode("this is plain text, not an image");
+
+    const res = await uploadAttachment(cookie, recordId, notActuallyJpeg, "image/jpeg");
+    expect(res.status).toBe(400);
+
+    const record = (await (await getServiceRecord(cookie, recordId)).json()) as {
+      attachments: unknown[];
+    };
+    expect(record.attachments.length).toBe(0);
+  });
+
+  it("rejects a body larger than the 10MB size cap and creates nothing (SC-004)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+    const recordId = await createServiceRecordId(cookie, vehicleId);
+    const tooLarge = new Uint8Array(10 * 1024 * 1024 + 1);
+    tooLarge.set([0xff, 0xd8, 0xff], 0); // valid JPEG magic bytes — size is the only problem
+
+    const res = await uploadAttachment(cookie, recordId, tooLarge);
+    expect(res.status).toBe(400);
+
+    const record = (await (await getServiceRecord(cookie, recordId)).json()) as {
+      attachments: unknown[];
+    };
+    expect(record.attachments.length).toBe(0);
+  });
+
+  it("strips the EXIF/GPS segment from an uploaded JPEG before storing it (SC-005)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+    const recordId = await createServiceRecordId(cookie, vehicleId);
+    const jpegWithExif = buildFixtureJpeg({ includeExif: true });
+
+    const uploadRes = await uploadAttachment(cookie, recordId, jpegWithExif);
+    expect(uploadRes.status).toBe(201);
+    const created = (await uploadRes.json()) as { id: string };
+
+    const downloadRes = await downloadAttachment(cookie, recordId, created.id);
+    expect(downloadRes.status).toBe(200);
+    const storedBytes = new Uint8Array(await downloadRes.arrayBuffer());
+    const storedText = new TextDecoder("latin1").decode(storedBytes);
+    expect(storedText.includes(GPS_MARKER)).toBe(false);
+  });
+
+  it("refuses to download an attachment belonging to a different tenant's record, identically to a made-up id (SC-002)", async () => {
+    const owner = await createSession();
+    const other = await createSession();
+    const vehicleId = await createVehicleId(owner.cookie);
+    const recordId = await createServiceRecordId(owner.cookie, vehicleId);
+    const created = (await (await uploadAttachment(
+      owner.cookie,
+      recordId,
+      buildFixtureJpeg({ includeExif: false }),
+    )).json()) as { id: string };
+    const madeUpAttachmentId = crypto.randomUUID();
+
+    const crossDownload = await downloadAttachment(other.cookie, recordId, created.id);
+    const madeUpDownload = await downloadAttachment(other.cookie, recordId, madeUpAttachmentId);
+    expect(crossDownload.status).toBe(404);
+    expect(madeUpDownload.status).toBe(404);
+    expect(await crossDownload.text()).toBe(await madeUpDownload.text());
+  });
+});
+
+describe("vehicle deletion cleans up R2 attachments (retrofit, research.md)", () => {
+  it("deleting a vehicle removes its service record's attachment from R2, not just D1", async () => {
+    const { cookie, tenantId } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+    const recordId = await createServiceRecordId(cookie, vehicleId);
+    const created = (await (await uploadAttachment(
+      cookie,
+      recordId,
+      buildFixtureJpeg({ includeExif: false }),
+    )).json()) as { id: string };
+
+    const key = attachmentKey(tenantId, recordId, created.id);
+    expect(await env.ATTACHMENTS.get(key)).not.toBeNull();
+
+    const del = await deleteVehicleReq(cookie, vehicleId);
+    expect(del.status).toBe(204);
+
+    expect(await env.ATTACHMENTS.get(key)).toBeNull();
   });
 });

@@ -132,7 +132,7 @@ delete-one-attachment operation, per spec.md's Assumptions).
 **Goal**: Validated upload (magic bytes, size cap, JPEG EXIF-stripped) and ownership-checked
 download — the core of this feature's Principle V compliance.
 
-- [ ] T016 [US4] Implement `POST /api/v1/service-records/:id/attachments` in
+- [X] T016 [US4] Implement `POST /api/v1/service-records/:id/attachments` in
       `service-records.ts` behind `rateLimitBySession`: resolves `:id` via `findServiceRecordById`
       first (`404` if not found/not yours); reads the raw body via `c.req.arrayBuffer()` (checking
       `Content-Length` against the 10MB cap *before* reading, per research.md's fast-fail); runs
@@ -140,12 +140,12 @@ download — the core of this feature's Principle V compliance.
       (T006) before storing; writes the (possibly stripped) bytes via `putAttachment` (T007) at
       `attachmentKey(tenant, serviceRecordId, newId)`; calls `createAttachment` with the sniffed
       type and final byte length; returns `201`
-- [ ] T017 [US4] Implement `GET /api/v1/service-records/:id/attachments/:attachmentId`: resolves
+- [X] T017 [US4] Implement `GET /api/v1/service-records/:id/attachments/:attachmentId`: resolves
       both ids via `findServiceRecordById`/`findAttachmentById` (`404` under the
       not-found-or-not-yours contract for either); streams the R2 object back via `getAttachment`
       with `Content-Type` set to the stored (sniffed) type — never a redirect to a public URL
       (FR-013)
-- [ ] T018 [P] [US4] Extend `service-record-crud.test.ts` (attachments section): 1. Uploading a
+- [X] T018 [P] [US4] Extend `service-record-crud.test.ts` (attachments section): 1. Uploading a
       valid JPEG (built from T008's fixture, without the EXIF segment, to isolate "valid upload
       succeeds" from "EXIF gets stripped") succeeds and the attachment appears on the record. 2.
       Uploading a file whose magic bytes don't match any allowed format is rejected (`400`) and
@@ -173,7 +173,7 @@ cascades D1 rows but has never had R2 objects to clean up until now.
       `listAttachmentKeysForVehicle` (T004) and `deleteAttachments` (T007) to remove every R2
       object belonging to that vehicle's service records' attachments — no change to the route's
       request/response contract (still `204`/`404`), only its side effects (contracts/api.md)
-- [ ] T020 [P] Extend `service-record-crud.test.ts` (retrofit section): create a vehicle, a
+- [X] T020 [P] Extend `service-record-crud.test.ts` (retrofit section): create a vehicle, a
       service record on it, and an attachment on that record; delete the vehicle; confirm the
       service record, its attachment's D1 row, *and* the R2 object are all gone (verified by
       attempting a direct `getAttachment` against the same key and confirming it's null, not just

@@ -924,9 +924,9 @@ const ATTACHMENT_COLUMNS =
 export async function createAttachment(
   db: D1Database,
   ctx: TenantContext,
-  input: { serviceRecordId: string; r2Key: string; contentType: string; size: number },
+  input: { id: string; serviceRecordId: string; r2Key: string; contentType: string; size: number },
 ): Promise<Attachment> {
-  const id = crypto.randomUUID();
+  const { id } = input;
   const now = new Date().toISOString();
   await db
     .prepare(

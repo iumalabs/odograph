@@ -1,12 +1,21 @@
 import { Hono } from "hono";
 import {
+  createAttachment,
   deleteServiceRecord,
+  findAttachmentById,
   findServiceRecordById,
   listAttachmentsForServiceRecord,
   updateServiceRecord,
 } from "../../db/repository";
 import type { ServiceRecordInput } from "../../db/repository";
-import { deleteAttachments } from "../../attachments/storage";
+import {
+  attachmentKey,
+  deleteAttachments,
+  getAttachment,
+  putAttachment,
+} from "../../attachments/storage";
+import { contentTypeFor, detectFileType, MAX_ATTACHMENT_BYTES } from "../../attachments/validate";
+import { stripJpegExif } from "../../attachments/strip-exif";
 import { rateLimitBySession } from "../../auth/rate-limit";
 import { tenantContext } from "../../middleware/tenant-context";
 import type { AppEnv } from "../../types";
@@ -95,5 +104,73 @@ serviceRecords.delete("/:id", rateLimitBySession, async (c) => {
   return c.body(null, 204);
 });
 
-// Routes added incrementally: POST /:id/attachments and
-// GET /:id/attachments/:attachmentId (T016/T017).
+serviceRecords.post("/:id/attachments", rateLimitBySession, async (c) => {
+  const tenant = c.get("tenant");
+  const serviceRecordId = c.req.param("id");
+
+  const record = await findServiceRecordById(c.env.DB, tenant, serviceRecordId);
+  if (!record) return c.notFound();
+
+  // Fast-fail on a declared oversized body before reading it into memory (research.md).
+  const contentLength = Number(c.req.header("content-length") ?? "0");
+  if (contentLength > MAX_ATTACHMENT_BYTES) {
+    return c.json({ error: "file_too_large" }, 400);
+  }
+
+  const buffer = await c.req.arrayBuffer();
+  if (buffer.byteLength > MAX_ATTACHMENT_BYTES) {
+    return c.json({ error: "file_too_large" }, 400);
+  }
+
+  let bytes: Uint8Array = new Uint8Array(buffer);
+  // The declared Content-Type header is never trusted for the accept/reject decision — only
+  // what the bytes actually are (constitution Principle V, FR-010).
+  const detectedType = detectFileType(bytes);
+  if (!detectedType) {
+    return c.json({ error: "unsupported_file_type" }, 400);
+  }
+
+  if (detectedType === "jpeg") {
+    bytes = stripJpegExif(bytes);
+  }
+
+  const id = crypto.randomUUID();
+  const r2Key = attachmentKey(tenant.tenantId, serviceRecordId, id);
+  await putAttachment(c.env.ATTACHMENTS, r2Key, bytes, contentTypeFor(detectedType));
+
+  const attachment = await createAttachment(c.env.DB, tenant, {
+    id,
+    serviceRecordId,
+    r2Key,
+    contentType: contentTypeFor(detectedType),
+    size: bytes.length,
+  });
+
+  return c.json(
+    {
+      id: attachment.id,
+      contentType: attachment.contentType,
+      size: attachment.size,
+      createdAt: attachment.createdAt,
+    },
+    201,
+  );
+});
+
+serviceRecords.get("/:id/attachments/:attachmentId", async (c) => {
+  const tenant = c.get("tenant");
+  const serviceRecordId = c.req.param("id");
+  const attachmentId = c.req.param("attachmentId");
+
+  const record = await findServiceRecordById(c.env.DB, tenant, serviceRecordId);
+  if (!record) return c.notFound();
+
+  const attachment = await findAttachmentById(c.env.DB, tenant, attachmentId);
+  if (!attachment || attachment.serviceRecordId !== serviceRecordId) return c.notFound();
+
+  // Served directly by this Worker route, never a redirect to a public storage URL (FR-013).
+  const object = await getAttachment(c.env.ATTACHMENTS, attachment.r2Key);
+  if (!object) return c.notFound();
+
+  return c.body(object.body, 200, { "Content-Type": attachment.contentType });
+});
