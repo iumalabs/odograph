@@ -1,10 +1,25 @@
 import { SELF } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
-import { MAX_REQUESTS_PER_WINDOW } from "../../src/server/auth/rate-limit";
+import { beforeEach, describe, expect, it } from "vitest";
+import { MAX_REQUESTS_PER_WINDOW, WINDOW_SECONDS } from "../../src/server/auth/rate-limit";
 
 function cookieValue(setCookie: string | null): string {
   if (!setCookie) throw new Error("missing Set-Cookie header");
   return setCookie.split(";")[0] ?? "";
+}
+
+/**
+ * The limiter uses a real-clock fixed window. A burst that starts near a
+ * window boundary can straddle two windows, under-counting and flaking this
+ * test (`expected 200 to be 429`). Wait out any boundary close enough that a
+ * slow CI runner could cross it mid-burst, so the whole test gets a fresh
+ * window with maximal headroom.
+ */
+async function waitForFreshWindow(marginMs = 10_000): Promise<void> {
+  const windowMs = WINDOW_SECONDS * 1000;
+  const msRemaining = windowMs - (Date.now() % windowMs);
+  if (msRemaining < marginMs) {
+    await new Promise((resolve) => setTimeout(resolve, msRemaining + 50));
+  }
 }
 
 async function createSession(): Promise<string> {
@@ -20,6 +35,10 @@ function probeWrite(cookie: string): Promise<Response> {
 }
 
 describe("rate limiting (User Story 3)", () => {
+  beforeEach(async () => {
+    await waitForFreshWindow();
+  });
+
   it("allows requests under the limit and rejects the one that exceeds it", async () => {
     const cookie = await createSession();
     const createdIds = new Set<string>();
