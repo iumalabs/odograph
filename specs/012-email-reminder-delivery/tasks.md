@@ -61,11 +61,14 @@ different assertions against this same code path, so it's built once, here.
       `last_notified_severity` to `NULL` when `status` is `"on_track"`; when `status` is
       `"coming_up"`/`"overdue"` and more severe than the stored value (via the existing
       `REMINDER_URGENCY` map, treating `NULL` as `on_track`), call
-      `findDeliverableReminderRecipient` and, if a recipient is found, `sendReminderDueEmail` and on
-      success set `last_notified_severity` to the new `status`; if no recipient is found, leave
-      `last_notified_severity` untouched; do nothing for `"not_enough_data"`. Extend the return type
-      from `{ evaluated, failed }` to `{ evaluated, failed, notified }`, incrementing `notified`
-      only on an actual successful send.
+      `findDeliverableReminderRecipient` and, if a recipient is found, `sendReminderDueEmail`: on a
+      successful send, set `last_notified_severity` to the new `status` and increment `notified`;
+      on `{ sent: false }`, leave `last_notified_severity` untouched and increment `failed` instead
+      (same counter spec 011 uses for a row that "didn't complete as intended," now also covering a
+      genuine send failure, not just an evaluation error); if no recipient is found (placeholder
+      address), leave `last_notified_severity` untouched and increment neither counter — this is an
+      expected no-attempt outcome, not a failure. Do nothing for `"not_enough_data"`. Extend the
+      return type from `{ evaluated, failed }` to `{ evaluated, failed, notified }`.
 
 **Checkpoint**: The full notify/track mechanism exists and compiles; every user story below is now
 just test coverage proving a specific slice of this same code path.
@@ -78,20 +81,41 @@ just test coverage proving a specific slice of this same code path.
 excludes "not enough data."
 
 **Independent Test**: Drive a reminder rule's status to "coming up" then run the sweep; separately,
-drive one to "overdue"; separately, drive one to "not enough data" — assert on `notified` counts
-and `last_notified_severity` per data-model.md.
+drive one to "overdue"; separately, drive one to "not enough data" — assert on
+`last_notified_severity` per row per data-model.md, and on a before/after delta of the sweep's
+`notified` count (never an exact absolute value — see the note on shared test-file storage below).
+
+> **⚠️ Test-fixture note (required for every test in US1-US3)**: `tests/server/
+> reminder-rules.test.ts`'s existing `createSession()` helper calls `POST /_dev/session` with no
+> body, which (per `src/server/auth/dev-session.ts`) defaults the session's email to a
+> `@example.invalid` placeholder — exactly what `isPlaceholderEmail`/
+> `findDeliverableReminderRecipient` (T002/T003) are built to skip. Every test below MUST create
+> its own session with an explicit, non-placeholder email instead (the route already accepts one):
+> `SELF.fetch(".../_dev/session", { method: "POST", headers: {"Content-Type":"application/json"},
+> body: JSON.stringify({ email: `owner-${crypto.randomUUID()}@example.com` }) })`. Reusing the
+> shared no-body `createSession()`/`sharedCookie` pattern here would silently exercise the
+> *skip* path instead of the *send* path and produce a false-green test — reserve the no-body
+> default specifically for User Story 4 (T013), where the placeholder is the desired setup.
+>
+> Also, because D1 storage in `@cloudflare/vitest-pool-workers` is isolated per test *file*, not
+> per `it()` (documented in `tests/server/magic-link-auth.test.ts`, and already hit once in spec
+> 011's own scheduled-sweep test), do not assert an exact absolute value for the sweep-wide
+> `notified`/`failed` counts — read them before and after the action under test and assert on the
+> delta, or rely solely on the row's own `last_notified_severity` via a direct `env.DB` query.
 
 ### Tests for User Story 1
 
-- [ ] T006 [P] [US1] In `tests/server/reminder-rules.test.ts`'s scheduled-sweep section: a reminder
-      whose status computes to `"coming_up"` on the sweep gets `last_notified_severity` set to
-      `"coming_up"` and the sweep's `notified` count includes it.
-- [ ] T007 [P] [US1] Same file: a reminder whose status computes to `"overdue"` (starting from
-      `last_notified_severity: NULL`) gets `last_notified_severity` set to `"overdue"` directly (no
-      intermediate `"coming_up"` email required first — FR-002 doesn't require passing through
-      every lesser severity).
-- [ ] T008 [P] [US1] Same file: a reminder whose status is `"not_enough_data"` never gets
-      `last_notified_severity` set and is never counted in `notified` (FR-004).
+- [ ] T006 [P] [US1] In `tests/server/reminder-rules.test.ts`'s scheduled-sweep section, using a
+      session created with an explicit non-placeholder email (see note above): a reminder whose
+      status computes to `"coming_up"` on the sweep gets `last_notified_severity` set to
+      `"coming_up"`, and the sweep's `notified` count increases by exactly 1 for this action.
+- [ ] T007 [P] [US1] Same file, same fixture note: a reminder whose status computes to `"overdue"`
+      (starting from `last_notified_severity: NULL`) gets `last_notified_severity` set to
+      `"overdue"` directly (no intermediate `"coming_up"` email required first — FR-002 doesn't
+      require passing through every lesser severity).
+- [ ] T008 [P] [US1] Same file, same fixture note: a reminder whose status is `"not_enough_data"`
+      never gets `last_notified_severity` set and does not contribute to the sweep's `notified`
+      delta (FR-004).
 
 **Checkpoint**: User Story 1's acceptance scenarios are verified; a reminder is notified exactly
 once per escalation and never for "not enough data."
@@ -107,12 +131,14 @@ only the first run notified; same for "coming up."
 
 ### Tests for User Story 2
 
-- [ ] T009 [P] [US2] In `tests/server/reminder-rules.test.ts`: a reminder already at
-      `last_notified_severity: "overdue"` produces `notified: 0` for that row on a second sweep run
-      where its status is still `"overdue"` (FR-003).
-- [ ] T010 [P] [US2] Same file: a reminder already at `last_notified_severity: "coming_up"`
-      produces `notified: 0` for that row on a second sweep run where its status is still
-      `"coming_up"` (not yet `"overdue"`).
+- [ ] T009 [P] [US2] In `tests/server/reminder-rules.test.ts`, using a session with an explicit
+      non-placeholder email (same fixture note as US1): a reminder already at
+      `last_notified_severity: "overdue"` produces no change to `last_notified_severity` and no
+      increase in the sweep's `notified` count on a second sweep run where its status is still
+      `"overdue"` (FR-003).
+- [ ] T010 [P] [US2] Same file, same fixture note: a reminder already at
+      `last_notified_severity: "coming_up"` produces no change and no `notified` increase on a
+      second sweep run where its status is still `"coming_up"` (not yet `"overdue"`).
 
 **Checkpoint**: User Stories 1 AND 2 both verified — a reminder notifies on new escalations only,
 never on a repeat of the same severity.
@@ -130,13 +156,14 @@ notification fires.
 
 ### Tests for User Story 3
 
-- [ ] T011 [US3] In `tests/server/reminder-rules.test.ts`: a reminder with
+- [ ] T011 [US3] In `tests/server/reminder-rules.test.ts`, using a session with an explicit
+      non-placeholder email (same fixture note as US1): a reminder with
       `last_notified_severity: "overdue"` whose status is recomputed as `"on_track"` (e.g. after
       `markReminderRuleDone`) has `last_notified_severity` reset to `NULL` on the next sweep.
-- [ ] T012 [US3] Same file, continuing T011's scenario: once that same reminder's status later
-      recomputes to `"coming_up"` again, it notifies again (`last_notified_severity` becomes
-      `"coming_up"`, counted in `notified`) — proving FR-005 end-to-end, not just the reset step in
-      isolation.
+- [ ] T012 [US3] Same file, same fixture note, continuing T011's scenario: once that same
+      reminder's status later recomputes to `"coming_up"` again, it notifies again
+      (`last_notified_severity` becomes `"coming_up"`, and the sweep's `notified` count increases by
+      1 for this action) — proving FR-005 end-to-end, not just the reset step in isolation.
 
 **Checkpoint**: All three of US1-US3 verified — the full notify → suppress-repeat → reset →
 notify-again lifecycle works.
@@ -155,18 +182,28 @@ same account and confirm the next sweep does notify.
 
 ### Tests for User Story 4
 
-- [ ] T013 [P] [US4] In `tests/server/reminder-rules.test.ts`: a reminder rule owned by an account
-      whose `users.email` is a placeholder (bootstrap via passkey with no email supplied) and has no
-      linked `magic_link_identities` row — driven to `"overdue"` — produces `notified: 0` for that
-      row, `last_notified_severity` remains `NULL`, and the sweep raises no error (FR-008).
+- [ ] T013 [P] [US4] In `tests/server/reminder-rules.test.ts`, using the existing no-body
+      `createSession()` helper (its default placeholder email is exactly the desired setup here,
+      unlike US1-US3): a reminder rule owned by an account whose `users.email` is a placeholder and
+      has no linked `magic_link_identities` row — driven to `"overdue"` — leaves
+      `last_notified_severity` at `NULL`, does not increase the sweep's `notified` count, and the
+      sweep raises no error (FR-008).
 - [ ] T014 [US4] Same file: in the same sweep run as T013, a second, unrelated reminder belonging to
-      a different (deliverable-email) tenant still notifies normally — proving the placeholder skip
-      doesn't block the rest of the sweep (FR-010, same per-row isolation spec 011 already
-      established for evaluation failures).
+      a different tenant created with an explicit non-placeholder email (US1's fixture note) still
+      notifies normally — proving the placeholder skip doesn't block the rest of the sweep (FR-010,
+      same per-row isolation spec 011 already established for evaluation failures).
 - [ ] T015 [US4] Same file: after linking a real `magic_link_identities` row to the T013 account
       (via `linkMagicLinkIdentity`), while that same reminder is still `"overdue"`, the next sweep
       run does notify (`last_notified_severity` becomes `"overdue"`) — proving FR-009's "a
       placeholder skip does not permanently suppress" requirement, not just the skip itself.
+- [ ] T016 [US4] Same file: simulate a genuine (non-placeholder-related) send failure — e.g. a
+      recipient resolved successfully but `sendReminderDueEmail` returns `{ sent: false, error }`
+      (mockable at the module boundary, or by pointing `to` at a value the test `env.EMAIL` binding
+      rejects) — and confirm the sweep's `failed` count increases by 1 for that row (not
+      `notified`), `last_notified_severity` is left unchanged (so it retries the next day), and
+      every other row in the same sweep still evaluates and notifies normally (FR-010's genuine
+      failure case, distinct from T013's no-attempt skip case — see plan.md's Constitution Check
+      /research.md for why these are different code paths).
 
 **Checkpoint**: All four user stories verified independently.
 
@@ -174,11 +211,11 @@ same account and confirm the next sweep does notify.
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T016 [P] Update `src/server/db/schema.sql` reference copy with `reminder_rules`'s new
+- [ ] T017 [P] Update `src/server/db/schema.sql` reference copy with `reminder_rules`'s new
       `last_notified_severity` column.
-- [ ] T017 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
+- [ ] T018 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
       and fix any failures across all files touched by this feature.
-- [ ] T018 Walk through quickstart.md end-to-end: apply the migration locally, confirm the column
+- [ ] T019 Walk through quickstart.md end-to-end: apply the migration locally, confirm the column
       exists via `PRAGMA table_info`, and confirm via direct D1 query that a manually-driven
       `evaluateAllReminders` run updates `last_notified_severity` as expected.
 

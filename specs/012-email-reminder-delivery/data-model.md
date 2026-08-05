@@ -29,9 +29,15 @@ cascades from `vehicles` (spec 011); no independent erasure decision needed.
   - `status === "on_track"` → if `last_notified_severity` is not already `NULL`, clear it.
   - `status === "coming_up" | "overdue"` and more severe than `last_notified_severity` (via the
     existing `REMINDER_URGENCY` ordering, treating `NULL` as `on_track`'s severity) → resolve the
-    recipient (below); if a deliverable address is found, send and set `last_notified_severity` to
-    the new `status` on success; if no deliverable address is found, leave
-    `last_notified_severity` untouched (research.md Decision 5) and do not count it as a failure.
+    recipient (below):
+    - No deliverable address found → leave `last_notified_severity` untouched (research.md
+      Decision 5) and increment neither `notified` nor `failed` — an expected no-attempt outcome.
+    - A deliverable address found, send succeeds (`{ sent: true }`) → set `last_notified_severity`
+      to the new `status`, increment `notified`.
+    - A deliverable address found, send fails (`{ sent: false, error }`) → leave
+      `last_notified_severity` untouched (so the next sweep retries) and increment `failed` — the
+      same counter a status-evaluation error already increments, since both represent "this row
+      didn't complete as intended" (analyze finding F3).
   - `status === "not_enough_data"` → no change to `last_notified_severity`.
 - `findDeliverableReminderRecipient(db, tenantId): Promise<string | null>` — new. Implements
   research.md Decision 3's two-step lookup: `users.email` for the tenant if not a placeholder
