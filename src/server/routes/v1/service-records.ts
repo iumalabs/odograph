@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import {
   createAttachment,
   deleteServiceRecord,
+  dismissServiceRecordDuplicate,
   findAttachmentById,
   findServiceRecordById,
   listAttachmentsForServiceRecord,
@@ -41,6 +42,12 @@ serviceRecords.get("/:id", async (c) => {
   }));
 
   return c.json({ ...record, attachments });
+});
+
+serviceRecords.post("/:id/dismiss-duplicate", rateLimitBySession, async (c) => {
+  const record = await dismissServiceRecordDuplicate(c.env.DB, c.get("tenant"), c.req.param("id"));
+  if (!record) return c.notFound();
+  return c.json(record);
 });
 
 type PatchBody = {

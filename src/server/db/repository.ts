@@ -721,6 +721,7 @@ export type ServiceRecord = {
   odometerReading: number | null;
   cost: number | null;
   notes: string | null;
+  duplicateOfId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -734,7 +735,30 @@ export type ServiceRecordInput = {
 };
 
 const SERVICE_RECORD_COLUMNS =
-  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, service_date AS serviceDate, description, odometer_reading AS odometerReading, cost, notes, created_at AS createdAt, updated_at AS updatedAt";
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, service_date AS serviceDate, description, odometer_reading AS odometerReading, cost, notes, duplicate_of_id AS duplicateOfId, created_at AS createdAt, updated_at AS updatedAt";
+
+/**
+ * Semantic duplicate detection (constitution D-005): only compares against unflagged/original
+ * records for this vehicle (never chaining duplicate-of-duplicate), same date exactly, same
+ * description case-insensitively. Returns the matching record's id, or null.
+ */
+async function findServiceDuplicateCandidate(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+  input: ServiceRecordInput,
+): Promise<string | null> {
+  const row = await db
+    .prepare(
+      `SELECT id FROM service_records
+       WHERE vehicle_id = ? AND tenant_id = ? AND duplicate_of_id IS NULL
+         AND service_date = ? AND LOWER(description) = LOWER(?)
+       LIMIT 1`,
+    )
+    .bind(vehicleId, ctx.tenantId, input.serviceDate, input.description)
+    .first<{ id: string }>();
+  return row?.id ?? null;
+}
 
 /**
  * Bootstrap-shaped like createVehicle — the caller has already resolved
@@ -750,11 +774,12 @@ export async function createServiceRecord(
 ): Promise<ServiceRecord> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
+  const duplicateOfId = await findServiceDuplicateCandidate(db, ctx, vehicleId, input);
   await db
     .prepare(
       `INSERT INTO service_records
-       (id, tenant_id, vehicle_id, service_date, description, odometer_reading, cost, notes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, tenant_id, vehicle_id, service_date, description, odometer_reading, cost, notes, duplicate_of_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -765,6 +790,7 @@ export async function createServiceRecord(
       input.odometerReading,
       input.cost,
       input.notes,
+      duplicateOfId,
       now,
       now,
     )
@@ -778,6 +804,7 @@ export async function createServiceRecord(
     odometerReading: input.odometerReading,
     cost: input.cost,
     notes: input.notes,
+    duplicateOfId,
     createdAt: now,
     updatedAt: now,
   };
@@ -858,6 +885,27 @@ export async function updateServiceRecord(
     .run();
 
   return { ...existing, ...merged, updatedAt };
+}
+
+/**
+ * Clears a service record's duplicate flag (constitution D-005) — null (not-found-or-not-yours,
+ * or nothing to dismiss) if the record doesn't exist, belongs to a different tenant, or isn't
+ * currently flagged (contracts/api.md).
+ */
+export async function dismissServiceRecordDuplicate(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<ServiceRecord | null> {
+  const existing = await findServiceRecordById(db, ctx, id);
+  if (!existing || existing.duplicateOfId === null) return null;
+
+  await db
+    .prepare("UPDATE service_records SET duplicate_of_id = NULL WHERE id = ? AND tenant_id = ?")
+    .bind(id, ctx.tenantId)
+    .run();
+
+  return { ...existing, duplicateOfId: null };
 }
 
 /**
@@ -991,6 +1039,7 @@ export type FuelRecord = {
   cost: number;
   station: string | null;
   notes: string | null;
+  duplicateOfId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -1007,7 +1056,41 @@ export type FuelRecordInput = {
 export type FuelRecordWithEconomy = FuelRecord & { fuelEconomy: number | null };
 
 const FUEL_RECORD_COLUMNS =
-  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, fuel_date AS fuelDate, odometer_reading AS odometerReading, volume, cost, station, notes, created_at AS createdAt, updated_at AS updatedAt";
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, fuel_date AS fuelDate, odometer_reading AS odometerReading, volume, cost, station, notes, duplicate_of_id AS duplicateOfId, created_at AS createdAt, updated_at AS updatedAt";
+
+/** Fuel records only ever match against unflagged/original records (research.md). */
+const FUEL_DUPLICATE_ODOMETER_TOLERANCE = 5;
+
+/**
+ * Semantic duplicate detection (constitution D-005): same vehicle/tenant, same date exactly, and
+ * an odometer reading within the tolerance — the closest match wins. Returns the matching
+ * record's id, or null.
+ */
+async function findFuelDuplicateCandidate(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+  input: FuelRecordInput,
+): Promise<string | null> {
+  const row = await db
+    .prepare(
+      `SELECT id FROM fuel_records
+       WHERE vehicle_id = ? AND tenant_id = ? AND duplicate_of_id IS NULL
+         AND fuel_date = ? AND ABS(odometer_reading - ?) <= ?
+       ORDER BY ABS(odometer_reading - ?) ASC
+       LIMIT 1`,
+    )
+    .bind(
+      vehicleId,
+      ctx.tenantId,
+      input.fuelDate,
+      input.odometerReading,
+      FUEL_DUPLICATE_ODOMETER_TOLERANCE,
+      input.odometerReading,
+    )
+    .first<{ id: string }>();
+  return row?.id ?? null;
+}
 
 export async function createFuelRecord(
   db: D1Database,
@@ -1017,11 +1100,12 @@ export async function createFuelRecord(
 ): Promise<FuelRecord> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
+  const duplicateOfId = await findFuelDuplicateCandidate(db, ctx, vehicleId, input);
   await db
     .prepare(
       `INSERT INTO fuel_records
-       (id, tenant_id, vehicle_id, fuel_date, odometer_reading, volume, cost, station, notes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, tenant_id, vehicle_id, fuel_date, odometer_reading, volume, cost, station, notes, duplicate_of_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -1033,6 +1117,7 @@ export async function createFuelRecord(
       input.cost,
       input.station,
       input.notes,
+      duplicateOfId,
       now,
       now,
     )
@@ -1047,6 +1132,7 @@ export async function createFuelRecord(
     cost: input.cost,
     station: input.station,
     notes: input.notes,
+    duplicateOfId,
     createdAt: now,
     updatedAt: now,
   };
@@ -1098,6 +1184,14 @@ export async function listFuelRecordsWithEconomy(
   const economyById = new Map<string, number | null>();
   let previous: FuelRecord | null = null;
   for (const record of byOdometer) {
+    // A flagged record (constitution D-005) is transparent to the ordering pass: it never
+    // receives its own computed figure, and it's skipped when finding the "previous fill-up" for
+    // the next unflagged record — neither corrupting a neighbor's economy nor advancing `previous`
+    // past it (research.md's exclusion design).
+    if (record.duplicateOfId !== null) {
+      economyById.set(record.id, null);
+      continue;
+    }
     economyById.set(
       record.id,
       previous
@@ -1180,6 +1274,33 @@ export async function updateFuelRecord(
       id,
       ctx.tenantId,
     )
+    .run();
+
+  return findFuelRecordById(db, ctx, id);
+}
+
+/**
+ * Clears a fuel record's duplicate flag (constitution D-005) — null (not-found-or-not-yours, or
+ * nothing to dismiss) if the record doesn't exist, belongs to a different tenant, or isn't
+ * currently flagged (contracts/api.md). Returns the record with a freshly-computed fuelEconomy,
+ * since a dismissed record now participates normally in the odometer-ordering pass.
+ */
+export async function dismissFuelRecordDuplicate(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<FuelRecordWithEconomy | null> {
+  const existing = await db
+    .prepare(
+      "SELECT duplicate_of_id AS duplicateOfId FROM fuel_records WHERE id = ? AND tenant_id = ?",
+    )
+    .bind(id, ctx.tenantId)
+    .first<{ duplicateOfId: string | null }>();
+  if (!existing || existing.duplicateOfId === null) return null;
+
+  await db
+    .prepare("UPDATE fuel_records SET duplicate_of_id = NULL WHERE id = ? AND tenant_id = ?")
+    .bind(id, ctx.tenantId)
     .run();
 
   return findFuelRecordById(db, ctx, id);

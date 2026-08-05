@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import {
   createFuelAttachment,
   deleteFuelRecord,
+  dismissFuelRecordDuplicate,
   findFuelAttachmentById,
   findFuelRecordById,
   listAttachmentsForFuelRecord,
@@ -41,6 +42,12 @@ fuelRecords.get("/:id", async (c) => {
   }));
 
   return c.json({ ...record, attachments });
+});
+
+fuelRecords.post("/:id/dismiss-duplicate", rateLimitBySession, async (c) => {
+  const record = await dismissFuelRecordDuplicate(c.env.DB, c.get("tenant"), c.req.param("id"));
+  if (!record) return c.notFound();
+  return c.json(record);
 });
 
 type PatchBody = {

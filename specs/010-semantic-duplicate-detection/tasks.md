@@ -13,7 +13,7 @@ tables beyond one additive column each, no new components, no new attachment han
 
 ## Phase 1: Setup
 
-- [ ] T001 Create D1 migration `migrations/0009_duplicate_flags.sql`: add `duplicate_of_id TEXT
+- [X] T001 Create D1 migration `migrations/0009_duplicate_flags.sql`: add `duplicate_of_id TEXT
       REFERENCES fuel_records(id) ON DELETE SET NULL` to `fuel_records` and the equivalent
       self-referencing column to `service_records`, plus
       `idx_fuel_records_duplicate_of_id`/`idx_service_records_duplicate_of_id` indexes
@@ -23,8 +23,8 @@ tables beyond one additive column each, no new components, no new attachment han
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T002 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
-- [ ] T003 In `src/server/db/repository.ts`: add `duplicateOfId: string | null` to the
+- [X] T002 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
+- [X] T003 In `src/server/db/repository.ts`: add `duplicateOfId: string | null` to the
       `FuelRecord` and `ServiceRecord` types, and `duplicate_of_id AS duplicateOfId` to
       `FUEL_RECORD_COLUMNS`/`SERVICE_RECORD_COLUMNS` — no matching logic yet, just the schema
       surface every subsequent task builds on
@@ -38,13 +38,13 @@ unchanged (the column is additive and always `null` until Phase 3 wires detectio
 
 **Goal**: Creation-time detection for both record types, per research.md's exact matching rules.
 
-- [ ] T004 [US1] In `repository.ts`, add a private `findFuelDuplicateCandidate(db, ctx, vehicleId,
+- [X] T004 [US1] In `repository.ts`, add a private `findFuelDuplicateCandidate(db, ctx, vehicleId,
       input): Promise<string | null>` helper — queries `fuel_records` for the same `vehicle_id`/
       `tenant_id`, `duplicate_of_id IS NULL` (only unflagged/original records), matching
       `fuel_date` exactly, and `ABS(odometer_reading - input.odometerReading) <= 5`, ordered by
       that delta ascending, returning the closest match's id or `null`; wire it into
       `createFuelRecord` so the `INSERT` includes the found id as `duplicate_of_id` (research.md)
-- [ ] T005 [US1] In `repository.ts`, add the equivalent `findServiceDuplicateCandidate(db, ctx,
+- [X] T005 [US1] In `repository.ts`, add the equivalent `findServiceDuplicateCandidate(db, ctx,
       vehicleId, input): Promise<string | null>` — same shape, matching `service_date` exactly and
       `description` case-insensitively (`LOWER(description) = LOWER(?)`); wire into
       `createServiceRecord`
@@ -68,7 +68,7 @@ visibly flags it, logging a genuinely different record doesn't.
 **Goal**: The fuel-economy odometer-ordering pass treats a flagged record as transparent —
 neither a valid "previous" reference nor a recipient of its own computed figure.
 
-- [ ] T007 [US2] Modify `listFuelRecordsWithEconomy` in `repository.ts`: in the odometer-ordered
+- [X] T007 [US2] Modify `listFuelRecordsWithEconomy` in `repository.ts`: in the odometer-ordered
       walk, a record with `duplicateOfId != null` is assigned `fuelEconomy: null` and does **not**
       update the `previous` pointer used to compute the next unflagged record's economy
       (research.md's exclusion design) — `findFuelRecordById` needs no separate change, since it
@@ -88,14 +88,14 @@ core Principle II/D-005 proof.
 **Goal**: Dismiss clears the flag and restores normal (included-in-economy) behavior; deleting
 either record in a pair clears the flag automatically via the FK constraint.
 
-- [ ] T009 [US3] In `repository.ts`, add `dismissFuelRecordDuplicate(db, ctx, id):
+- [X] T009 [US3] In `repository.ts`, add `dismissFuelRecordDuplicate(db, ctx, id):
       Promise<FuelRecordWithEconomy | null>` — `null` if the record doesn't exist, belongs to a
       different tenant, or has `duplicate_of_id IS NULL` already (nothing to dismiss, same
       not-found-or-not-yours-shaped contract per contracts/api.md); otherwise sets
       `duplicate_of_id = NULL` and returns the record via `findFuelRecordById` (fresh economy).
       Implement `POST /api/v1/fuel-records/:id/dismiss-duplicate` in
       `src/server/routes/v1/fuel-records.ts` behind `rateLimitBySession` calling it
-- [ ] T010 [US3] In `repository.ts`, add the equivalent `dismissServiceRecordDuplicate(db, ctx,
+- [X] T010 [US3] In `repository.ts`, add the equivalent `dismissServiceRecordDuplicate(db, ctx,
       id): Promise<ServiceRecord | null>`. Implement
       `POST /api/v1/service-records/:id/dismiss-duplicate` in
       `src/server/routes/v1/service-records.ts` behind `rateLimitBySession` calling it
