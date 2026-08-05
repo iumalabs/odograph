@@ -3,6 +3,7 @@ import { addPasskey, loginWithPasskey, registerWithPasskey } from "./auth/passke
 import type { PasskeyIdentity } from "./auth/passkey";
 import { requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
 import { GOOGLE_LINK_URL, GOOGLE_SIGN_IN_URL } from "./auth/oidc";
+import { getCurrentIdentity } from "./auth/session";
 import { createVehicle, listVehicles } from "./vehicles";
 import type { Vehicle } from "./vehicles";
 import { t } from "./i18n/strings";
@@ -45,6 +46,15 @@ export function App() {
     ) {
       setOidcOutcome(oidcOutcomeParam);
     }
+  }, []);
+
+  // Discovers an existing session on page load — passkey's identity comes
+  // straight from its own ceremony response, but magic-link/Google sign-ins
+  // redirect here server-side and never touch client state otherwise.
+  useEffect(() => {
+    getCurrentIdentity().then((found) => {
+      if (found) setIdentity(found);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
