@@ -13,40 +13,40 @@ and the vehicle-delete R2-cleanup retrofit.
 
 ## Phase 1: Setup
 
-- [ ] T001 Add an `[[r2_buckets]]` binding (`ATTACHMENTS`) to `wrangler.toml`'s default/preview/
+- [X] T001 Add an `[[r2_buckets]]` binding (`ATTACHMENTS`) to `wrangler.toml`'s default/preview/
       production sections, following the `odograph-preview-attachments`/
       `odograph-production-attachments` naming convention (quickstart.md) — the bucket names
       themselves need to exist on the account before a real deploy works (external, owner action,
       research.md); local dev/test use Miniflare's local R2 simulation regardless
-- [ ] T002 Create D1 migration `migrations/0007_service_records.sql`: `service_records`,
+- [X] T002 Create D1 migration `migrations/0007_service_records.sql`: `service_records`,
       `service_record_attachments` per data-model.md
 
 ## Phase 2: Foundational (blocking prerequisites)
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T003 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
-- [ ] T004 In `src/server/db/repository.ts`, per data-model.md's "Repository layer additions":
+- [X] T003 Apply the migration locally: `wrangler d1 migrations apply odograph-preview --local`
+- [X] T004 In `src/server/db/repository.ts`, per data-model.md's "Repository layer additions":
       `createServiceRecord`, `listServiceRecords`, `findServiceRecordById`, `updateServiceRecord`,
       `deleteServiceRecord` (returns the deleted record's attachments' R2 keys, doesn't touch R2
       itself), `listAttachmentKeysForVehicle`, `createAttachment`, `findAttachmentById` — every
       function takes a resolved `TenantContext` and scopes by `ctx.tenantId`, mirroring
       `createVehicle`'s exact pattern. No existing export's signature changes.
-- [ ] T005 [P] Implement `src/server/attachments/validate.ts`: `detectFileType(bytes): "jpeg" |
+- [X] T005 [P] Implement `src/server/attachments/validate.ts`: `detectFileType(bytes): "jpeg" |
       "png" | "webp" | "pdf" | null` (magic-byte sniff per research.md's exact byte signatures —
       JPEG `FF D8 FF`, PNG the 8-byte PNG signature, WebP `RIFF`+`WEBP` with the 4-byte chunk-size
       gap, PDF `%PDF-`) and a size-cap check (10MB, spec.md Assumptions)
-- [ ] T006 [P] Implement `src/server/attachments/strip-exif.ts`: `stripJpegExif(bytes):
+- [X] T006 [P] Implement `src/server/attachments/strip-exif.ts`: `stripJpegExif(bytes):
       Uint8Array` — walks JPEG marker segments from SOI, drops every APP1 (`FFE1`) segment, copies
       everything else (including the SOS entropy-coded scan data) through unmodified, per
       research.md's exact algorithm. A no-op passthrough for non-JPEG bytes (PNG/WebP callers never
       call this — see T016).
-- [ ] T007 [P] Implement `src/server/attachments/storage.ts`: `putAttachment(bucket, key, bytes,
+- [X] T007 [P] Implement `src/server/attachments/storage.ts`: `putAttachment(bucket, key, bytes,
       contentType)`, `getAttachment(bucket, key)`, `deleteAttachments(bucket, keys)` — thin wrapper
       around the R2 binding, plus a `attachmentKey(tenantId, serviceRecordId, attachmentId):
       string` builder for the `tenants/{tenantId}/service-records/{serviceRecordId}/{attachmentId}`
       convention (research.md, data-model.md)
-- [ ] T008 [P] Create `tests/server/fixtures/jpeg.ts`: hand-built minimal valid JPEG byte sequence
+- [X] T008 [P] Create `tests/server/fixtures/jpeg.ts`: hand-built minimal valid JPEG byte sequence
       (SOI, an APP1/EXIF segment containing a GPS IFD tag, SOS, minimal scan data, EOI) small
       enough to construct literally in test code — proves `stripJpegExif` end-to-end without an
       external test-image file

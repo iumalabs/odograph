@@ -28,6 +28,12 @@ id = "eaf8958e040049ecbe52408b28fa1d1c"
 [[send_email]]
 name = "EMAIL"
 
+# Not yet provisioned on the account — see specs/007-service-record-crud/quickstart.md. Local
+# dev/test use Miniflare's local R2 simulation regardless of whether the real bucket exists.
+[[r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "odograph-preview-attachments"
+
 # The default (top-level) config above is used by `wrangler dev` for local
 # iteration. CI deploys always pass an explicit environment — see
 # docs/deployment.md. There is no supported local `wrangler deploy` path.
@@ -56,6 +62,10 @@ id = "eaf8958e040049ecbe52408b28fa1d1c"
 [[env.preview.send_email]]
 name = "EMAIL"
 
+[[env.preview.r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "odograph-preview-attachments"
+
 [env.production]
 name = "odograph"
 routes = [{ pattern = "odograph.dev/*", custom_domain = true }]
@@ -78,3 +88,7 @@ id = "aa415e9f6b9646d2ba2318090008c0f8"
 
 [[env.production.send_email]]
 name = "EMAIL"
+
+[[env.production.r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "odograph-production-attachments"

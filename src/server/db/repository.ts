@@ -709,3 +709,270 @@ export async function consumeOidcState(
   await db.prepare("DELETE FROM oidc_states WHERE state = ?").bind(state).run();
   return row;
 }
+
+// --- Service records ---------------------------------------------------------
+
+export type ServiceRecord = {
+  id: string;
+  tenantId: string;
+  vehicleId: string;
+  serviceDate: string;
+  description: string;
+  odometerReading: number | null;
+  cost: number | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceRecordInput = {
+  serviceDate: string;
+  description: string;
+  odometerReading: number | null;
+  cost: number | null;
+  notes: string | null;
+};
+
+const SERVICE_RECORD_COLUMNS =
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, service_date AS serviceDate, description, odometer_reading AS odometerReading, cost, notes, created_at AS createdAt, updated_at AS updatedAt";
+
+/**
+ * Bootstrap-shaped like createVehicle — the caller has already resolved
+ * `vehicleId` belongs to `ctx.tenantId` (via findVehicleById) before calling
+ * this; it trusts that check the same way createVehicle trusts ctx over any
+ * client-supplied id.
+ */
+export async function createServiceRecord(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+  input: ServiceRecordInput,
+): Promise<ServiceRecord> {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO service_records
+       (id, tenant_id, vehicle_id, service_date, description, odometer_reading, cost, notes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      id,
+      ctx.tenantId,
+      vehicleId,
+      input.serviceDate,
+      input.description,
+      input.odometerReading,
+      input.cost,
+      input.notes,
+      now,
+      now,
+    )
+    .run();
+  return {
+    id,
+    tenantId: ctx.tenantId,
+    vehicleId,
+    serviceDate: input.serviceDate,
+    description: input.description,
+    odometerReading: input.odometerReading,
+    cost: input.cost,
+    notes: input.notes,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export async function listServiceRecords(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<ServiceRecord[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${SERVICE_RECORD_COLUMNS} FROM service_records
+       WHERE vehicle_id = ? AND tenant_id = ? ORDER BY service_date`,
+    )
+    .bind(vehicleId, ctx.tenantId)
+    .all<ServiceRecord>();
+  return results;
+}
+
+/**
+ * Returns null both when no row has this id and when it belongs to a
+ * different tenant — same not-found-or-not-yours contract as
+ * findVehicleById (FR-008).
+ */
+export async function findServiceRecordById(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<ServiceRecord | null> {
+  const row = await db
+    .prepare(`SELECT ${SERVICE_RECORD_COLUMNS} FROM service_records WHERE id = ? AND tenant_id = ?`)
+    .bind(id, ctx.tenantId)
+    .first<ServiceRecord>();
+  return row ?? null;
+}
+
+/**
+ * Applies only the fields present in `patch` — everything else keeps its
+ * stored value (FR-006), same pattern updateVehicle established.
+ */
+export async function updateServiceRecord(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+  patch: Partial<ServiceRecordInput>,
+): Promise<ServiceRecord | null> {
+  const existing = await findServiceRecordById(db, ctx, id);
+  if (!existing) return null;
+
+  const merged: ServiceRecordInput = {
+    serviceDate: patch.serviceDate ?? existing.serviceDate,
+    description: patch.description ?? existing.description,
+    odometerReading: "odometerReading" in patch
+      ? patch.odometerReading ?? null
+      : existing.odometerReading,
+    cost: "cost" in patch ? patch.cost ?? null : existing.cost,
+    notes: "notes" in patch ? patch.notes ?? null : existing.notes,
+  };
+  const updatedAt = new Date().toISOString();
+
+  await db
+    .prepare(
+      `UPDATE service_records
+       SET service_date = ?, description = ?, odometer_reading = ?, cost = ?, notes = ?, updated_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(
+      merged.serviceDate,
+      merged.description,
+      merged.odometerReading,
+      merged.cost,
+      merged.notes,
+      updatedAt,
+      id,
+      ctx.tenantId,
+    )
+    .run();
+
+  return { ...existing, ...merged, updatedAt };
+}
+
+/**
+ * Returns the R2 keys of every attachment that belonged to this record
+ * (deleted from D1 via cascade, along with the record itself) — null if the
+ * record didn't exist or belonged to a different tenant. repository.ts never
+ * touches R2 itself (Principle I); the caller (route layer) uses these keys
+ * to delete the matching R2 objects.
+ */
+export async function deleteServiceRecord(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<string[] | null> {
+  const existing = await findServiceRecordById(db, ctx, id);
+  if (!existing) return null;
+
+  const { results } = await db
+    .prepare("SELECT r2_key AS r2Key FROM service_record_attachments WHERE service_record_id = ?")
+    .bind(id)
+    .all<{ r2Key: string }>();
+
+  await db.prepare("DELETE FROM service_records WHERE id = ? AND tenant_id = ?")
+    .bind(id, ctx.tenantId)
+    .run();
+
+  return results.map((row) => row.r2Key);
+}
+
+/**
+ * Every attachment R2 key across every service record belonging to this
+ * vehicle, without deleting anything — used by deleteVehicle's retrofit
+ * (research.md) to clean up R2 before the D1 cascade removes the rows.
+ */
+export async function listAttachmentKeysForVehicle(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<string[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT sra.r2_key AS r2Key FROM service_record_attachments sra
+       JOIN service_records sr ON sr.id = sra.service_record_id
+       WHERE sr.vehicle_id = ? AND sr.tenant_id = ?`,
+    )
+    .bind(vehicleId, ctx.tenantId)
+    .all<{ r2Key: string }>();
+  return results.map((row) => row.r2Key);
+}
+
+export type Attachment = {
+  id: string;
+  tenantId: string;
+  serviceRecordId: string;
+  r2Key: string;
+  contentType: string;
+  size: number;
+  createdAt: string;
+};
+
+const ATTACHMENT_COLUMNS =
+  "id, tenant_id AS tenantId, service_record_id AS serviceRecordId, r2_key AS r2Key, content_type AS contentType, size, created_at AS createdAt";
+
+export async function createAttachment(
+  db: D1Database,
+  ctx: TenantContext,
+  input: { serviceRecordId: string; r2Key: string; contentType: string; size: number },
+): Promise<Attachment> {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO service_record_attachments
+       (id, tenant_id, service_record_id, r2_key, content_type, size, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(id, ctx.tenantId, input.serviceRecordId, input.r2Key, input.contentType, input.size, now)
+    .run();
+  return {
+    id,
+    tenantId: ctx.tenantId,
+    serviceRecordId: input.serviceRecordId,
+    r2Key: input.r2Key,
+    contentType: input.contentType,
+    size: input.size,
+    createdAt: now,
+  };
+}
+
+/**
+ * Same not-found-or-not-yours contract as findServiceRecordById (FR-008).
+ */
+export async function findAttachmentById(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<Attachment | null> {
+  const row = await db
+    .prepare(`SELECT ${ATTACHMENT_COLUMNS} FROM service_record_attachments WHERE id = ? AND tenant_id = ?`)
+    .bind(id, ctx.tenantId)
+    .first<Attachment>();
+  return row ?? null;
+}
+
+export async function listAttachmentsForServiceRecord(
+  db: D1Database,
+  ctx: TenantContext,
+  serviceRecordId: string,
+): Promise<Attachment[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${ATTACHMENT_COLUMNS} FROM service_record_attachments
+       WHERE service_record_id = ? AND tenant_id = ? ORDER BY created_at`,
+    )
+    .bind(serviceRecordId, ctx.tenantId)
+    .all<Attachment>();
+  return results;
+}
