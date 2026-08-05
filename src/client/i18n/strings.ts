@@ -31,6 +31,15 @@ const en = {
   vehicleOdometerUnitLabel: "Odometer unit",
   addVehicle: "Add vehicle",
   noVehiclesYet: "No vehicles yet.",
+  serviceRecordsHeading: "Service history",
+  noServiceRecordsYet: "No service records yet.",
+  serviceDateLabel: "Date",
+  serviceDescriptionLabel: "Description",
+  addServiceRecord: "Add service record",
+  attachmentUploadLabel: "Attach a photo or receipt",
+  uploadAttachment: "Upload",
+  attachmentsLabel: "Attachments",
+  closeVehicle: "Close",
   genericError: "Something went wrong. Please try again.",
 } as const;
 

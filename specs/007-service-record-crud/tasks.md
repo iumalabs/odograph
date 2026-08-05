@@ -186,10 +186,10 @@ referenced it, for either deletion path.
 
 ## Phase 8: Client UI
 
-- [ ] T021 [P] Implement `src/client/service-records.ts`: thin wrapper for the 7 endpoints
+- [X] T021 [P] Implement `src/client/service-records.ts`: thin wrapper for the 7 endpoints
       (`listServiceRecords`, `createServiceRecord`, `getServiceRecord`, `updateServiceRecord`,
       `deleteServiceRecord`, `uploadAttachment`, attachment download URL builder)
-- [ ] T022 Modify `src/client/App.tsx`: per-vehicle service-record list (date, description,
+- [X] T022 Modify `src/client/App.tsx`: per-vehicle service-record list (date, description,
       odometer reading if present) with a minimal add-record form (date + description, the two
       required fields) and a file input for uploading an attachment to a selected record; new UI
       strings routed through `src/client/i18n/strings.ts` (constitution Principle IX)

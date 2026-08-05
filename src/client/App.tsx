@@ -6,6 +6,8 @@ import { GOOGLE_LINK_URL, GOOGLE_SIGN_IN_URL } from "./auth/oidc";
 import { getCurrentIdentity } from "./auth/session";
 import { createVehicle, listVehicles } from "./vehicles";
 import type { Vehicle } from "./vehicles";
+import { createServiceRecord, listServiceRecords, uploadAttachment } from "./service-records";
+import type { ServiceRecord } from "./service-records";
 import { t } from "./i18n/strings";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
@@ -26,6 +28,11 @@ export function App() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleName, setVehicleName] = useState("");
   const [vehicleOdometerUnit, setVehicleOdometerUnit] = useState<"km" | "mi">("km");
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [serviceRecords, setServiceRecords] = useState<ServiceRecord[]>([]);
+  const [serviceDate, setServiceDate] = useState("");
+  const [serviceDescription, setServiceDescription] = useState("");
+  const [attachmentTargetId, setAttachmentTargetId] = useState<string | null>(null);
 
   // GET /api/v1/auth/magic-link/verify redirects here with ?magicLink=ok/
   // error/linked, and GET /api/v1/auth/oidc/google/callback with
@@ -61,6 +68,16 @@ export function App() {
     if (!identity) return;
     listVehicles().then(setVehicles).catch(() => setError(t("genericError")));
   }, [identity]);
+
+  useEffect(() => {
+    if (!selectedVehicleId) {
+      setServiceRecords([]);
+      return;
+    }
+    listServiceRecords(selectedVehicleId).then(setServiceRecords).catch(() =>
+      setError(t("genericError"))
+    );
+  }, [selectedVehicleId]);
 
   async function handle<T>(action: () => Promise<T>, onSuccess: (result: T) => void) {
     setError(null);
@@ -113,10 +130,18 @@ export function App() {
               <ul>
                 {vehicles.map((vehicle) => (
                   <li key={vehicle.id}>
-                    {vehicle.name}
-                    {vehicle.make ? ` — ${vehicle.make}` : ""}
-                    {vehicle.model ? ` ${vehicle.model}` : ""}
-                    {vehicle.year ? ` (${vehicle.year})` : ""}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedVehicleId(
+                          selectedVehicleId === vehicle.id ? null : vehicle.id,
+                        )}
+                    >
+                      {vehicle.name}
+                      {vehicle.make ? ` — ${vehicle.make}` : ""}
+                      {vehicle.model ? ` ${vehicle.model}` : ""}
+                      {vehicle.year ? ` (${vehicle.year})` : ""}
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -152,6 +177,81 @@ export function App() {
             >
               {t("addVehicle")}
             </button>
+
+            {selectedVehicleId && (
+              <div>
+                <h3>{t("serviceRecordsHeading")}</h3>
+                {serviceRecords.length === 0 ? <p>{t("noServiceRecordsYet")}</p> : (
+                  <ul>
+                    {serviceRecords.map((record) => (
+                      <li key={record.id}>
+                        {record.serviceDate} — {record.description}
+                        {record.odometerReading != null ? ` (${record.odometerReading})` : ""}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAttachmentTargetId(
+                              attachmentTargetId === record.id ? null : record.id,
+                            )}
+                        >
+                          {t("attachmentUploadLabel")}
+                        </button>
+                        {attachmentTargetId === record.id && (
+                          <input
+                            type="file"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              if (!file) return;
+                              handle(
+                                () => uploadAttachment(record.id, file),
+                                () => setAttachmentTargetId(null),
+                              );
+                            }}
+                          />
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <label>
+                  {t("serviceDateLabel")}
+                  <input
+                    type="date"
+                    value={serviceDate}
+                    onChange={(event) => setServiceDate(event.target.value)}
+                  />
+                </label>
+                <label>
+                  {t("serviceDescriptionLabel")}
+                  <input
+                    type="text"
+                    value={serviceDescription}
+                    onChange={(event) => setServiceDescription(event.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handle(
+                      () =>
+                        createServiceRecord(selectedVehicleId, {
+                          serviceDate,
+                          description: serviceDescription,
+                        }),
+                      (record) => {
+                        setServiceRecords((current) => [...current, record]);
+                        setServiceDate("");
+                        setServiceDescription("");
+                      },
+                    )}
+                >
+                  {t("addServiceRecord")}
+                </button>
+                <button type="button" onClick={() => setSelectedVehicleId(null)}>
+                  {t("closeVehicle")}
+                </button>
+              </div>
+            )}
           </div>
         )
         : (
