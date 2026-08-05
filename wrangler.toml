@@ -78,7 +78,7 @@ bucket_name = "odograph-preview-attachments"
 
 [env.production]
 name = "odograph"
-routes = [{ pattern = "odograph.dev/*", custom_domain = true }]
+routes = [{ pattern = "odograph.dev", custom_domain = true }]
 
 [env.production.observability]
 enabled = true
