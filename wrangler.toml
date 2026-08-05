@@ -25,6 +25,9 @@ migrations_dir = "migrations"
 binding = "SESSION_CACHE"
 id = "eaf8958e040049ecbe52408b28fa1d1c"
 
+[[send_email]]
+name = "EMAIL"
+
 # The default (top-level) config above is used by `wrangler dev` for local
 # iteration. CI deploys always pass an explicit environment — see
 # docs/deployment.md. There is no supported local `wrangler deploy` path.
@@ -50,6 +53,9 @@ migrations_dir = "migrations"
 binding = "SESSION_CACHE"
 id = "eaf8958e040049ecbe52408b28fa1d1c"
 
+[[env.preview.send_email]]
+name = "EMAIL"
+
 [env.production]
 name = "odograph"
 routes = [{ pattern = "odograph.dev/*", custom_domain = true }]
@@ -69,3 +75,6 @@ migrations_dir = "migrations"
 [[env.production.kv_namespaces]]
 binding = "SESSION_CACHE"
 id = "aa415e9f6b9646d2ba2318090008c0f8"
+
+[[env.production.send_email]]
+name = "EMAIL"

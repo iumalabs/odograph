@@ -13,6 +13,10 @@ const en = {
   signInWithPasskey: "Sign in with passkey",
   addAnotherPasskey: "Add another passkey",
   signedInAs: "Signed in — tenant {tenantId}",
+  sendMagicLink: "Email me a sign-in link",
+  magicLinkSentBanner: "Check your email for a sign-in link.",
+  magicLinkOkBanner: "Signed in via email link.",
+  magicLinkErrorBanner: "That sign-in link is invalid or has expired.",
   genericError: "Something went wrong. Please try again.",
 } as const;
 

@@ -50,3 +50,20 @@ CREATE TABLE webauthn_challenges (
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
+
+-- See specs/003-magic-link-authentication/data-model.md for GDPR erasure
+-- decisions and the D-004 rationale for keying identity lookups off
+-- magic_link_identities rather than users.email.
+
+CREATE TABLE magic_link_identities (
+  email TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE magic_link_tokens (
+  token TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
