@@ -596,4 +596,35 @@ describe("service record semantic duplicate detection & resolution (constitution
     };
     expect(refetchedFlagged.duplicateOfId).toBeNull();
   });
+
+  it("still flags a duplicate when both creates race concurrently (issue #45)", async () => {
+    // A dedicated session, not sharedCookie — this describe block's many earlier creates can
+    // exhaust sharedCookie's rate-limit window (src/server/auth/rate-limit.ts) by the time this
+    // test runs, and a 429 on either racing request would otherwise be misread as "both flagged."
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    const [firstRes, secondRes] = await Promise.all([
+      createServiceRecord(cookie, vehicleId, {
+        serviceDate: "2026-01-01",
+        description: "Oil change",
+      }),
+      createServiceRecord(cookie, vehicleId, {
+        serviceDate: "2026-01-01",
+        description: "Oil change",
+      }),
+    ]);
+    expect(firstRes.status).toBe(201);
+    expect(secondRes.status).toBe(201);
+    const first = (await firstRes.json()) as { id: string; duplicateOfId: string | null };
+    const second = (await secondRes.json()) as { id: string; duplicateOfId: string | null };
+
+    // Exactly one of the two is the original (duplicateOfId: null) and the other points at it —
+    // never both null (the pre-fix race) and never a cycle.
+    const flagged = [first, second].filter((r) => r.duplicateOfId !== null);
+    const originals = [first, second].filter((r) => r.duplicateOfId === null);
+    expect(originals.length).toBe(1);
+    expect(flagged.length).toBe(1);
+    expect(flagged[0]?.duplicateOfId).toBe(originals[0]?.id);
+  });
 });
