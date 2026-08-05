@@ -48,7 +48,7 @@ unchanged (the column is additive and always `null` until Phase 3 wires detectio
       vehicleId, input): Promise<string | null>` — same shape, matching `service_date` exactly and
       `description` case-insensitively (`LOWER(description) = LOWER(?)`); wire into
       `createServiceRecord`
-- [ ] T006 [P] [US1] Create the duplicate-detection section in `tests/server/fuel-record-crud.test.ts`
+- [X] T006 [P] [US1] Create the duplicate-detection section in `tests/server/fuel-record-crud.test.ts`
       and `tests/server/service-record-crud.test.ts`: 1. A same-date, near-odometer (fuel) or
       same-date-same-description (service) second record is created with `duplicateOfId` pointing
       at the first, *and* the first (original) record is still fetchable with its own fields
@@ -73,7 +73,7 @@ neither a valid "previous" reference nor a recipient of its own computed figure.
       update the `previous` pointer used to compute the next unflagged record's economy
       (research.md's exclusion design) — `findFuelRecordById` needs no separate change, since it
       already delegates to this function
-- [ ] T008 [P] [US2] Extend `fuel-record-crud.test.ts` (economy-exclusion section): 1. Given fuel
+- [X] T008 [P] [US2] Extend `fuel-record-crud.test.ts` (economy-exclusion section): 1. Given fuel
       records A, B (a flagged duplicate of A), and C at increasing odometer readings, C's
       `fuelEconomy` is computed from A's odometer reading, not B's. 2. B itself has
       `fuelEconomy: null` while flagged.
@@ -99,7 +99,7 @@ either record in a pair clears the flag automatically via the FK constraint.
       id): Promise<ServiceRecord | null>`. Implement
       `POST /api/v1/service-records/:id/dismiss-duplicate` in
       `src/server/routes/v1/service-records.ts` behind `rateLimitBySession` calling it
-- [ ] T011 [P] [US3] Extend both `fuel-record-crud.test.ts` and `service-record-crud.test.ts`
+- [X] T011 [P] [US3] Extend both `fuel-record-crud.test.ts` and `service-record-crud.test.ts`
       (resolution section): 1. Dismissing a flagged record clears `duplicateOfId` and (fuel only)
       the next fetch of a later record recomputes its economy against the now-unflagged one. 2.
       Dismissing an already-unflagged record, a made-up id, or a different tenant's record all
