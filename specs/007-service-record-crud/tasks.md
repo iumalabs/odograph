@@ -92,10 +92,10 @@ anything is written.
 
 **Goal**: Fetch-by-id (with attachment metadata) and full tenant-isolation across list/fetch.
 
-- [ ] T012 [US2] Implement `GET /api/v1/service-records/:id` in `service-records.ts`: `404` under
+- [X] T012 [US2] Implement `GET /api/v1/service-records/:id` in `service-records.ts`: `404` under
       the not-found-or-not-yours contract; response includes an `attachments` array (id,
       contentType, size, createdAt — never the raw `r2Key`, contracts/api.md)
-- [ ] T013 [P] [US2] Extend `service-record-crud.test.ts` (read section): 1. Listing records across
+- [X] T013 [P] [US2] Extend `service-record-crud.test.ts` (read section): 1. Listing records across
       two different tenants' vehicles — each sees only their own. 2. Fetching a record by id
       returns its full detail. 3. Listing or fetching against a different tenant's vehicle/record
       is refused (`404`), identically to a made-up id.
@@ -110,14 +110,14 @@ anything is written.
 vehicle-delete retrofit and the record-delete path itself, not a standalone
 delete-one-attachment operation, per spec.md's Assumptions).
 
-- [ ] T014 [US3] Implement `PATCH /api/v1/service-records/:id` and
+- [X] T014 [US3] Implement `PATCH /api/v1/service-records/:id` and
       `DELETE /api/v1/service-records/:id` in `service-records.ts`, both behind
       `rateLimitBySession`: `PATCH` validates only included fields, applies a partial update,
       refreshes `updatedAt`; `DELETE` calls `deleteServiceRecord` to get the record's attachments'
       R2 keys, then `deleteAttachments` (T007) to remove them from R2, *then* returns `204` — R2
       cleanup happens before the response, not fire-and-forget (data-model.md's erasure
       requirement)
-- [ ] T015 [P] [US3] Extend `service-record-crud.test.ts` (update/delete section): 1. Updating one
+- [X] T015 [P] [US3] Extend `service-record-crud.test.ts` (update/delete section): 1. Updating one
       field leaves every other field unchanged. 2. `PATCH` with an invalid field value is rejected
       (`400`) with no change applied. 3. A deleted record is unreachable from list/fetch
       immediately. 4. Updating or deleting a different tenant's record is refused (`404`) and
