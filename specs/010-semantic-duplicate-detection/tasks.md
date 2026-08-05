@@ -133,11 +133,11 @@ action, end to end from the UI.
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T017 [P] Update `src/server/db/schema.sql` reference copy with the new `duplicate_of_id`
+- [X] T017 [P] Update `src/server/db/schema.sql` reference copy with the new `duplicate_of_id`
       columns and indexes on both tables
-- [ ] T018 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary
+- [X] T018 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary
       guard) and fix any failures across all files touched by this feature
-- [ ] T019 Walk through quickstart.md end-to-end against `deno task dev` in a real browser,
+- [X] T019 Walk through quickstart.md end-to-end against `deno task dev` in a real browser,
       confirming SC-001 through SC-004
 
 ## Dependencies
