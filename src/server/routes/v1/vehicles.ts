@@ -1,15 +1,19 @@
 import { Hono } from "hono";
 import {
+  createFuelRecord,
   createServiceRecord,
   createVehicle,
   deleteVehicle,
+  findFuelRecordById,
   findVehicleById,
   listAttachmentKeysForVehicle,
+  listAttachmentKeysForVehicleFuelRecords,
+  listFuelRecordsWithEconomy,
   listServiceRecords,
   listVehicles,
   updateVehicle,
 } from "../../db/repository";
-import type { ServiceRecordInput, VehicleInput } from "../../db/repository";
+import type { FuelRecordInput, ServiceRecordInput, VehicleInput } from "../../db/repository";
 import { deleteAttachments } from "../../attachments/storage";
 import { rateLimitBySession } from "../../auth/rate-limit";
 import { tenantContext } from "../../middleware/tenant-context";
@@ -118,9 +122,15 @@ vehicles.delete("/:id", rateLimitBySession, async (c) => {
   const vehicleId = c.req.param("id");
 
   // R2 objects never cascade from a D1 delete (constitution Principle VIII) — clean them up
-  // before removing the D1 rows that reference them.
-  const attachmentKeys = await listAttachmentKeysForVehicle(c.env.DB, tenant, vehicleId);
-  await deleteAttachments(c.env.ATTACHMENTS, attachmentKeys);
+  // before removing the D1 rows that reference them. Both attachment kinds (service records and
+  // fuel records) belonging to this vehicle must be cleaned up (spec 009's retrofit).
+  const serviceAttachmentKeys = await listAttachmentKeysForVehicle(c.env.DB, tenant, vehicleId);
+  const fuelAttachmentKeys = await listAttachmentKeysForVehicleFuelRecords(
+    c.env.DB,
+    tenant,
+    vehicleId,
+  );
+  await deleteAttachments(c.env.ATTACHMENTS, [...serviceAttachmentKeys, ...fuelAttachmentKeys]);
 
   const deleted = await deleteVehicle(c.env.DB, tenant, vehicleId);
   if (!deleted) return c.notFound();
@@ -177,4 +187,62 @@ vehicles.get("/:vehicleId/service-records", async (c) => {
 
   const results = await listServiceRecords(c.env.DB, tenant, vehicleId);
   return c.json({ serviceRecords: results });
+});
+
+type FuelRecordBody = {
+  fuelDate?: unknown;
+  odometerReading?: unknown;
+  volume?: unknown;
+  cost?: unknown;
+  station?: unknown;
+  notes?: unknown;
+};
+
+function validateFuelRecordCreate(body: FuelRecordBody): FuelRecordInput | null {
+  if (typeof body.fuelDate !== "string" || body.fuelDate.length === 0) return null;
+  if (typeof body.odometerReading !== "number") return null;
+  if (typeof body.volume !== "number") return null;
+  if (typeof body.cost !== "number") return null;
+  if (body.station !== undefined && typeof body.station !== "string") return null;
+  if (body.notes !== undefined && typeof body.notes !== "string") return null;
+
+  return {
+    fuelDate: body.fuelDate,
+    odometerReading: body.odometerReading,
+    volume: body.volume,
+    cost: body.cost,
+    station: typeof body.station === "string" ? body.station : null,
+    notes: typeof body.notes === "string" ? body.notes : null,
+  };
+}
+
+vehicles.post("/:vehicleId/fuel-records", rateLimitBySession, async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const body = await c.req.json().catch(() => ({}) as FuelRecordBody);
+  const input = validateFuelRecordCreate(body);
+  if (!input) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+
+  const record = await createFuelRecord(c.env.DB, tenant, vehicleId, input);
+  // Computed fresh rather than assumed null — a backfilled fill-up can have a computable economy
+  // even on creation, if it slots in after an earlier record by odometer reading (FR-007/FR-008).
+  const withEconomy = await findFuelRecordById(c.env.DB, tenant, record.id);
+  return c.json(withEconomy, 201);
+});
+
+vehicles.get("/:vehicleId/fuel-records", async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const results = await listFuelRecordsWithEconomy(c.env.DB, tenant, vehicleId);
+  return c.json({ fuelRecords: results });
 });

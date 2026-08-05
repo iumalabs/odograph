@@ -40,6 +40,15 @@ const en = {
   uploadAttachment: "Upload",
   attachmentsLabel: "Attachments",
   closeVehicle: "Close",
+  fuelRecordsHeading: "Fuel history",
+  noFuelRecordsYet: "No fuel records yet.",
+  fuelDateLabel: "Date",
+  fuelOdometerLabel: "Odometer",
+  fuelVolumeLabel: "Volume",
+  fuelCostLabel: "Cost",
+  fuelStationLabel: "Station",
+  addFuelRecord: "Add fuel record",
+  fuelEconomyNotEnoughData: "—",
   genericError: "Something went wrong. Please try again.",
 } as const;
 

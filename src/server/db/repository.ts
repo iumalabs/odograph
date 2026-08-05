@@ -978,3 +978,330 @@ export async function listAttachmentsForServiceRecord(
     .all<Attachment>();
   return results;
 }
+
+// --- Fuel records --------------------------------------------------------
+
+export type FuelRecord = {
+  id: string;
+  tenantId: string;
+  vehicleId: string;
+  fuelDate: string;
+  odometerReading: number;
+  volume: number;
+  cost: number;
+  station: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FuelRecordInput = {
+  fuelDate: string;
+  odometerReading: number;
+  volume: number;
+  cost: number;
+  station: string | null;
+  notes: string | null;
+};
+
+export type FuelRecordWithEconomy = FuelRecord & { fuelEconomy: number | null };
+
+const FUEL_RECORD_COLUMNS =
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, fuel_date AS fuelDate, odometer_reading AS odometerReading, volume, cost, station, notes, created_at AS createdAt, updated_at AS updatedAt";
+
+export async function createFuelRecord(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+  input: FuelRecordInput,
+): Promise<FuelRecord> {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO fuel_records
+       (id, tenant_id, vehicle_id, fuel_date, odometer_reading, volume, cost, station, notes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      id,
+      ctx.tenantId,
+      vehicleId,
+      input.fuelDate,
+      input.odometerReading,
+      input.volume,
+      input.cost,
+      input.station,
+      input.notes,
+      now,
+      now,
+    )
+    .run();
+  return {
+    id,
+    tenantId: ctx.tenantId,
+    vehicleId,
+    fuelDate: input.fuelDate,
+    odometerReading: input.odometerReading,
+    volume: input.volume,
+    cost: input.cost,
+    station: input.station,
+    notes: input.notes,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * L/100km for km-odometer vehicles, MPG for mi-odometer vehicles (research.md). Returns null
+ * (never Infinity/NaN) whenever the distance since the previous fill-up isn't positive —
+ * constitution Principle II.
+ */
+function computeFuelEconomy(
+  odometerUnit: "km" | "mi",
+  deltaDistance: number,
+  volume: number,
+): number | null {
+  if (deltaDistance <= 0) return null;
+  return odometerUnit === "km" ? volume / (deltaDistance / 100) : deltaDistance / volume;
+}
+
+/**
+ * Fuel economy is never stored — it's derived here, on every read, from the whole vehicle's fuel
+ * records ordered by odometer reading (not creation order, since an owner can backfill an earlier
+ * fill-up after later ones already exist), so an edit or backfill anywhere always produces correct
+ * figures for its neighbors without a separate recomputation step (FR-008). The returned list
+ * itself is ordered by fuelDate (display order) — economy is computed in a separate odometer-order
+ * pass and attached by id (contracts/api.md).
+ */
+export async function listFuelRecordsWithEconomy(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<FuelRecordWithEconomy[]> {
+  const vehicle = await db
+    .prepare("SELECT odometer_unit AS odometerUnit FROM vehicles WHERE id = ? AND tenant_id = ?")
+    .bind(vehicleId, ctx.tenantId)
+    .first<{ odometerUnit: "km" | "mi" }>();
+  if (!vehicle) return [];
+
+  const { results } = await db
+    .prepare(
+      `SELECT ${FUEL_RECORD_COLUMNS} FROM fuel_records WHERE vehicle_id = ? AND tenant_id = ?`,
+    )
+    .bind(vehicleId, ctx.tenantId)
+    .all<FuelRecord>();
+
+  const byOdometer = [...results].sort((a, b) =>
+    a.odometerReading - b.odometerReading || a.createdAt.localeCompare(b.createdAt)
+  );
+  const economyById = new Map<string, number | null>();
+  let previous: FuelRecord | null = null;
+  for (const record of byOdometer) {
+    economyById.set(
+      record.id,
+      previous
+        ? computeFuelEconomy(
+          vehicle.odometerUnit,
+          record.odometerReading - previous.odometerReading,
+          record.volume,
+        )
+        : null,
+    );
+    previous = record;
+  }
+
+  return [...results]
+    .sort((a, b) => a.fuelDate.localeCompare(b.fuelDate) || a.createdAt.localeCompare(b.createdAt))
+    .map((record) => ({ ...record, fuelEconomy: economyById.get(record.id) ?? null }));
+}
+
+/**
+ * Same not-found-or-not-yours contract as findServiceRecordById (FR-003) — delegates to
+ * listFuelRecordsWithEconomy for the record's own vehicle so the detail endpoint's economy figure
+ * always agrees with the list endpoint's, never computed independently.
+ */
+export async function findFuelRecordById(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<FuelRecordWithEconomy | null> {
+  const row = await db
+    .prepare(`SELECT ${FUEL_RECORD_COLUMNS} FROM fuel_records WHERE id = ? AND tenant_id = ?`)
+    .bind(id, ctx.tenantId)
+    .first<FuelRecord>();
+  if (!row) return null;
+
+  const withEconomy = await listFuelRecordsWithEconomy(db, ctx, row.vehicleId);
+  return withEconomy.find((record) => record.id === id) ?? null;
+}
+
+/**
+ * Applies only the fields present in `patch` — everything else keeps its stored value, same
+ * pattern updateServiceRecord established. Returns the record with fuelEconomy recomputed against
+ * the vehicle's current full ordering (FR-008) — never the pre-update figure.
+ */
+export async function updateFuelRecord(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+  patch: Partial<FuelRecordInput>,
+): Promise<FuelRecordWithEconomy | null> {
+  const existing = await db
+    .prepare(`SELECT ${FUEL_RECORD_COLUMNS} FROM fuel_records WHERE id = ? AND tenant_id = ?`)
+    .bind(id, ctx.tenantId)
+    .first<FuelRecord>();
+  if (!existing) return null;
+
+  const merged: FuelRecordInput = {
+    fuelDate: patch.fuelDate ?? existing.fuelDate,
+    odometerReading: patch.odometerReading ?? existing.odometerReading,
+    volume: patch.volume ?? existing.volume,
+    cost: patch.cost ?? existing.cost,
+    station: "station" in patch ? patch.station ?? null : existing.station,
+    notes: "notes" in patch ? patch.notes ?? null : existing.notes,
+  };
+  const updatedAt = new Date().toISOString();
+
+  await db
+    .prepare(
+      `UPDATE fuel_records
+       SET fuel_date = ?, odometer_reading = ?, volume = ?, cost = ?, station = ?, notes = ?, updated_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(
+      merged.fuelDate,
+      merged.odometerReading,
+      merged.volume,
+      merged.cost,
+      merged.station,
+      merged.notes,
+      updatedAt,
+      id,
+      ctx.tenantId,
+    )
+    .run();
+
+  return findFuelRecordById(db, ctx, id);
+}
+
+/**
+ * Returns the R2 keys of every attachment that belonged to this record (deleted from D1 via
+ * cascade, along with the record itself) — null if the record didn't exist or belonged to a
+ * different tenant. repository.ts never touches R2 itself (Principle I); the caller uses these
+ * keys to delete the matching R2 objects.
+ */
+export async function deleteFuelRecord(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<string[] | null> {
+  const existing = await db
+    .prepare("SELECT id FROM fuel_records WHERE id = ? AND tenant_id = ?")
+    .bind(id, ctx.tenantId)
+    .first();
+  if (!existing) return null;
+
+  const { results } = await db
+    .prepare("SELECT r2_key AS r2Key FROM fuel_record_attachments WHERE fuel_record_id = ?")
+    .bind(id)
+    .all<{ r2Key: string }>();
+
+  await db.prepare("DELETE FROM fuel_records WHERE id = ? AND tenant_id = ?")
+    .bind(id, ctx.tenantId)
+    .run();
+
+  return results.map((row) => row.r2Key);
+}
+
+/**
+ * Every attachment R2 key across every fuel record belonging to this vehicle, without deleting
+ * anything — used by deleteVehicle's retrofit to clean up R2 before the D1 cascade removes the
+ * rows, alongside the equivalent service-record helper.
+ */
+export async function listAttachmentKeysForVehicleFuelRecords(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<string[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT fra.r2_key AS r2Key FROM fuel_record_attachments fra
+       JOIN fuel_records fr ON fr.id = fra.fuel_record_id
+       WHERE fr.vehicle_id = ? AND fr.tenant_id = ?`,
+    )
+    .bind(vehicleId, ctx.tenantId)
+    .all<{ r2Key: string }>();
+  return results.map((row) => row.r2Key);
+}
+
+export type FuelAttachment = {
+  id: string;
+  tenantId: string;
+  fuelRecordId: string;
+  r2Key: string;
+  contentType: string;
+  size: number;
+  createdAt: string;
+};
+
+const FUEL_ATTACHMENT_COLUMNS =
+  "id, tenant_id AS tenantId, fuel_record_id AS fuelRecordId, r2_key AS r2Key, content_type AS contentType, size, created_at AS createdAt";
+
+export async function createFuelAttachment(
+  db: D1Database,
+  ctx: TenantContext,
+  input: { id: string; fuelRecordId: string; r2Key: string; contentType: string; size: number },
+): Promise<FuelAttachment> {
+  const { id } = input;
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO fuel_record_attachments
+       (id, tenant_id, fuel_record_id, r2_key, content_type, size, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(id, ctx.tenantId, input.fuelRecordId, input.r2Key, input.contentType, input.size, now)
+    .run();
+  return {
+    id,
+    tenantId: ctx.tenantId,
+    fuelRecordId: input.fuelRecordId,
+    r2Key: input.r2Key,
+    contentType: input.contentType,
+    size: input.size,
+    createdAt: now,
+  };
+}
+
+/**
+ * Same not-found-or-not-yours contract as findFuelRecordById (FR-003).
+ */
+export async function findFuelAttachmentById(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<FuelAttachment | null> {
+  const row = await db
+    .prepare(
+      `SELECT ${FUEL_ATTACHMENT_COLUMNS} FROM fuel_record_attachments WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(id, ctx.tenantId)
+    .first<FuelAttachment>();
+  return row ?? null;
+}
+
+export async function listAttachmentsForFuelRecord(
+  db: D1Database,
+  ctx: TenantContext,
+  fuelRecordId: string,
+): Promise<FuelAttachment[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${FUEL_ATTACHMENT_COLUMNS} FROM fuel_record_attachments
+       WHERE fuel_record_id = ? AND tenant_id = ? ORDER BY created_at`,
+    )
+    .bind(fuelRecordId, ctx.tenantId)
+    .all<FuelAttachment>();
+  return results;
+}
