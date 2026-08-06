@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import {
+  computeVehicleAggregates,
   createFuelRecord,
   createReminderRule,
   createServiceRecord,
@@ -253,6 +254,18 @@ vehicles.get("/:vehicleId/fuel-records", async (c) => {
 
   const results = await listFuelRecordsWithEconomy(c.env.DB, tenant, vehicleId);
   return c.json({ fuelRecords: results });
+});
+
+// Read-only, not rate-limited — matches every other GET in this file.
+vehicles.get("/:vehicleId/aggregates", async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const aggregates = await computeVehicleAggregates(c.env.DB, tenant, vehicleId);
+  return c.json(aggregates);
 });
 
 type ReminderRuleBody = {

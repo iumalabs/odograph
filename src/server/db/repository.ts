@@ -1495,6 +1495,71 @@ export async function listAttachmentsForFuelRecord(
   return results;
 }
 
+// --- Vehicle aggregates -----------------------------------------------------
+
+export type VehicleAggregates = {
+  costPerDistance: number | null;
+  costPerTime: number | null;
+  averageFuelEconomy: number | null;
+};
+
+/**
+ * Every sum/min/max/mean below folds over service + fuel records with duplicateOfId === null
+ * only (D-005) — a flagged record must not double-count its cost or skew the distance/date span.
+ * Assumes the caller (the route) has already confirmed the vehicle exists and belongs to
+ * ctx.tenantId via findVehicleById, same trust contract createServiceRecord's doc comment
+ * establishes for vehicle-scoped writes.
+ *
+ * Computed fresh on every call — nothing here is stored, so a record just added, edited, or
+ * deleted is always reflected on the very next call (FR-009, research.md).
+ */
+export async function computeVehicleAggregates(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<VehicleAggregates> {
+  const [serviceRecords, fuelRecords] = await Promise.all([
+    listServiceRecords(db, ctx, vehicleId),
+    listFuelRecordsWithEconomy(db, ctx, vehicleId),
+  ]);
+  const services = serviceRecords.filter((r) => r.duplicateOfId === null);
+  const fuels = fuelRecords.filter((r) => r.duplicateOfId === null);
+
+  let totalCost = 0;
+  const odometerPoints: number[] = [];
+  const datePoints: string[] = [];
+  for (const record of services) {
+    if (record.cost !== null) totalCost += record.cost;
+    if (record.odometerReading !== null) odometerPoints.push(record.odometerReading);
+    datePoints.push(record.serviceDate);
+  }
+  for (const record of fuels) {
+    totalCost += record.cost;
+    odometerPoints.push(record.odometerReading);
+    datePoints.push(record.fuelDate);
+  }
+
+  const distanceSpan = odometerPoints.length >= 2
+    ? Math.max(...odometerPoints) - Math.min(...odometerPoints)
+    : 0;
+  const costPerDistance = distanceSpan > 0 ? totalCost / distanceSpan : null;
+
+  const daySpan = datePoints.length >= 2
+    ? (Date.parse(datePoints.reduce((a, b) => (a > b ? a : b))) -
+      Date.parse(datePoints.reduce((a, b) => (a < b ? a : b)))) / 86_400_000
+    : 0;
+  const costPerTime = daySpan > 0 ? totalCost / daySpan : null;
+
+  const economies = fuels
+    .map((r) => r.fuelEconomy)
+    .filter((economy): economy is number => economy !== null);
+  const averageFuelEconomy = economies.length > 0
+    ? economies.reduce((sum, value) => sum + value, 0) / economies.length
+    : null;
+
+  return { costPerDistance, costPerTime, averageFuelEconomy };
+}
+
 // --- Reminder rules --------------------------------------------------------
 
 export type ReminderStatus = "on_track" | "coming_up" | "overdue" | "not_enough_data";
