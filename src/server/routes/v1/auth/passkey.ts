@@ -45,7 +45,8 @@ passkeyAuth.post("/register/verify", rateLimitByIp, async (c) => {
 
   const result = await verifyRegistration(c.env.DB, c.req.url, body.response);
   if (!result.verified) {
-    return c.json({ error: "verification_failed" }, 400);
+    // debug is TEMPORARY (issue #46) — remove once root-caused.
+    return c.json({ error: "verification_failed", debug: result.debug }, 400);
   }
 
   try {
@@ -92,7 +93,8 @@ passkeyAuth.post("/login/verify", rateLimitByIp, async (c) => {
     transports: (credential.transports ?? undefined) as AuthenticatorTransportFuture[] | undefined,
   });
   if (!result.verified) {
-    return c.json({ error: "unauthorized" }, 401);
+    // debug is TEMPORARY (issue #46) — remove once root-caused.
+    return c.json({ error: "unauthorized", debug: result.debug }, 401);
   }
 
   await updateCredentialCounter(c.env.DB, credential.id, result.newCounter);
@@ -118,7 +120,8 @@ passkeyAuth.post("/add/verify", tenantContext, rateLimitBySession, async (c) => 
 
   const result = await verifyRegistration(c.env.DB, c.req.url, body.response);
   if (!result.verified) {
-    return c.json({ error: "verification_failed" }, 400);
+    // debug is TEMPORARY (issue #46) — remove once root-caused.
+    return c.json({ error: "verification_failed", debug: result.debug }, 400);
   }
 
   try {

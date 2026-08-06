@@ -38,13 +38,20 @@ function base64UrlDecode(value: string): Uint8Array {
   return bytes;
 }
 
-/** Reads the `challenge` field out of a response's clientDataJSON without
- * running full verification — needed so the challenge can be consumed
- * (single-use, FR-007) before the expensive/crypto verification step. */
-function extractChallenge(clientDataJSON: string): string {
+/**
+ * Reads clientDataJSON without running full verification — the `challenge` field lets the
+ * challenge be consumed (single-use, FR-007) before the expensive/crypto verification step.
+ *
+ * `origin`/`type` are read too for TEMPORARY (issue #46) live debugging — surfaced directly in
+ * the HTTP error response so a verification failure shows exactly what the browser signed versus
+ * what the server expected, since Cloudflare Workers Logs isn't surfacing console.error output
+ * for this Worker in practice. Remove the debug plumbing once #46 is root-caused.
+ */
+function parseClientData(
+  clientDataJSON: string,
+): { challenge: string; origin: string; type: string } {
   const decoded = new TextDecoder().decode(base64UrlDecode(clientDataJSON));
-  const clientData = JSON.parse(decoded) as { challenge: string };
-  return clientData.challenge;
+  return JSON.parse(decoded) as { challenge: string; origin: string; type: string };
 }
 
 export async function createRegistrationOptions(
@@ -63,6 +70,16 @@ export async function createRegistrationOptions(
   });
 }
 
+// TEMPORARY (issue #46) — surfaced directly in the HTTP error response so it's visible in
+// DevTools Network without depending on Cloudflare Workers Logs. Remove once #46 is root-caused.
+export type VerificationDebug = {
+  expectedRPID: string;
+  expectedOrigin: string;
+  clientOrigin: string;
+  clientType: string;
+  thrown: string | null;
+};
+
 export type RegistrationVerification =
   | {
     verified: true;
@@ -71,15 +88,15 @@ export type RegistrationVerification =
     counter: number;
     transports: string[] | null;
   }
-  | { verified: false; reason: "challenge" | "verification" };
+  | { verified: false; reason: "challenge" | "verification"; debug?: VerificationDebug };
 
 export async function verifyRegistration(
   db: D1Database,
   requestUrl: string,
   response: RegistrationResponseJSON,
 ): Promise<RegistrationVerification> {
-  const challenge = extractChallenge(response.response.clientDataJSON);
-  const challengeValid = await consumeChallenge(db, challenge, "registration");
+  const clientData = parseClientData(response.response.clientDataJSON);
+  const challengeValid = await consumeChallenge(db, clientData.challenge, "registration");
   if (!challengeValid) {
     // Logged distinctly from a verification failure below (issue #46) — a stale/already-consumed
     // challenge points at a client retry or a slow ceremony, not an rpID/origin mismatch.
@@ -91,7 +108,7 @@ export async function verifyRegistration(
   try {
     const result = await verifyRegistrationResponse({
       response,
-      expectedChallenge: challenge,
+      expectedChallenge: clientData.challenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
       // Matches authenticatorSelection.userVerification: "preferred" below —
@@ -100,9 +117,19 @@ export async function verifyRegistration(
     });
     if (!result.verified) {
       console.error(
-        `passkey registration verification failed: expectedRPID=${rpID} expectedOrigin=${origin}`,
+        `passkey registration verification failed: expectedRPID=${rpID} expectedOrigin=${origin} clientOrigin=${clientData.origin}`,
       );
-      return { verified: false, reason: "verification" };
+      return {
+        verified: false,
+        reason: "verification",
+        debug: {
+          expectedRPID: rpID,
+          expectedOrigin: origin,
+          clientOrigin: clientData.origin,
+          clientType: clientData.type,
+          thrown: null,
+        },
+      };
     }
     const { credential } = result.registrationInfo;
     return {
@@ -113,12 +140,21 @@ export async function verifyRegistration(
       transports: credential.transports ?? null,
     };
   } catch (error) {
+    const thrown = error instanceof Error ? error.message : String(error);
     console.error(
-      `passkey registration verification threw: expectedRPID=${rpID} expectedOrigin=${origin} error=${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      `passkey registration verification threw: expectedRPID=${rpID} expectedOrigin=${origin} clientOrigin=${clientData.origin} error=${thrown}`,
     );
-    return { verified: false, reason: "verification" };
+    return {
+      verified: false,
+      reason: "verification",
+      debug: {
+        expectedRPID: rpID,
+        expectedOrigin: origin,
+        clientOrigin: clientData.origin,
+        clientType: clientData.type,
+        thrown,
+      },
+    };
   }
 }
 
@@ -135,7 +171,7 @@ export async function createAuthenticationOptions(
 
 export type AuthenticationVerification =
   | { verified: true; newCounter: number }
-  | { verified: false; reason: "challenge" | "verification" };
+  | { verified: false; reason: "challenge" | "verification"; debug?: VerificationDebug };
 
 export async function verifyAuthentication(
   db: D1Database,
@@ -143,8 +179,8 @@ export async function verifyAuthentication(
   response: AuthenticationResponseJSON,
   storedCredential: WebAuthnCredential,
 ): Promise<AuthenticationVerification> {
-  const challenge = extractChallenge(response.response.clientDataJSON);
-  const challengeValid = await consumeChallenge(db, challenge, "authentication");
+  const clientData = parseClientData(response.response.clientDataJSON);
+  const challengeValid = await consumeChallenge(db, clientData.challenge, "authentication");
   if (!challengeValid) {
     console.error("passkey authentication failed: challenge not found or already consumed");
     return { verified: false, reason: "challenge" };
@@ -154,7 +190,7 @@ export async function verifyAuthentication(
   try {
     const result = await verifyAuthenticationResponse({
       response,
-      expectedChallenge: challenge,
+      expectedChallenge: clientData.challenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
       credential: storedCredential,
@@ -162,19 +198,38 @@ export async function verifyAuthentication(
     });
     if (!result.verified) {
       console.error(
-        `passkey authentication verification failed: expectedRPID=${rpID} expectedOrigin=${origin}`,
+        `passkey authentication verification failed: expectedRPID=${rpID} expectedOrigin=${origin} clientOrigin=${clientData.origin}`,
       );
-      return { verified: false, reason: "verification" };
+      return {
+        verified: false,
+        reason: "verification",
+        debug: {
+          expectedRPID: rpID,
+          expectedOrigin: origin,
+          clientOrigin: clientData.origin,
+          clientType: clientData.type,
+          thrown: null,
+        },
+      };
     }
     return { verified: true, newCounter: result.authenticationInfo.newCounter };
   } catch (error) {
     // Includes the library's own thrown counter-regression error (clone
     // detection) — treated identically to any other verification failure.
+    const thrown = error instanceof Error ? error.message : String(error);
     console.error(
-      `passkey authentication verification threw: expectedRPID=${rpID} expectedOrigin=${origin} error=${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      `passkey authentication verification threw: expectedRPID=${rpID} expectedOrigin=${origin} clientOrigin=${clientData.origin} error=${thrown}`,
     );
-    return { verified: false, reason: "verification" };
+    return {
+      verified: false,
+      reason: "verification",
+      debug: {
+        expectedRPID: rpID,
+        expectedOrigin: origin,
+        clientOrigin: clientData.origin,
+        clientType: clientData.type,
+        thrown,
+      },
+    };
   }
 }
