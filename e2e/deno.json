@@ -1,0 +1,20 @@
+{
+  "nodeModulesDir": "auto",
+  "imports": {
+    "@playwright/test": "npm:@playwright/test@^1.55.0"
+  },
+  "fmt": {
+    "include": ["tests/", "support/", "*.ts", "*.json"],
+    "lineWidth": 100
+  },
+  "lint": {
+    "include": ["tests/", "support/", "*.ts"]
+  },
+  "tasks": {
+    "install-browsers": "deno run -A npm:playwright install --with-deps chromium",
+    "test": "deno run -A npm:playwright test",
+    "test:headed": "deno run -A npm:playwright test --headed",
+    "test:ui": "deno run -A npm:playwright test --ui",
+    "report": "deno run -A npm:playwright show-report"
+  }
+}
