@@ -47,8 +47,10 @@ bucket_name = "odograph-preview-attachments"
 
 [env.preview]
 name = "odograph-preview"
-# Per-PR deploys override this with `--name odograph-pr-<PR number>` in
-# deploy-preview.yml; this base name only applies if --name is omitted.
+# Every PR uploads a new Worker Version of this one Worker (`wrangler versions upload`,
+# deploy-preview.yml) rather than deploying a separate named Worker per PR — none of them are
+# promoted to serve default traffic. Each gets its own stable preview URL via `--preview-alias
+# pr-<PR number>`, e.g. https://pr-42-odograph-preview.kgz.workers.dev (docs/deployment.md).
 
 [env.preview.observability]
 enabled = true

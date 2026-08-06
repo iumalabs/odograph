@@ -1,8 +1,9 @@
 # Deployment
 
 All deploys happen through GitHub Actions (constitution Principle XII). There is no supported local
-`wrangler deploy` path to preview or production — `wrangler dev` for local iteration is fine,
-`wrangler deploy` against a shared environment is not.
+`wrangler deploy`/`wrangler versions upload` path to preview or production — `wrangler dev` for
+local iteration is fine, changing Cloudflare's live state for a shared environment from a laptop is
+not.
 
 ## Cloudflare account
 
@@ -11,18 +12,28 @@ All deploys happen through GitHub Actions (constitution Principle XII). There is
 
 ## Environments
 
-|              | Preview                                                                                  | Production                     |
-| ------------ | ---------------------------------------------------------------------------------------- | ------------------------------ |
-| Trigger      | every pull request (opened/synchronized)                                                 | push to `main`                 |
-| Worker name  | `odograph-pr-<PR number>`                                                                | `odograph`                     |
-| URL          | `https://odograph-pr-<PR number>.kgz.workers.dev`                                        | `https://odograph.dev`         |
-| D1 / R2 / KV | dedicated `-preview` resources, shared across all open PRs                               | dedicated production resources |
-| Lifecycle    | created on PR open, redeployed on every push to the PR branch, **torn down on PR close** | long-lived                     |
+|              | Preview                                                                                                                                                                                                                | Production                     |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Trigger      | every pull request (opened/synchronized)                                                                                                                                                                               | push to `main`                 |
+| Mechanism    | `wrangler versions upload` — a new Version of the one `odograph-preview` Worker, never promoted to serve default traffic                                                                                               | `wrangler deploy`              |
+| Worker name  | `odograph-preview` (same Worker for every PR — only the Version differs)                                                                                                                                               | `odograph`                     |
+| URL          | `https://pr-<PR number>-odograph-preview.kgz.workers.dev` (`--preview-alias`, stable across every push to the same PR)                                                                                                 | `https://odograph.dev`         |
+| D1 / R2 / KV | dedicated `-preview` resources, shared across all open PRs                                                                                                                                                             | dedicated production resources |
+| Lifecycle    | uploaded on PR open, re-uploaded (same alias, new Version) on every push — **no teardown on PR close**: nothing separate exists to delete, so the alias keeps serving whatever Version was last uploaded, indefinitely | long-lived                     |
 
 Preview intentionally shares one set of D1/R2/KV resources across all open PRs (not one set per PR)
 to keep the Cloudflare footprint bounded; it is a smoke-test environment, not an isolated data
 sandbox. If a PR needs isolated data to test destructive migrations, say so in the PR description
 and coordinate manually rather than assuming isolation.
+
+**Trade-off accepted going with Worker Versions over one named Worker per PR**: non-versioned config
+(routes, Cron Triggers, `logpush`) only takes effect for whatever Version is actually promoted via
+`wrangler versions deploy` — which nothing in the preview pipeline calls, so a PR's preview Version
+never gets its own live Cron firing. This project doesn't rely on that in practice: every
+scheduled-handler test uses `createScheduledController()` directly (see
+`specs/011-reminder-rules-cron/quickstart.md`), and there's no HTTP route to manually trigger a
+sweep in _any_ environment — preview or production. If a future feature ever needs to watch a real
+Cron fire against in-review code, that's a real gap worth revisiting then, not a blocker now.
 
 Production uses the custom domain `odograph.dev` via a Cloudflare custom domain / route binding,
 configured in `wrangler.toml` under `[env.production]`.
@@ -37,11 +48,11 @@ protection rule — see the fork-PR guard below for why that's still safe.
 
 Repository/environment configuration:
 
-| Name                    | Kind                                             | Used by                                                                                  | Notes                                                                                |
-| ----------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `CLOUDFLARE_API_TOKEN`  | **environment secret**, `preview` environment    | `deploy-preview.yml`, `deploy-preview-cleanup.yml` (both declare `environment: preview`) | scoped token, see permissions below — account-level only, no zone access             |
-| `CLOUDFLARE_API_TOKEN`  | **environment secret**, `production` environment | `deploy-production.yml` (declares `environment: production`)                             | scoped token, see permissions below — account-level + `odograph.dev` zone            |
-| `CLOUDFLARE_ACCOUNT_ID` | repository variable (`gh variable set`)          | all three                                                                                | `8b655d0dde6d223b9ce11116a014973a` — not sensitive, so it's a variable, not a secret |
+| Name                    | Kind                                             | Used by                                                      | Notes                                                                                |
+| ----------------------- | ------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `CLOUDFLARE_API_TOKEN`  | **environment secret**, `preview` environment    | `deploy-preview.yml` (declares `environment: preview`)       | scoped token, see permissions below — account-level only, no zone access             |
+| `CLOUDFLARE_API_TOKEN`  | **environment secret**, `production` environment | `deploy-production.yml` (declares `environment: production`) | scoped token, see permissions below — account-level + `odograph.dev` zone            |
+| `CLOUDFLARE_ACCOUNT_ID` | repository variable (`gh variable set`)          | both workflows                                               | `8b655d0dde6d223b9ce11116a014973a` — not sensitive, so it's a variable, not a secret |
 
 **Same secret name, two different values, scoped per
 [GitHub Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment).**
@@ -51,9 +62,7 @@ Giving the unattended preview path a credential that can also edit the productio
 would be a needless blast-radius increase — a bug in the preview deploy step, or a compromised
 dependency in that job, would otherwise be able to reach production infrastructure it has no
 legitimate reason to touch. A job only sees the secret for the environment it declares
-(`environment: preview` / `environment: production`), so `deploy-preview-cleanup.yml` explicitly
-declares `environment: preview` even though it has no deployment `url` to report — without that, it
-wouldn't see either token.
+(`environment: preview` / `environment: production`).
 
 ### `preview` environment `CLOUDFLARE_API_TOKEN` permissions
 
@@ -87,21 +96,20 @@ trimming by hand.
 Set/update either one from the repo's Settings → Environments → _preview_ or _production_ →
 Environment secrets — never paste a token into chat or commit one anywhere.
 
-**Fork PRs never get an auto-deployed preview.** `deploy-preview.yml` and its cleanup counterpart
-both gate on `github.event.pull_request.head.repo.full_name == github.repository`, so a pull request
-from a fork can't reach the `preview` environment's `CLOUDFLARE_API_TOKEN`. `ci.yml` still runs (and
-is the required check) for fork PRs — they just don't get a live preview URL until the project has a
-real external-contributor trust process.
+**Fork PRs never get an auto-deployed preview.** `deploy-preview.yml` gates on
+`github.event.pull_request.head.repo.full_name == github.repository`, so a pull request from a fork
+can't reach the `preview` environment's `CLOUDFLARE_API_TOKEN`. `ci.yml` still runs (and is the
+required check) for fork PRs — they just don't get a live preview URL until the project has a real
+external-contributor trust process.
 
 ## Workflows
 
 - `.github/workflows/ci.yml` — format/lint/typecheck/test/build on every push and PR. Required check
   before merge.
 - `.github/workflows/deploy-preview.yml` — re-runs the same checks, applies any pending D1
-  migrations to `odograph-preview` (idempotent), then deploys the PR head commit to the `preview`
-  environment and comments the preview URL on the PR. Same-repo PRs only.
-- `.github/workflows/deploy-preview-cleanup.yml` — deletes the per-PR preview worker when the PR
-  closes (merged or not). Same-repo PRs only.
+  migrations to `odograph-preview` (idempotent), then uploads the PR head commit as a new Worker
+  Version of `odograph-preview` (never promoted) and comments the stable per-PR preview URL on the
+  PR. Same-repo PRs only. No separate cleanup workflow — there's no per-PR resource to tear down.
 - `.github/workflows/deploy-production.yml` — re-runs the same checks, applies any pending D1
   migrations to `odograph-production` (idempotent), then deploys `main` to the `production`
   environment. Pauses for the required reviewer approval before it runs.
