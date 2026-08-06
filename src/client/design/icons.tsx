@@ -27,6 +27,17 @@ export function GarageIcon({ size = 20 }: IconProps) {
   );
 }
 
+export function DashboardIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M4 20h16" />
+      <path d="M7.5 20v-5" />
+      <path d="M12 20V8" />
+      <path d="M16.5 20v-8" />
+    </svg>
+  );
+}
+
 export function ServiceIcon({ size = 20 }: IconProps) {
   return (
     <svg width={size} height={size} {...commonProps}>

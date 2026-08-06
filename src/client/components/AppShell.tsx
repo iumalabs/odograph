@@ -1,17 +1,32 @@
 import type { ReactNode } from "react";
 import { Logo } from "./Logo";
-import { GarageIcon } from "../design/icons";
+import { DashboardIcon, GarageIcon } from "../design/icons";
 import { useTheme } from "../theme";
+import { t } from "../i18n/strings";
+
+export type AppView = "garage" | "dashboard";
 
 type AppShellProps = {
   title: string;
+  view: AppView;
+  onSelectView: (view: AppView) => void;
   children: ReactNode;
 };
 
+const NAV_ITEMS: {
+  view: AppView;
+  icon: typeof GarageIcon;
+  labelKey: "garageNavLabel" | "dashboardNavLabel";
+}[] = [
+  { view: "garage", icon: GarageIcon, labelKey: "garageNavLabel" },
+  { view: "dashboard", icon: DashboardIcon, labelKey: "dashboardNavLabel" },
+];
+
 // The persistent chrome wrapping every signed-in screen — nav rail + header, ported from
-// docs/odograph-design.zip's "Кокпит" mockup. Only one nav entry (Garage) exists: no other
-// screens are built yet (spec.md Assumptions/FR-008).
-export function AppShell({ title, children }: AppShellProps) {
+// docs/odograph-design.zip's "Кокпит" mockup. Both nav entries (Garage, Dashboard) are now live —
+// spec 014 is the first feature to make the nav rail an actual view switch rather than a single
+// decorative entry.
+export function AppShell({ title, view, onSelectView, children }: AppShellProps) {
   const [, toggleTheme] = useTheme();
 
   return (
@@ -30,24 +45,34 @@ export function AppShell({ title, children }: AppShellProps) {
         }}
       >
         <Logo size={34} />
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 5,
-            padding: "11px 0",
-            width: "100%",
-            borderLeft: "2px solid var(--acc)",
-            background: "var(--panel2)",
-            color: "var(--acc)",
-          }}
-        >
-          <GarageIcon size={18} />
-          <span style={{ font: "500 8.5px var(--font-mono)", letterSpacing: ".06em" }}>
-            GARAGE
-          </span>
-        </div>
+        {NAV_ITEMS.map(({ view: itemView, icon: Icon, labelKey }) => {
+          const isActive = view === itemView;
+          return (
+            <button
+              key={itemView}
+              type="button"
+              onClick={() => onSelectView(itemView)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 5,
+                padding: "11px 0",
+                width: "100%",
+                border: "none",
+                borderLeft: `2px solid ${isActive ? "var(--acc)" : "transparent"}`,
+                background: isActive ? "var(--panel2)" : "transparent",
+                color: isActive ? "var(--acc)" : "var(--dim)",
+                cursor: "pointer",
+              }}
+            >
+              <Icon size={18} />
+              <span style={{ font: "500 8.5px var(--font-mono)", letterSpacing: ".06em" }}>
+                {t(labelKey)}
+              </span>
+            </button>
+          );
+        })}
       </nav>
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>

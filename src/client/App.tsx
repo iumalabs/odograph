@@ -32,17 +32,20 @@ import {
 } from "./reminder-rules";
 import type { ReminderRule } from "./reminder-rules";
 import { t } from "./i18n/strings";
+import type { AppView } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
 import { AuthScreen } from "./components/AuthScreen";
 import { Garage } from "./components/Garage";
 import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
 import { FuelRecordPanel } from "./components/FuelRecordPanel";
 import { ReminderRulePanel } from "./components/ReminderRulePanel";
+import { DashboardView } from "./components/DashboardView";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
 
 export function App() {
+  const [view, setView] = useState<AppView>("garage");
   const [email, setEmail] = useState("");
   const [linkEmail, setLinkEmail] = useState("");
   const [identity, setIdentity] = useState<PasskeyIdentity | null>(null);
@@ -303,8 +306,22 @@ export function App() {
     );
   }
 
+  if (view === "dashboard") {
+    return (
+      <AppShell title={t("dashboardHeading")} view={view} onSelectView={setView}>
+        <DashboardView
+          vehicles={vehicles}
+          onSelectVehicle={(id) => {
+            setSelectedVehicleId(id);
+            setView("garage");
+          }}
+        />
+      </AppShell>
+    );
+  }
+
   return (
-    <AppShell title={t("vehiclesHeading")}>
+    <AppShell title={t("vehiclesHeading")} view={view} onSelectView={setView}>
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ font: "400 11.5px var(--font-mono)", color: "var(--dim)" }}>

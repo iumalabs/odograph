@@ -73,6 +73,15 @@ const en = {
   reminderStatusOverdue: "Overdue",
   reminderStatusNotEnoughData: "Not enough data",
   genericError: "Something went wrong. Please try again.",
+  garageNavLabel: "GARAGE",
+  dashboardNavLabel: "DASHBOARD",
+  dashboardHeading: "Dashboard",
+  noVehiclesOnDashboard: "No vehicles yet — add one from the Garage.",
+  costPerDistanceLabel: "Cost / distance",
+  costPerTimeLabel: "Cost / time",
+  averageFuelEconomyLabel: "Avg. economy",
+  needsAttention: "Needs attention",
+  allGood: "All good",
 } as const;
 
 export type StringKey = keyof typeof en;
