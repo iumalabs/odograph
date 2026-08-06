@@ -12,6 +12,9 @@ type AuthScreenProps = {
   onSignUpPasskey: () => void;
   onSignInPasskey: () => void;
   onSendMagicLink: () => void;
+  // Disables the three actions below while one is already in flight — a slow WebAuthn prompt
+  // left clickable the whole time let a double-click fire two concurrent ceremonies (App.tsx).
+  pending: boolean;
   magicLinkSent: boolean;
   magicLinkOutcome: MagicLinkOutcome;
   oidcOutcome: OidcOutcome;
@@ -81,6 +84,7 @@ export function AuthScreen(props: AuthScreenProps) {
     onSignUpPasskey,
     onSignInPasskey,
     onSendMagicLink,
+    pending,
     magicLinkSent,
     magicLinkOutcome,
     oidcOutcome,
@@ -170,13 +174,34 @@ export function AuthScreen(props: AuthScreenProps) {
             />
           </label>
 
-          <button type="button" onClick={onSignUpPasskey} style={primaryButtonStyle}>
+          <button
+            type="button"
+            onClick={onSignUpPasskey}
+            disabled={pending}
+            style={pending
+              ? { ...primaryButtonStyle, opacity: 0.6, cursor: "default" }
+              : primaryButtonStyle}
+          >
             {t("signUpWithPasskey")}
           </button>
-          <button type="button" onClick={onSignInPasskey} style={secondaryButtonStyle}>
+          <button
+            type="button"
+            onClick={onSignInPasskey}
+            disabled={pending}
+            style={pending
+              ? { ...secondaryButtonStyle, opacity: 0.6, cursor: "default" }
+              : secondaryButtonStyle}
+          >
             {t("signInWithPasskey")}
           </button>
-          <button type="button" onClick={onSendMagicLink} style={secondaryButtonStyle}>
+          <button
+            type="button"
+            onClick={onSendMagicLink}
+            disabled={pending}
+            style={pending
+              ? { ...secondaryButtonStyle, opacity: 0.6, cursor: "default" }
+              : secondaryButtonStyle}
+          >
             {t("sendMagicLink")}
           </button>
           {magicLinkSent && <Banner kind="info">{t("magicLinkSentBanner")}</Banner>}

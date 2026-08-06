@@ -43,6 +43,13 @@ export function App() {
   const [linkEmail, setLinkEmail] = useState("");
   const [identity, setIdentity] = useState<PasskeyIdentity | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Guards the three AuthScreen actions (passkey sign-up/sign-in, magic link) against a
+  // double-click firing two concurrent ceremonies — a slow WebAuthn prompt (Touch ID/Windows
+  // Hello) left the buttons clickable the whole time, and a second navigator.credentials.create()
+  // call implicitly aborts the first while consuming a *different* server-issued challenge,
+  // which can surface as a same-request "challenge not found or already consumed" failure
+  // (investigated live for issue #46).
+  const [authPending, setAuthPending] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [linkEmailSent, setLinkEmailSent] = useState(false);
   const [magicLinkOutcome, setMagicLinkOutcome] = useState<MagicLinkOutcome>(null);
@@ -146,6 +153,16 @@ export function App() {
     }
   }
 
+  async function handleAuthAction<T>(action: () => Promise<T>, onSuccess: (result: T) => void) {
+    if (authPending) return;
+    setAuthPending(true);
+    try {
+      await handle(action, onSuccess);
+    } finally {
+      setAuthPending(false);
+    }
+  }
+
   async function handleUploadAttachment(recordId: string, file: File) {
     setError(null);
     try {
@@ -213,9 +230,11 @@ export function App() {
       <AuthScreen
         email={email}
         onEmailChange={setEmail}
-        onSignUpPasskey={() => handle(() => registerWithPasskey(email), setIdentity)}
-        onSignInPasskey={() => handle(loginWithPasskey, setIdentity)}
-        onSendMagicLink={() => handle(() => requestMagicLink(email), () => setMagicLinkSent(true))}
+        onSignUpPasskey={() => handleAuthAction(() => registerWithPasskey(email), setIdentity)}
+        onSignInPasskey={() => handleAuthAction(loginWithPasskey, setIdentity)}
+        onSendMagicLink={() =>
+          handleAuthAction(() => requestMagicLink(email), () => setMagicLinkSent(true))}
+        pending={authPending}
         magicLinkSent={magicLinkSent}
         magicLinkOutcome={magicLinkOutcome}
         oidcOutcome={oidcOutcome}
