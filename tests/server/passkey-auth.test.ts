@@ -2,6 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import {
   addCredentialToUser,
+  consumeChallenge,
   deleteUser,
   findCredentialById,
   isUniqueConstraintError,
@@ -266,6 +267,40 @@ describe("passkey add — second credential (User Story 3)", () => {
       body: JSON.stringify({ response }),
     });
     expect(res.status).toBe(409);
+  });
+});
+
+// This is the exact gap that let issue #46 ship: every other test above seeds
+// webauthn_challenges directly with a *fixture's own* embedded challenge (via seedChallenge +
+// challengeOf), since the fixtures' cryptographic signatures were captured offline against fixed
+// challenge values this project's own /options endpoints never issued. That means no test ever
+// exercised createRegistrationOptions()/createAuthenticationOptions()'s actual output being
+// looked up by consumeChallenge() — the one place a real client-vs-stored mismatch could hide.
+// It did: @simplewebauthn/server's generateRegistrationOptions/generateAuthenticationOptions
+// re-encodes a string `challenge` as UTF-8 bytes before base64url-encoding it for the wire,
+// so passing the already-base64url-encoded string from createChallenge() straight through (as
+// the code did before this fix) produced a wire value that could never match what was stored.
+describe("a challenge issued via /options round-trips to consumeChallenge (issue #46 regression)", () => {
+  it("register/options' challenge is consumable by consumeChallenge with the exact wire value", async () => {
+    const res = await SELF.fetch(`${FIXTURE_ORIGIN}/api/v1/auth/passkey/register/options`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "regress-46@example.invalid" }),
+    });
+    expect(res.status).toBe(200);
+    const options = (await res.json()) as { challenge: string };
+
+    expect(await consumeChallenge(env.DB, options.challenge, "registration")).toBe(true);
+  });
+
+  it("login/options' challenge is consumable by consumeChallenge with the exact wire value", async () => {
+    const res = await SELF.fetch(`${FIXTURE_ORIGIN}/api/v1/auth/passkey/login/options`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(200);
+    const options = (await res.json()) as { challenge: string };
+
+    expect(await consumeChallenge(env.DB, options.challenge, "authentication")).toBe(true);
   });
 });
 
