@@ -41,11 +41,9 @@ function base64UrlDecode(value: string): Uint8Array {
 /**
  * Reads clientDataJSON without running full verification — the `challenge` field lets the
  * challenge be consumed (single-use, FR-007) before the expensive/crypto verification step.
- *
- * `origin`/`type` are read too for TEMPORARY (issue #46) live debugging — surfaced directly in
- * the HTTP error response so a verification failure shows exactly what the browser signed versus
- * what the server expected, since Cloudflare Workers Logs isn't surfacing console.error output
- * for this Worker in practice. Remove the debug plumbing once #46 is root-caused.
+ * `origin`/`type` are read too, purely for the console.error calls below (issue #46's
+ * investigation showed Cloudflare Workers Logs doesn't reliably surface this Worker's output in
+ * practice, but the fields cost nothing to keep around for whenever it does).
  */
 function parseClientData(
   clientDataJSON: string,
@@ -65,20 +63,17 @@ export async function createRegistrationOptions(
     rpName: RP_NAME,
     rpID,
     userName: email,
-    challenge,
+    // Root cause of issue #46 (confirmed live, then reproduced in isolation): passing `challenge`
+    // as a plain string makes @simplewebauthn/server treat its CHARACTERS as UTF-8 text and
+    // base64url-encode THAT for the wire, rather than using the string as already-encoded
+    // base64url bytes — so the value the browser actually signs and returns never matched what
+    // consumeChallenge() looked up, on every single registration, in every environment, always.
+    // Decoding to the raw bytes first makes the library's own base64url-encoding produce the
+    // exact string already stored by createChallenge().
+    challenge: base64UrlDecode(challenge) as Uint8Array<ArrayBuffer>,
     authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
   });
 }
-
-// TEMPORARY (issue #46) — surfaced directly in the HTTP error response so it's visible in
-// DevTools Network without depending on Cloudflare Workers Logs. Remove once #46 is root-caused.
-export type VerificationDebug = {
-  expectedRPID: string;
-  expectedOrigin: string;
-  clientOrigin: string;
-  clientType: string;
-  thrown: string | null;
-};
 
 export type RegistrationVerification =
   | {
@@ -88,7 +83,7 @@ export type RegistrationVerification =
     counter: number;
     transports: string[] | null;
   }
-  | { verified: false; reason: "challenge" | "verification"; debug?: VerificationDebug };
+  | { verified: false; reason: "challenge" | "verification" };
 
 export async function verifyRegistration(
   db: D1Database,
@@ -119,17 +114,7 @@ export async function verifyRegistration(
       console.error(
         `passkey registration verification failed: expectedRPID=${rpID} expectedOrigin=${origin} clientOrigin=${clientData.origin}`,
       );
-      return {
-        verified: false,
-        reason: "verification",
-        debug: {
-          expectedRPID: rpID,
-          expectedOrigin: origin,
-          clientOrigin: clientData.origin,
-          clientType: clientData.type,
-          thrown: null,
-        },
-      };
+      return { verified: false, reason: "verification" };
     }
     const { credential } = result.registrationInfo;
     return {
@@ -140,21 +125,12 @@ export async function verifyRegistration(
       transports: credential.transports ?? null,
     };
   } catch (error) {
-    const thrown = error instanceof Error ? error.message : String(error);
     console.error(
-      `passkey registration verification threw: expectedRPID=${rpID} expectedOrigin=${origin} clientOrigin=${clientData.origin} error=${thrown}`,
+      `passkey registration verification threw: expectedRPID=${rpID} expectedOrigin=${origin} clientOrigin=${clientData.origin} error=${
+        error instanceof Error ? error.message : String(error)
+      }`,
     );
-    return {
-      verified: false,
-      reason: "verification",
-      debug: {
-        expectedRPID: rpID,
-        expectedOrigin: origin,
-        clientOrigin: clientData.origin,
-        clientType: clientData.type,
-        thrown,
-      },
-    };
+    return { verified: false, reason: "verification" };
   }
 }
 
@@ -166,12 +142,16 @@ export async function createAuthenticationOptions(
   const challenge = await createChallenge(db, "authentication");
   // No allowCredentials — the browser shows every discoverable passkey it
   // has for this site (research.md's discoverable-credential decision).
-  return generateAuthenticationOptions({ rpID, challenge });
+  // challenge: see createRegistrationOptions' comment — same double-encoding bug, same fix.
+  return generateAuthenticationOptions({
+    rpID,
+    challenge: base64UrlDecode(challenge) as Uint8Array<ArrayBuffer>,
+  });
 }
 
 export type AuthenticationVerification =
   | { verified: true; newCounter: number }
-  | { verified: false; reason: "challenge" | "verification"; debug?: VerificationDebug };
+  | { verified: false; reason: "challenge" | "verification" };
 
 export async function verifyAuthentication(
   db: D1Database,
@@ -200,36 +180,17 @@ export async function verifyAuthentication(
       console.error(
         `passkey authentication verification failed: expectedRPID=${rpID} expectedOrigin=${origin} clientOrigin=${clientData.origin}`,
       );
-      return {
-        verified: false,
-        reason: "verification",
-        debug: {
-          expectedRPID: rpID,
-          expectedOrigin: origin,
-          clientOrigin: clientData.origin,
-          clientType: clientData.type,
-          thrown: null,
-        },
-      };
+      return { verified: false, reason: "verification" };
     }
     return { verified: true, newCounter: result.authenticationInfo.newCounter };
   } catch (error) {
     // Includes the library's own thrown counter-regression error (clone
     // detection) — treated identically to any other verification failure.
-    const thrown = error instanceof Error ? error.message : String(error);
     console.error(
-      `passkey authentication verification threw: expectedRPID=${rpID} expectedOrigin=${origin} clientOrigin=${clientData.origin} error=${thrown}`,
+      `passkey authentication verification threw: expectedRPID=${rpID} expectedOrigin=${origin} clientOrigin=${clientData.origin} error=${
+        error instanceof Error ? error.message : String(error)
+      }`,
     );
-    return {
-      verified: false,
-      reason: "verification",
-      debug: {
-        expectedRPID: rpID,
-        expectedOrigin: origin,
-        clientOrigin: clientData.origin,
-        clientType: clientData.type,
-        thrown,
-      },
-    };
+    return { verified: false, reason: "verification" };
   }
 }
