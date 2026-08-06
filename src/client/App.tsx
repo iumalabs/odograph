@@ -8,15 +8,19 @@ import { createVehicle, listVehicles } from "./vehicles";
 import type { Vehicle } from "./vehicles";
 import {
   createServiceRecord,
+  deleteServiceRecord,
   dismissDuplicate as dismissServiceDuplicate,
   listServiceRecords,
+  updateServiceRecord,
   uploadAttachment,
 } from "./service-records";
 import type { Attachment, ServiceRecord } from "./service-records";
 import {
   createFuelRecord,
+  deleteFuelRecord,
   dismissDuplicate as dismissFuelDuplicate,
   listFuelRecords,
+  updateFuelRecord,
   uploadAttachment as uploadFuelAttachment,
 } from "./fuel-records";
 import type { FuelRecord } from "./fuel-records";
@@ -207,6 +211,61 @@ export function App() {
     );
   }
 
+  function handleUpdateServiceRecord(
+    recordId: string,
+    patch: {
+      serviceDate: string;
+      description: string;
+      odometerReading: number | null;
+      cost: number | null;
+      notes: string | null;
+    },
+  ) {
+    handle(
+      () => updateServiceRecord(recordId, patch),
+      (updated) => {
+        setServiceRecords((current) => current.map((r) => r.id === updated.id ? updated : r));
+      },
+    );
+  }
+
+  function handleDeleteServiceRecord(recordId: string) {
+    handle(
+      () => deleteServiceRecord(recordId),
+      () => {
+        setServiceRecords((current) => current.filter((r) => r.id !== recordId));
+      },
+    );
+  }
+
+  function handleUpdateFuelRecord(
+    recordId: string,
+    patch: {
+      fuelDate: string;
+      odometerReading: number;
+      volume: number;
+      cost: number;
+      station: string | null;
+      notes: string | null;
+    },
+  ) {
+    handle(
+      () => updateFuelRecord(recordId, patch),
+      (updated) => {
+        setFuelRecords((current) => current.map((r) => r.id === updated.id ? updated : r));
+      },
+    );
+  }
+
+  function handleDeleteFuelRecord(recordId: string) {
+    handle(
+      () => deleteFuelRecord(recordId),
+      () => {
+        setFuelRecords((current) => current.filter((r) => r.id !== recordId));
+      },
+    );
+  }
+
   function handleMarkReminderDone(ruleId: string) {
     handle(
       () => markReminderDone(ruleId),
@@ -366,6 +425,8 @@ export function App() {
               onUploadAttachment={handleUploadAttachment}
               attachmentsByRecordId={attachmentsByRecordId}
               onDismissDuplicate={handleDismissServiceDuplicate}
+              onUpdateRecord={handleUpdateServiceRecord}
+              onDeleteRecord={handleDeleteServiceRecord}
             />
 
             <h2
@@ -407,6 +468,8 @@ export function App() {
               onUploadAttachment={handleUploadFuelAttachment}
               attachmentsByRecordId={fuelAttachmentsByRecordId}
               onDismissDuplicate={handleDismissFuelDuplicate}
+              onUpdateRecord={handleUpdateFuelRecord}
+              onDeleteRecord={handleDeleteFuelRecord}
             />
 
             <h2
