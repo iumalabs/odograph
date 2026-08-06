@@ -1,4 +1,4 @@
-import { test as base } from "@playwright/test";
+import { test as base } from "./coverage.ts";
 import { t } from "../../src/client/i18n/strings.ts";
 
 /**
@@ -44,7 +44,9 @@ export async function bootstrapDevSession(
  *   cookie in place and the post-login shell rendered — the vast majority
  *   of specs want this, not the bare session.
  */
-export const test = base.extend<{ session: DevSession; authedPage: import("@playwright/test").Page }>(
+export const test = base.extend<
+  { session: DevSession; authedPage: import("@playwright/test").Page }
+>(
   {
     session: async ({ context }, use) => {
       const session = await bootstrapDevSession(context);

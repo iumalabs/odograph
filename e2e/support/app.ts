@@ -30,7 +30,11 @@ function formFor(page: Page, submitLabel: string): Locator {
  * response here reflects realistic sequential form submission and avoids
  * the suite spuriously tripping over that race while still exercising it.
  */
-async function submitAndWait(page: Page, urlFragment: string, submit: () => Promise<void>): Promise<void> {
+async function submitAndWait(
+  page: Page,
+  urlFragment: string,
+  submit: () => Promise<void>,
+): Promise<void> {
   const responsePromise = page.waitForResponse(
     (res) => res.url().includes(urlFragment) && res.request().method() === "POST",
   );

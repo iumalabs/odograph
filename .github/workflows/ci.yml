@@ -33,3 +33,56 @@ jobs:
 
       - name: build
         run: deno task build
+
+  e2e:
+    name: e2e (Playwright) + client coverage gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - run: deno install
+
+      - name: Generate Cloudflare runtime types
+        run: deno task cf-typegen
+
+      - name: Install e2e deps
+        working-directory: e2e
+        run: deno install
+
+      - name: Install Playwright browsers
+        working-directory: e2e
+        run: deno task install-browsers
+
+      - name: Run e2e suite with coverage
+        working-directory: e2e
+        run: deno task test:coverage
+
+      # Gate on the client function-coverage floor — see
+      # support/check-coverage-threshold.ts for why this isn't 100% yet
+      # (dead code behind issue #49, Google OIDC, magic-link verify all
+      # need work outside this suite before it can be). Raise the threshold
+      # there as real coverage improves; never lower it to unblock CI.
+      - name: Check coverage threshold
+        working-directory: e2e
+        run: deno task coverage:check
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-coverage
+          path: e2e/coverage/
+          retention-days: 14

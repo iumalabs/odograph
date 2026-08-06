@@ -33,9 +33,7 @@ test.describe("dev-session bootstrap", () => {
       .toBeVisible();
   });
 
-  test("two sessions get two different tenants with isolated vehicle lists (Principle I)", async ({
-    browser,
-  }) => {
+  test("two sessions get two different tenants with isolated vehicle lists (Principle I)", async ({ browser }) => {
     const contextA = await browser.newContext();
     const contextB = await browser.newContext();
     try {
