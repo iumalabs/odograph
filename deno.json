@@ -41,9 +41,8 @@
     "typecheck": "tsc --build --force",
     "test": "vitest run",
     "cf-typegen": "wrangler types",
-    "deploy:preview": "wrangler deploy --env preview",
+    "versions:upload:preview": "wrangler versions upload --env preview",
     "deploy:production": "wrangler deploy --env production",
-    "delete:preview": "wrangler delete",
     "migrate:preview": "wrangler d1 migrations apply odograph-preview --remote",
     "migrate:production": "wrangler d1 migrations apply odograph-production --remote --env production",
     "check": "deno fmt --check && deno lint && deno task typecheck && deno task test && bash scripts/check-repository-boundary.sh"
