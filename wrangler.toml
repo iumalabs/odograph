@@ -2,9 +2,16 @@ name = "odograph"
 main = "./src/server/index.ts"
 compatibility_date = "2025-04-01"
 
+# binding + run_worker_first route every request through the Worker's fetch handler first
+# (rather than letting Cloudflare's edge asset layer serve matching files/the SPA fallback
+# directly) — required so a fresh, per-request Content-Security-Policy nonce can be attached to
+# every HTML response, including ones that would otherwise never reach the Worker at all (see
+# specs/015-csp-nonces/research.md).
 [assets]
 directory = "./dist/client"
 not_found_handling = "single-page-application"
+binding = "ASSETS"
+run_worker_first = true
 
 [observability]
 enabled = true
