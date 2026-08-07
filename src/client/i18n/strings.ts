@@ -132,6 +132,11 @@ const en = {
   actionMarkDoneLabel: "Mark done",
   rejectReasonInvalidRequest: "The submitted data wasn't valid.",
   rejectReasonUnknown: "No further detail is available.",
+  pushEnableLabel: "Enable push notifications",
+  pushDisableLabel: "Disable push notifications",
+  pushUnsupportedLabel: "Push notifications aren't available on this device",
+  pushPermissionDeniedLabel:
+    "Notification permission was denied — enable it in your browser settings to turn this on.",
 } as const;
 
 export type StringKey = keyof typeof en;

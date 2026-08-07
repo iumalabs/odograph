@@ -17,3 +17,23 @@ precacheAndRoute(self.__WB_MANIFEST);
 // transition could break (research.md).
 self.skipWaiting();
 clientsClaim();
+
+// spec 022: web push reminder delivery. Neither listener touches the `fetch` path — showing a
+// notification and reacting to a click are both independent of the precache-only, no-fetch-
+// handling design above (specs/018's own constraint on this file is unaffected).
+self.addEventListener("push", (event) => {
+  const data = event.data?.json() as { title: string; body: string } | undefined;
+  if (!data) return;
+  event.waitUntil(self.registration.showNotification(data.title, { body: data.body }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window" }).then((clients) => {
+      const existing = clients.find((client) => "focus" in client);
+      if (existing) return existing.focus();
+      return self.clients.openWindow("/");
+    }),
+  );
+});
