@@ -51,6 +51,10 @@ by the Spec Kit skills in `.claude/skills/`.
 All deploys happen through GitHub Actions — see [docs/deployment.md](docs/deployment.md). There is
 no local `wrangler deploy` path to either environment.
 
+Want to run your own instance instead of contributing to this one? See
+[docs/self-hosting.md](docs/self-hosting.md) (plain `wrangler` from your own machine, no GitHub
+Actions required) and [docs/backup-restore.md](docs/backup-restore.md).
+
 ## Getting started
 
 Requires [Deno](https://deno.com/) 2.x — the project's sole package manager and task runner.
