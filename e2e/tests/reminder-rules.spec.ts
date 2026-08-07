@@ -1,5 +1,12 @@
 import { expect, test } from "../support/dev-session.ts";
-import { addFuelRecord, addReminderRule, addVehicle, reminderRuleRow, selectVehicle, t } from "../support/app.ts";
+import {
+  addFuelRecord,
+  addReminderRule,
+  addVehicle,
+  reminderRuleRow,
+  selectVehicle,
+  t,
+} from "../support/app.ts";
 
 function isoDaysAgo(days: number): string {
   const d = new Date();
@@ -55,9 +62,7 @@ test.describe("reminder rules — status computation (spec 011)", () => {
     ).toBeVisible();
   });
 
-  test("a distance-based reminder on a vehicle with no odometer history shows not enough data, never a guess", async ({
-    authedPage,
-  }) => {
+  test("a distance-based reminder on a vehicle with no odometer history shows not enough data, never a guess", async ({ authedPage }) => {
     await addReminderRule(authedPage, {
       label: "Timing belt",
       intervalDistance: "5000",
@@ -70,11 +75,14 @@ test.describe("reminder rules — status computation (spec 011)", () => {
     ).toBeVisible();
   });
 
-  test("whichever comes first wins (FR-006): overdue by date beats on-track by mileage", async ({
-    authedPage,
-  }) => {
+  test("whichever comes first wins (FR-006): overdue by date beats on-track by mileage", async ({ authedPage }) => {
     // Establishes a current odometer reading of 1000 so the mileage side is computable at all.
-    await addFuelRecord(authedPage, { date: isoDaysAgo(1), odometer: "1000", volume: "10", cost: "15" });
+    await addFuelRecord(authedPage, {
+      date: isoDaysAgo(1),
+      odometer: "1000",
+      volume: "10",
+      cost: "15",
+    });
     await addReminderRule(authedPage, {
       label: "Combined - date overdue",
       intervalDays: "30",
@@ -89,10 +97,13 @@ test.describe("reminder rules — status computation (spec 011)", () => {
     ).toBeVisible();
   });
 
-  test("whichever comes first wins (FR-006): overdue by mileage beats on-track by date", async ({
-    authedPage,
-  }) => {
-    await addFuelRecord(authedPage, { date: isoDaysAgo(1), odometer: "1000", volume: "10", cost: "15" });
+  test("whichever comes first wins (FR-006): overdue by mileage beats on-track by date", async ({ authedPage }) => {
+    await addFuelRecord(authedPage, {
+      date: isoDaysAgo(1),
+      odometer: "1000",
+      volume: "10",
+      cost: "15",
+    });
     await addReminderRule(authedPage, {
       label: "Combined - mileage overdue",
       intervalDays: "30",

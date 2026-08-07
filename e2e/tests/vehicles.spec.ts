@@ -21,9 +21,7 @@ test.describe("vehicle CRUD (spec 006)", () => {
     await expect(vehicleCard(authedPage, "Weekend Car")).toBeVisible();
   });
 
-  test("selecting a vehicle reveals its service/fuel/reminder sections; selecting it again hides them", async ({
-    authedPage,
-  }) => {
+  test("selecting a vehicle reveals its service/fuel/reminder sections; selecting it again hides them", async ({ authedPage }) => {
     await addVehicle(authedPage, { name: "Test Vehicle", odometerUnit: "km" });
     const serviceHeading = authedPage.getByRole("heading", {
       name: t("serviceRecordsHeading"),

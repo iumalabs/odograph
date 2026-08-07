@@ -1,5 +1,13 @@
 import { expect, test } from "../support/dev-session.ts";
-import { addFuelRecord, addServiceRecord, addVehicle, fuelRecordRow, selectVehicle, serviceRecordRow, t } from "../support/app.ts";
+import {
+  addFuelRecord,
+  addServiceRecord,
+  addVehicle,
+  fuelRecordRow,
+  selectVehicle,
+  serviceRecordRow,
+  t,
+} from "../support/app.ts";
 
 // Attachment validation is shared logic duplicated across service-records.ts and fuel-records.ts
 // (constitution Principle V, FR-010: type detected by magic bytes, never trusted Content-Type;
@@ -17,9 +25,7 @@ const OVERSIZED_PNG = Buffer.concat([
 ]);
 
 test.describe("attachment validation (specs 007, 009, constitution Principle V)", () => {
-  test("a service record rejects a file whose bytes don't match any allowed signature", async ({
-    authedPage,
-  }) => {
+  test("a service record rejects a file whose bytes don't match any allowed signature", async ({ authedPage }) => {
     await addVehicle(authedPage, { name: "Attachment Reject Car", odometerUnit: "km" });
     await selectVehicle(authedPage, "Attachment Reject Car");
     await addServiceRecord(authedPage, { date: "2026-06-01", description: "Brake inspection" });
@@ -53,12 +59,15 @@ test.describe("attachment validation (specs 007, 009, constitution Principle V)"
     await expect(row.getByText(/KB$/)).toHaveCount(0);
   });
 
-  test("a fuel record rejects a file whose bytes don't match any allowed signature", async ({
-    authedPage,
-  }) => {
+  test("a fuel record rejects a file whose bytes don't match any allowed signature", async ({ authedPage }) => {
     await addVehicle(authedPage, { name: "Fuel Reject Car", odometerUnit: "km" });
     await selectVehicle(authedPage, "Fuel Reject Car");
-    await addFuelRecord(authedPage, { date: "2026-06-01", odometer: "1000", volume: "10", cost: "15" });
+    await addFuelRecord(authedPage, {
+      date: "2026-06-01",
+      odometer: "1000",
+      volume: "10",
+      cost: "15",
+    });
     const row = fuelRecordRow(authedPage, "1000");
     await row.getByRole("button", { name: t("attachmentUploadLabel") }).click();
     await row.locator('input[type="file"]').setInputFiles({
@@ -75,7 +84,12 @@ test.describe("attachment validation (specs 007, 009, constitution Principle V)"
   test("a fuel record rejects a file over the 10MB cap", async ({ authedPage }) => {
     await addVehicle(authedPage, { name: "Fuel Oversize Car", odometerUnit: "km" });
     await selectVehicle(authedPage, "Fuel Oversize Car");
-    await addFuelRecord(authedPage, { date: "2026-06-01", odometer: "1000", volume: "10", cost: "15" });
+    await addFuelRecord(authedPage, {
+      date: "2026-06-01",
+      odometer: "1000",
+      volume: "10",
+      cost: "15",
+    });
     const row = fuelRecordRow(authedPage, "1000");
     await row.getByRole("button", { name: t("attachmentUploadLabel") }).click();
     await row.locator('input[type="file"]').setInputFiles({

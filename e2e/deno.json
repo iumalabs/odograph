@@ -13,6 +13,8 @@
   "tasks": {
     "install-browsers": "deno run -A npm:playwright install --with-deps chromium",
     "test": "deno run -A npm:playwright test",
+    "test:coverage": "COVERAGE=1 deno run -A npm:playwright test",
+    "coverage:check": "deno run -A support/check-coverage-threshold.ts",
     "test:headed": "deno run -A npm:playwright test --headed",
     "test:ui": "deno run -A npm:playwright test --ui",
     "report": "deno run -A npm:playwright show-report"
