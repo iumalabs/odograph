@@ -10,6 +10,7 @@ import { serviceRecords } from "./routes/v1/service-records";
 import { fuelRecords } from "./routes/v1/fuel-records";
 import { reminderRules } from "./routes/v1/reminder-rules";
 import { evaluateAllReminders } from "./db/repository";
+import { buildCspHeader, generateNonce } from "./security/csp";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
@@ -26,7 +27,36 @@ app.route("/api/v1/fuel-records", fuelRecords);
 app.route("/api/v1/reminder-rules", reminderRules);
 
 export default {
-  fetch: app.fetch,
+  // `assets.run_worker_first = true` (wrangler.toml) routes every request here first, including
+  // the ones a static-asset layer would otherwise serve without ever reaching the Worker — the
+  // only way to attach a fresh per-request CSP nonce to the HTML document (specs/015-csp-nonces).
+  // The branch below is on the URL path, never on app.fetch's response status: a legitimate API
+  // 404 (e.g. a missing vehicle id) must stay a JSON 404, never fall through to
+  // env.ASSETS.fetch() and silently become the SPA's index.html (research.md).
+  fetch: async (request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> => {
+    const url = new URL(request.url);
+    if (url.pathname.startsWith("/api/")) {
+      return app.fetch(request, env, ctx);
+    }
+
+    const assetResponse = await env.ASSETS.fetch(request);
+    // Only preview/production serve the pre-built dist/client (zero inline <script>/<style>,
+    // confirmed — specs/015-csp-nonces/research.md). "development" is `deno task dev`'s Vite dev
+    // server, which injects its own un-nonced inline script (the React Fast Refresh preamble) —
+    // a strict CSP there blocks Vite's own tooling, not an attacker, breaking local iteration for
+    // every future contributor. CSP is a production-hardening concern with nothing to protect in
+    // local dev, so it's skipped there rather than chasing Vite internals to nonce-tag them.
+    if (env.ENVIRONMENT === "development") {
+      return assetResponse;
+    }
+    if (!assetResponse.headers.get("content-type")?.startsWith("text/html")) {
+      return assetResponse;
+    }
+
+    const response = new Response(assetResponse.body, assetResponse);
+    response.headers.set("Content-Security-Policy", buildCspHeader(generateNonce()));
+    return response;
+  },
   // The daily sweep (wrangler.toml's [triggers]) — the only entry point in this codebase
   // reaching evaluateAllReminders, which deliberately has no per-request TenantContext.
   scheduled: async (_controller: ScheduledController, env: Env, _ctx: ExecutionContext) => {
