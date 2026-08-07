@@ -85,8 +85,11 @@ locally right away, shows as pending, and syncs automatically once connectivity 
 - [ ] T015 [P] [US1] Extend `src/client/reminder-rules.ts`: `createReminderRule`,
       `deleteReminderRule`, `markDone` route through `queue.enqueue()`
 - [ ] T016 [US1] Create `src/client/offline/merge.ts`: given a server-fetched list and the current
-      queue snapshot for an entity type, returns the list with pending creates appended, pending
-      edits overlaid, pending deletes removed, each tagged with a `syncStatus`
+      queue snapshot for an entity type, returns the list with pending-or-rejected creates appended,
+      pending-or-rejected edits overlaid, pending deletes removed, each tagged with a `syncStatus`
+      (`"pending"` or `"rejected"` — a rejected create/edit MUST still render, per FR-013's
+      "user's original input remains available to see," not disappear once US3 (T023) starts
+      marking actions rejected instead of only ever pending)
 - [ ] T017 [US1] Wire `src/client/App.tsx`: subscribe to `queue.subscribe()`, pass
       `serviceRecords`/`fuelRecords`/`reminderRules`/`vehicles` through `merge.ts` before rendering
 - [ ] T018 [US1] Add `pendingLabel` to `src/client/i18n/strings.ts`; add a small "pending" marker
