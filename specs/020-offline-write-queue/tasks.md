@@ -76,27 +76,27 @@ tests, but nothing in the app calls either of them yet.
 **Goal**: Creating or editing a vehicle/service record/fuel record/reminder while offline saves
 locally right away, shows as pending, and syncs automatically once connectivity returns.
 
-- [ ] T012 [US1] Extend `src/client/vehicles.ts`'s `createVehicle` to call `queue.enqueue()`
+- [X] T012 [US1] Extend `src/client/vehicles.ts`'s `createVehicle` to call `queue.enqueue()`
       (entity `"vehicle"`, actionType `"create"`) instead of `fetch` directly
-- [ ] T013 [P] [US1] Extend `src/client/service-records.ts`: `createServiceRecord`,
+- [X] T013 [P] [US1] Extend `src/client/service-records.ts`: `createServiceRecord`,
       `updateServiceRecord`, `deleteServiceRecord`, `dismissDuplicate` all route through
       `queue.enqueue()`
-- [ ] T014 [P] [US1] Extend `src/client/fuel-records.ts`: the same four functions
-- [ ] T015 [P] [US1] Extend `src/client/reminder-rules.ts`: `createReminderRule`,
+- [X] T014 [P] [US1] Extend `src/client/fuel-records.ts`: the same four functions
+- [X] T015 [P] [US1] Extend `src/client/reminder-rules.ts`: `createReminderRule`,
       `deleteReminderRule`, `markDone` route through `queue.enqueue()`
-- [ ] T016 [US1] Create `src/client/offline/merge.ts`: given a server-fetched list and the current
+- [X] T016 [US1] Create `src/client/offline/merge.ts`: given a server-fetched list and the current
       queue snapshot for an entity type, returns the list with pending-or-rejected creates appended,
       pending-or-rejected edits overlaid, pending deletes removed, each tagged with a `syncStatus`
       (`"pending"` or `"rejected"` — a rejected create/edit MUST still render, per FR-013's
       "user's original input remains available to see," not disappear once US3 (T023) starts
       marking actions rejected instead of only ever pending)
-- [ ] T017 [US1] Wire `src/client/App.tsx`: subscribe to `queue.subscribe()`, pass
+- [X] T017 [US1] Wire `src/client/App.tsx`: subscribe to `queue.subscribe()`, pass
       `serviceRecords`/`fuelRecords`/`reminderRules`/`vehicles` through `merge.ts` before rendering
-- [ ] T018 [US1] Add `pendingLabel` to `src/client/i18n/strings.ts`; add a small "pending" marker
+- [X] T018 [US1] Add `pendingLabel` to `src/client/i18n/strings.ts`; add a small "pending" marker
       (mirroring the existing "possible duplicate" badge styling) to `ServiceRecordPanel.tsx`,
       `FuelRecordPanel.tsx`, `ReminderRulePanel.tsx`, and `Garage.tsx` for items whose `syncStatus`
       is `"pending"`
-- [ ] T019 [US1] Create `src/client/components/SyncStatusIndicator.tsx` (pending count only for
+- [X] T019 [US1] Create `src/client/components/SyncStatusIndicator.tsx` (pending count only for
       now) and mount it in `AppShell`/`App.tsx`
 - [ ] T020 [US1] Live-verify (quickstart.md steps 1-2): offline-created service and fuel records
       appear immediately marked pending; reconnecting syncs both automatically with no manual step,
@@ -130,17 +130,17 @@ handling and T011's startup hydration are proven to actually deliver what they w
 attention, doesn't block the rest of the queue, and a dead session pauses syncing with a clear
 prompt instead of looking like a wave of individual rejections.
 
-- [ ] T023 [US3] Extend `queue.ts`'s drain loop (T010) to the full four-case handling from
+- [X] T023 [US3] Extend `queue.ts`'s drain loop (T010) to the full four-case handling from
       research.md: `2xx` unchanged; `401` pauses the whole queue and exposes a "needs reauth" state
       without marking any action rejected; `429` waits for the response's `Retry-After` and retries
       the same action; any other `4xx` marks *that* action `"rejected"` with the response body as
       `rejectReason` and continues draining the next one
-- [ ] T024 [US3] Add `rejectedLabel`, `syncNeedsReauthLabel`, `offlineIndicatorLabel` to
+- [X] T024 [US3] Add `rejectedLabel`, `syncNeedsReauthLabel`, `offlineIndicatorLabel` to
       `src/client/i18n/strings.ts`
-- [ ] T025 [US3] Extend `ServiceRecordPanel.tsx`, `FuelRecordPanel.tsx`, `ReminderRulePanel.tsx`,
+- [X] T025 [US3] Extend `ServiceRecordPanel.tsx`, `FuelRecordPanel.tsx`, `ReminderRulePanel.tsx`,
       `Garage.tsx`'s pending markers (T018) to also show a distinct "rejected" marker (surfacing
       `rejectReason`, e.g. via a title attribute) for items whose `syncStatus` is `"rejected"`
-- [ ] T026 [US3] Extend `SyncStatusIndicator.tsx` (T019): add a rejected count, an offline-state
+- [X] T026 [US3] Extend `SyncStatusIndicator.tsx` (T019): add a rejected count, an offline-state
       display (FR-003), and a distinct "sign in again to sync" state when the queue is paused on a
       401 (T023)
 - [ ] T027 [US3] Live-verify (quickstart.md step 5): a queued edit whose target record was deleted

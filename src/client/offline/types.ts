@@ -11,6 +11,12 @@ export type PendingAction = {
   entity: PendingActionEntity;
   actionType: PendingActionType;
   vehicleId: string | null;
+  /**
+   * The affected record's own id — for a "create" this is the same value as `id` (FR-007: the
+   * client-assigned id doubles as the resource id); for update/delete/dismissDuplicate/markDone
+   * it's the existing record's id, supplied at enqueue time (not parsed back out of `path`).
+   */
+  resourceId: string;
   method: "POST" | "PATCH" | "DELETE";
   path: string;
   body: unknown;

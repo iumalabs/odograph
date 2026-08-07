@@ -1,10 +1,11 @@
 import { useState } from "react";
 import type { Attachment, ServiceRecord } from "../service-records";
+import type { WithSyncStatus } from "../offline/merge";
 import { AddIcon, ReceiptIcon, ServiceIcon, UploadIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
 type ServiceRecordPanelProps = {
-  records: ServiceRecord[];
+  records: WithSyncStatus<ServiceRecord>[];
   serviceDate: string;
   onServiceDateChange: (value: string) => void;
   serviceDescription: string;
@@ -280,6 +281,35 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
                             }}
                           >
                             {t("possibleDuplicateLabel")}
+                          </span>
+                        )}
+                        {record.syncStatus === "pending" && (
+                          <span
+                            style={{
+                              font: "500 10.5px var(--font-mono)",
+                              color: "var(--dim)",
+                              border: "1px solid var(--line)",
+                              borderRadius: "var(--radius-sm)",
+                              padding: "4px 8px",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {t("pendingSyncLabel")}
+                          </span>
+                        )}
+                        {record.syncStatus === "rejected" && (
+                          <span
+                            title={record.rejectReason ?? undefined}
+                            style={{
+                              font: "500 10.5px var(--font-mono)",
+                              color: "var(--warn)",
+                              border: "1px solid var(--warn)",
+                              borderRadius: "var(--radius-sm)",
+                              padding: "4px 8px",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {t("rejectedSyncLabel")}
                           </span>
                         )}
                       </div>

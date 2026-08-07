@@ -6,6 +6,9 @@ export type EnqueueInput = {
   entity: PendingActionEntity;
   actionType: PendingActionType;
   vehicleId: string | null;
+  /** Required for update/delete/dismissDuplicate/markDone — the existing record's id. Ignored
+   * for "create", where the generated action id is used instead (FR-007). */
+  targetId?: string;
   method: "POST" | "PATCH" | "DELETE";
   path: string;
   body: unknown;
@@ -96,6 +99,7 @@ export async function enqueue(input: EnqueueInput): Promise<PendingAction> {
     entity: input.entity,
     actionType: input.actionType,
     vehicleId: input.vehicleId,
+    resourceId: input.actionType === "create" ? id : input.targetId ?? id,
     method: input.method,
     path: input.path,
     body,

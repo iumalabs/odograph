@@ -1,3 +1,6 @@
+import { enqueue } from "./offline/queue";
+import type { PendingAction } from "./offline/types";
+
 export type ReminderStatus = "on_track" | "coming_up" | "overdue" | "not_enough_data";
 
 export type ReminderRule = {
@@ -33,7 +36,43 @@ export async function listReminderRules(vehicleId: string): Promise<ReminderRule
   return reminderRules;
 }
 
-export function createReminderRule(
+/**
+ * Builds a displayable rule from a still-pending/rejected "create" action — the server-computed
+ * status fields are left at `"not_enough_data"`/`null`, the same legitimate value they'd have
+ * before the server ever evaluates them, not a guess (constitution Principles II and IV). Shared
+ * between this module's own optimistic return value and offline/merge.ts's overlay of the same
+ * action onto a fetched list.
+ */
+export function hydrateOptimisticReminderRule(action: PendingAction): ReminderRule {
+  const body = action.body as {
+    id: string;
+    label: string;
+    intervalDays?: number;
+    intervalDistance?: number;
+    lastDoneDate?: string;
+    lastDoneOdometer?: number;
+  };
+  return {
+    id: body.id,
+    tenantId: "",
+    vehicleId: action.vehicleId ?? "",
+    label: body.label,
+    intervalDays: body.intervalDays ?? null,
+    intervalDistance: body.intervalDistance ?? null,
+    lastDoneDate: body.lastDoneDate ?? null,
+    lastDoneOdometer: body.lastDoneOdometer ?? null,
+    createdAt: action.createdAt,
+    updatedAt: action.createdAt,
+    status: "not_enough_data",
+    byDate: null,
+    byMileage: null,
+    dueDate: null,
+    dueOdometer: null,
+  };
+}
+
+/** Routes through the offline write queue (spec 020). */
+export async function createReminderRule(
   vehicleId: string,
   input: {
     label: string;
@@ -43,11 +82,15 @@ export function createReminderRule(
     lastDoneOdometer?: number;
   },
 ): Promise<ReminderRule> {
-  return jsonFetch(`/api/v1/vehicles/${vehicleId}/reminder-rules`, {
+  const action = await enqueue({
+    entity: "reminderRule",
+    actionType: "create",
+    vehicleId,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    path: `/api/v1/vehicles/${vehicleId}/reminder-rules`,
+    body: input,
   });
+  return hydrateOptimisticReminderRule(action);
 }
 
 export function getReminderRule(id: string): Promise<ReminderRule> {
@@ -65,13 +108,26 @@ export function updateReminderRule(
   });
 }
 
-export async function deleteReminderRule(id: string): Promise<void> {
-  const res = await fetch(`/api/v1/reminder-rules/${id}`, { method: "DELETE" });
-  if (!res.ok) {
-    throw new Error(`delete reminder rule failed: ${res.status}`);
-  }
+export async function deleteReminderRule(id: string, vehicleId: string): Promise<void> {
+  await enqueue({
+    entity: "reminderRule",
+    actionType: "delete",
+    vehicleId,
+    targetId: id,
+    method: "DELETE",
+    path: `/api/v1/reminder-rules/${id}`,
+    body: undefined,
+  });
 }
 
-export function markDone(id: string): Promise<ReminderRule> {
-  return jsonFetch(`/api/v1/reminder-rules/${id}/mark-done`, { method: "POST" });
+export async function markDone(id: string, vehicleId: string): Promise<void> {
+  await enqueue({
+    entity: "reminderRule",
+    actionType: "markDone",
+    vehicleId,
+    targetId: id,
+    method: "POST",
+    path: `/api/v1/reminder-rules/${id}/mark-done`,
+    body: undefined,
+  });
 }

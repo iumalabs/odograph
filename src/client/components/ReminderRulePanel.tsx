@@ -1,9 +1,10 @@
 import type { ReminderRule, ReminderStatus } from "../reminder-rules";
+import type { WithSyncStatus } from "../offline/merge";
 import { AddIcon, BellIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
 type ReminderRulePanelProps = {
-  rules: ReminderRule[];
+  rules: WithSyncStatus<ReminderRule>[];
   label: string;
   onLabelChange: (value: string) => void;
   intervalDays: string;
@@ -160,6 +161,35 @@ export function ReminderRulePanel(props: ReminderRulePanelProps) {
                     >
                       {t(STATUS_LABEL_KEY[rule.status])}
                     </span>
+                    {rule.syncStatus === "pending" && (
+                      <span
+                        style={{
+                          font: "500 10.5px var(--font-mono)",
+                          color: "var(--dim)",
+                          border: "1px solid var(--line)",
+                          borderRadius: "var(--radius-sm)",
+                          padding: "4px 8px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {t("pendingSyncLabel")}
+                      </span>
+                    )}
+                    {rule.syncStatus === "rejected" && (
+                      <span
+                        title={rule.rejectReason ?? undefined}
+                        style={{
+                          font: "500 10.5px var(--font-mono)",
+                          color: "var(--warn)",
+                          border: "1px solid var(--warn)",
+                          borderRadius: "var(--radius-sm)",
+                          padding: "4px 8px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {t("rejectedSyncLabel")}
+                      </span>
+                    )}
                   </div>
 
                   <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
