@@ -43,6 +43,7 @@
     "cf-typegen": "wrangler types",
     "versions:upload:preview": "wrangler versions upload --env preview",
     "deploy:production": "wrangler deploy --env production",
+    "migrate:local": "wrangler d1 migrations apply odograph-preview --local",
     "migrate:preview": "wrangler d1 migrations apply odograph-preview --remote",
     "migrate:production": "wrangler d1 migrations apply odograph-production --remote --env production",
     "check": "deno fmt --check && deno lint && deno task typecheck && deno task test && bash scripts/check-repository-boundary.sh"

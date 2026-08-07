@@ -50,6 +50,14 @@ jobs:
       - name: Generate Cloudflare runtime types
         run: deno task cf-typegen
 
+      # `deno task dev` (this job's target — see e2e/playwright.config.ts's webServer) reuses
+      # wrangler's local D1 persistence, same as a real local `wrangler dev`/`vite dev` session —
+      # but that persistence only exists once migrated. A dev machine accumulates it once and
+      # forgets this step exists; a fresh CI runner has none, which surfaced as every single
+      # `POST /api/v1/_dev/session` (and therefore every e2e test) failing with a 500.
+      - name: Apply D1 migrations (local)
+        run: deno task migrate:local
+
       - name: Install e2e deps
         working-directory: e2e
         run: deno install
