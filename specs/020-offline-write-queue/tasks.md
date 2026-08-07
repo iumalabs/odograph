@@ -47,15 +47,15 @@ constitution exception. Read the whole list before starting; Foundational alone 
       the same key under a *different* tenant is not short-circuited; a client-supplied `id` on
       create is honored; a request with no `Idempotency-Key` header behaves exactly as it did before
       this feature (regression)
-- [ ] T007 [P] Create `src/client/offline/types.ts`: `PendingAction` type and its unions
+- [X] T007 [P] Create `src/client/offline/types.ts`: `PendingAction` type and its unions
       (`entity`, `actionType`, `status`) per data-model.md
-- [ ] T008 [P] Create `src/client/offline/db.ts`: `idb`-based wrapper opening the
+- [X] T008 [P] Create `src/client/offline/db.ts`: `idb`-based wrapper opening the
       `odograph-offline-queue` IndexedDB database and its `pendingActions` object store per
       data-model.md
-- [ ] T009 [P] Create `src/client/offline/network-status.ts`: subscribable online/offline state from
+- [X] T009 [P] Create `src/client/offline/network-status.ts`: subscribable online/offline state from
       `navigator.onLine` plus `online`/`offline` window events (research.md: used only as a trigger
       to attempt a drain, never as proof a request will succeed)
-- [ ] T010 Create `src/client/offline/queue.ts`: `enqueue()` (assigns a UUID + monotonic `sequence`,
+- [X] T010 Create `src/client/offline/queue.ts`: `enqueue()` (assigns a UUID + monotonic `sequence`,
       persists via T008, updates an in-memory mirror, triggers a drain attempt); `init()` (loads
       persisted actions from IndexedDB into the mirror at startup and resumes draining if online);
       `subscribe()`/`getSnapshot()` (for `useSyncExternalStore`); a single-flight drain loop that
@@ -64,7 +64,7 @@ constitution exception. Read the whole list before starting; Foundational alone 
       request leaves it safely `"pending"`/`"syncing"` for the next drain attempt, never lost or
       double-applied) — for now, treat every non-2xx/network failure identically (fixed backoff,
       retry the same action); refined into the full four-case handling in US3 (T023)
-- [ ] T011 Call `queue.init()` once at startup in `src/client/main.tsx`
+- [X] T011 Call `queue.init()` once at startup in `src/client/main.tsx`
 
 **Checkpoint**: The idempotency contract and the queue engine both exist and are exercised by T006's
 tests, but nothing in the app calls either of them yet.
