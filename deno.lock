@@ -23,6 +23,7 @@
     "npm:vite-plugin-pwa@^1.3.0": "1.3.0_vite@6.4.3__@types+node@26.1.2_workbox-build@7.4.1_workbox-window@7.4.1",
     "npm:vite@^6.3.6": "6.4.3_@types+node@26.1.2",
     "npm:vitest@^4.1.10": "4.1.10_@types+node@26.1.2_vite@6.4.3__@types+node@26.1.2",
+    "npm:web-push-browser@^1.4.2": "1.4.2",
     "npm:workbox-core@^7.4.1": "7.4.1",
     "npm:workbox-precaching@^7.4.1": "7.4.1",
     "npm:wrangler@*": "4.118.0",
@@ -3458,6 +3459,9 @@
       ],
       "bin": true
     },
+    "web-push-browser@1.4.2": {
+      "integrity": "sha512-U4gs2JdGtjJ9QAezpLLbqTBfjXWttoy0N0c+RU8wCadG074/C7TVocX92B3aYfhda1ZJzU36UOMZZIkJsuBOQg=="
+    },
     "which-boxed-primitive@1.1.1": {
       "integrity": "sha512-TbX3mj8n0odCBFVlY8AxkqcHASw3L60jIuF8jFP78az3C2YhmGvqbHBpAjTRH2/xqYunrJ9g1jSyjCjpoWzIAA==",
       "dependencies": [
@@ -3740,6 +3744,7 @@
       "npm:vite-plugin-pwa@^1.3.0",
       "npm:vite@^6.3.6",
       "npm:vitest@^4.1.10",
+      "npm:web-push-browser@^1.4.2",
       "npm:workbox-core@^7.4.1",
       "npm:workbox-precaching@^7.4.1",
       "npm:wrangler@^4.118.0"

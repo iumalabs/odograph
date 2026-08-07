@@ -11,9 +11,10 @@ import { fuelRecords } from "./routes/v1/fuel-records";
 import { reminderRules } from "./routes/v1/reminder-rules";
 import { account } from "./routes/v1/account";
 import { tokens } from "./routes/v1/tokens";
+import { push } from "./routes/v1/push";
 import { evaluateAllReminders } from "./db/repository";
 import { buildCspHeader, generateNonce } from "./security/csp";
-import type { AppEnv } from "./types";
+import type { AppEnv, VapidSecrets } from "./types";
 
 const app = new Hono<AppEnv>();
 
@@ -29,6 +30,7 @@ app.route("/api/v1/fuel-records", fuelRecords);
 app.route("/api/v1/reminder-rules", reminderRules);
 app.route("/api/v1/account", account);
 app.route("/api/v1/tokens", tokens);
+app.route("/api/v1/push", push);
 
 export default {
   // `assets.run_worker_first = true` (wrangler.toml) routes every request here first, including
@@ -63,7 +65,11 @@ export default {
   },
   // The daily sweep (wrangler.toml's [triggers]) — the only entry point in this codebase
   // reaching evaluateAllReminders, which deliberately has no per-request TenantContext.
-  scheduled: async (_controller: ScheduledController, env: Env, _ctx: ExecutionContext) => {
+  scheduled: async (
+    _controller: ScheduledController,
+    env: Env & VapidSecrets,
+    _ctx: ExecutionContext,
+  ) => {
     await evaluateAllReminders(env);
   },
 } satisfies ExportedHandler<Env>;

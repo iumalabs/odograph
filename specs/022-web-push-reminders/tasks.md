@@ -11,7 +11,7 @@ precedent as specs/012's own email send and specs/018-021's client-only pieces.
 
 ## Phase 1: Setup
 
-- [ ] T001 Add `web-push-browser` to `deno.json`'s `imports` (`npm:web-push-browser@^1.4.2`), run
+- [X] T001 Add `web-push-browser` to `deno.json`'s `imports` (`npm:web-push-browser@^1.4.2`), run
       `deno install` to resolve it
 
 ---
@@ -20,26 +20,26 @@ precedent as specs/012's own email send and specs/018-021's client-only pieces.
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T002 [P] Create `migrations/0014_push_subscriptions.sql`: `push_subscriptions` table per
+- [X] T002 [P] Create `migrations/0014_push_subscriptions.sql`: `push_subscriptions` table per
       data-model.md (`id`, `tenant_id ... ON DELETE CASCADE`, `endpoint`, `p256dh`, `auth`,
       `created_at`; unique on `(tenant_id, endpoint)`)
-- [ ] T003 [P] Extend `src/server/types.ts`: add a `VapidSecrets` type
+- [X] T003 [P] Extend `src/server/types.ts`: add a `VapidSecrets` type
       (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY: string`) to `AppEnv["Bindings"]`, mirroring
       `GoogleOidcSecrets`'s existing pattern
-- [ ] T004 Extend `src/server/db/repository.ts`: `listPushSubscriptions(db, tenantId)`,
+- [X] T004 Extend `src/server/db/repository.ts`: `listPushSubscriptions(db, tenantId)`,
       `createOrUpdatePushSubscription(db, tenantId, {endpoint, p256dh, auth})` (upsert on
       `(tenant_id, endpoint)`), `deletePushSubscriptionByEndpoint(db, tenantId, endpoint)`,
       `deletePushSubscriptionById(db, id)` (used by the sweep to prune an expired one)
-- [ ] T005 [P] Create `src/server/push/send-reminder-push.ts`: `sendReminderPushNotification(vapid,
+- [X] T005 [P] Create `src/server/push/send-reminder-push.ts`: `sendReminderPushNotification(vapid,
       subscription, payload)` wrapping `web-push-browser`'s send call — never throws (mirrors
       `email/reminder-notification.ts`'s exact contract), resolves to
       `{sent: true} | {sent: false, expired: boolean, error: string}` (`expired: true` on a
       `404`/`410` response from the push service, research.md)
-- [ ] T006 Create `src/server/routes/v1/push.ts`: `GET /vapid-public-key` (session-only, no rate
+- [X] T006 Create `src/server/routes/v1/push.ts`: `GET /vapid-public-key` (session-only, no rate
       limit, returns `{publicKey}`), `POST /subscriptions` (session-only, `rateLimitBySession`,
       validates `endpoint`/`keys.p256dh`/`keys.auth`, upserts via T004), `DELETE /subscriptions`
       (session-only, `rateLimitBySession`, idempotent) — mounted under `/api/v1/push`
-- [ ] T007 [P] `tests/server/push-subscriptions.test.ts`: subscribing stores a row and re-subscribing
+- [X] T007 [P] `tests/server/push-subscriptions.test.ts`: subscribing stores a row and re-subscribing
       the same endpoint upserts rather than duplicating; unsubscribing removes it and is idempotent
       on a second call; a malformed subscription body is rejected with `400` and nothing is stored;
       a different tenant's subscriptions are never visible to or deletable by another tenant;
@@ -56,13 +56,13 @@ notification yet.
 up" or "overdue," via the same daily sweep and escalation gate email already uses, and selecting the
 notification opens the app.
 
-- [ ] T008 [US1] Extend `evaluateAllReminders` (`src/server/db/repository.ts`): alongside the
+- [X] T008 [US1] Extend `evaluateAllReminders` (`src/server/db/repository.ts`): alongside the
       existing email send, fetch the tenant's push subscriptions (T004) and attempt
       `sendReminderPushNotification` (T005) to each; `last_notified_severity` advances if *either*
       channel succeeds, not per-channel (research.md); on an `expired: true` result, delete that
       subscription (T004) — all still inside the existing per-row `try/catch`, one subscription's
       failure never blocks email or another subscription
-- [ ] T009 [US1] Extend the reminder-evaluation test suite: a due reminder with an opted-in
+- [X] T009 [US1] Extend the reminder-evaluation test suite: a due reminder with an opted-in
       subscription sends both email and push on the same sweep; a dead subscription (mocked
       `404`/`410`) is removed without failing the sweep or blocking the email send; a subsequent
       sweep with nothing changed sends neither channel again (shared dedup gate)

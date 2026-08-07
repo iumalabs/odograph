@@ -4,6 +4,9 @@
 // id, and reaches D1 only by calling functions exported from here.
 
 import { sendReminderDueEmail } from "../email/reminder-notification";
+import { sendReminderPushNotification } from "../push/send-reminder-push";
+import { deserializeVapidKeys } from "web-push-browser";
+import type { VapidSecrets } from "../types";
 
 export type TenantContext = {
   tenantId: string;
@@ -2082,24 +2085,108 @@ export async function findDeliverableReminderRecipient(
   return linked?.email ?? null;
 }
 
+// --- Push subscriptions (spec 022: web push reminder delivery) ---
+
+export type PushSubscription = {
+  id: string;
+  tenantId: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  createdAt: string;
+};
+
+const PUSH_SUBSCRIPTION_COLUMNS =
+  "id, tenant_id AS tenantId, endpoint, p256dh, auth, created_at AS createdAt";
+
+export async function listPushSubscriptions(
+  db: D1Database,
+  tenantId: string,
+): Promise<PushSubscription[]> {
+  const { results } = await db
+    .prepare(`SELECT ${PUSH_SUBSCRIPTION_COLUMNS} FROM push_subscriptions WHERE tenant_id = ?`)
+    .bind(tenantId)
+    .all<PushSubscription>();
+  return results;
+}
+
+export async function createOrUpdatePushSubscription(
+  db: D1Database,
+  ctx: TenantContext,
+  input: { endpoint: string; p256dh: string; auth: string },
+): Promise<PushSubscription> {
+  const id = crypto.randomUUID();
+  await db
+    .prepare(
+      `INSERT INTO push_subscriptions (id, tenant_id, endpoint, p256dh, auth)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (tenant_id, endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth`,
+    )
+    .bind(id, ctx.tenantId, input.endpoint, input.p256dh, input.auth)
+    .run();
+  const stored = await db
+    .prepare(
+      `SELECT ${PUSH_SUBSCRIPTION_COLUMNS} FROM push_subscriptions
+       WHERE tenant_id = ? AND endpoint = ?`,
+    )
+    .bind(ctx.tenantId, input.endpoint)
+    .first<PushSubscription>();
+  if (!stored) throw new Error("push subscription vanished immediately after upsert");
+  return stored;
+}
+
+/** Idempotent — deleting an already-absent subscription is not an error (FR-006). */
+export async function deletePushSubscriptionByEndpoint(
+  db: D1Database,
+  ctx: TenantContext,
+  endpoint: string,
+): Promise<void> {
+  await db
+    .prepare("DELETE FROM push_subscriptions WHERE tenant_id = ? AND endpoint = ?")
+    .bind(ctx.tenantId, endpoint)
+    .run();
+}
+
+/** Used by the sweep to prune a subscription the push service reports as gone (research.md). */
+export async function deletePushSubscriptionById(db: D1Database, id: string): Promise<void> {
+  await db.prepare("DELETE FROM push_subscriptions WHERE id = ?").bind(id).run();
+}
+
 /**
  * The Cron-triggered sweep (research.md decision 3) — deliberately takes no TenantContext,
  * unlike every other function in this file, since it must evaluate every tenant's rules in one
  * run (data-model.md's documented cross-tenant exception). Persists cached_status/last_evaluated_at
  * per row; a single row's failure is isolated so the rest of the sweep still completes (FR-011).
  *
- * Also drives spec 012's email side effect: on_track clears last_notified_severity; a
- * coming_up/overdue status more severe than what was already notified triggers one email attempt,
- * advancing last_notified_severity only on a successful send (spec 012 data-model.md) — never on a
- * skip (no deliverable recipient) or a send failure, so both retry naturally on the next sweep.
+ * Also drives spec 012's email side effect and spec 022's push side effect: on_track clears
+ * last_notified_severity; a coming_up/overdue status more severe than what was already notified
+ * triggers one attempt per channel (email to the deliverable recipient, if any; push to every
+ * subscription, if any), advancing last_notified_severity if *either* channel succeeds (spec 022
+ * research.md — a shared gate, not per-channel) — never on a total skip (nothing deliverable on
+ * either channel) or an outright failure, so both retry naturally on the next sweep.
  */
 export async function evaluateAllReminders(
-  env: Env,
+  env: Env & VapidSecrets,
 ): Promise<{ evaluated: number; failed: number; notified: number }> {
   const db = env.DB;
   const { results } = await db
     .prepare(`SELECT ${REMINDER_RULE_COLUMNS} FROM reminder_rules`)
     .all<ReminderRule>();
+
+  // VAPID secrets may not be configured yet (e.g. before the one-time setup in
+  // specs/022-web-push-reminders/quickstart.md runs, or in a test environment) — push is simply
+  // unavailable for this sweep in that case, never a reason to fail email or the sweep itself.
+  let vapidKeys: CryptoKeyPair | null = null;
+  if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
+    try {
+      vapidKeys = await deserializeVapidKeys({
+        publicKey: env.VAPID_PUBLIC_KEY,
+        privateKey: env.VAPID_PRIVATE_KEY,
+      });
+    } catch {
+      vapidKeys = null;
+    }
+  }
 
   const now = new Date();
   let evaluated = 0;
@@ -2128,27 +2215,52 @@ export async function evaluateAllReminders(
       } else if (status === "coming_up" || status === "overdue") {
         const notifiedSeverity = REMINDER_URGENCY[rule.lastNotifiedSeverity ?? "on_track"];
         if (REMINDER_URGENCY[status] > notifiedSeverity) {
+          const vehicle = await db
+            .prepare("SELECT name FROM vehicles WHERE id = ?")
+            .bind(rule.vehicleId)
+            .first<{ name: string }>();
+          const vehicleName = vehicle?.name ?? "your vehicle";
+
+          let attempted = false;
+          let sent = false;
+
           const recipient = await findDeliverableReminderRecipient(db, rule.tenantId);
           if (recipient !== null) {
-            const vehicle = await db
-              .prepare("SELECT name FROM vehicles WHERE id = ?")
-              .bind(rule.vehicleId)
-              .first<{ name: string }>();
-            const result = await sendReminderDueEmail(env, {
+            attempted = true;
+            const emailResult = await sendReminderDueEmail(env, {
               to: recipient,
-              vehicleName: vehicle?.name ?? "your vehicle",
+              vehicleName,
               ruleLabel: rule.label,
               status,
             });
-            if (result.sent) {
-              await db
-                .prepare("UPDATE reminder_rules SET last_notified_severity = ? WHERE id = ?")
-                .bind(status, rule.id)
-                .run();
-              notified++;
-            } else {
-              failed++;
+            if (emailResult.sent) sent = true;
+          }
+
+          if (vapidKeys) {
+            const subscriptions = await listPushSubscriptions(db, rule.tenantId);
+            for (const subscription of subscriptions) {
+              attempted = true;
+              const pushResult = await sendReminderPushNotification(vapidKeys, subscription, {
+                vehicleName,
+                ruleLabel: rule.label,
+                status,
+              });
+              if (pushResult.sent) {
+                sent = true;
+              } else if (pushResult.expired) {
+                await deletePushSubscriptionById(db, subscription.id);
+              }
             }
+          }
+
+          if (sent) {
+            await db
+              .prepare("UPDATE reminder_rules SET last_notified_severity = ? WHERE id = ?")
+              .bind(status, rule.id)
+              .run();
+            notified++;
+          } else if (attempted) {
+            failed++;
           }
         }
       }

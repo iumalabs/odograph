@@ -12,8 +12,7 @@ Before this feature works in any environment, a VAPID keypair must exist as Work
 per environment (preview and production separately):
 
 ```sh
-deno run -A npm:web-push-browser/generate-keys   # or equivalent one-off script — see
-                                                   # research.md's chosen library's own docs
+deno run -A scripts/generate-vapid-keys.ts
 wrangler secret put VAPID_PUBLIC_KEY --env preview
 wrangler secret put VAPID_PRIVATE_KEY --env preview
 ```

@@ -8,8 +8,19 @@ type GoogleOidcSecrets = {
   GOOGLE_CLIENT_SECRET: string;
 };
 
+// Same reasoning as GoogleOidcSecrets — a one-time-generated Workers secret pair (spec 022
+// quickstart.md), never in wrangler.toml, never codegen'd. Exported: evaluateAllReminders and the
+// scheduled handler both need it directly, outside any Hono AppEnv context (the Cron Trigger has
+// no request/response cycle for Hono to bind Variables to). Optional, unlike GoogleOidcSecrets:
+// push notifications must degrade gracefully (not crash the sweep or the app) before the one-time
+// VAPID setup has run in a given environment (research.md).
+export type VapidSecrets = {
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+};
+
 export type AppEnv = {
-  Bindings: Env & GoogleOidcSecrets;
+  Bindings: Env & GoogleOidcSecrets & VapidSecrets;
   Variables: {
     tenant: TenantContext;
     sessionTokenHash: string;
