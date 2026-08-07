@@ -158,7 +158,7 @@ working, verified behavior behind it.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T030 Run `deno task check` (fmt, lint, typecheck, full test suite including T006's new
+- [X] T030 Run `deno task check` (fmt, lint, typecheck, full test suite including T006's new
       idempotency tests, repository-boundary guard) and fix any failures across all files touched by
       this feature
 - [ ] T031 [P] Live-verify (quickstart.md step 8): the at-a-glance indicator (FR-003/FR-012) shows
