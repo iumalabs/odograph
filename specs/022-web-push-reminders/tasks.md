@@ -66,17 +66,17 @@ notification opens the app.
       subscription sends both email and push on the same sweep; a dead subscription (mocked
       `404`/`410`) is removed without failing the sweep or blocking the email send; a subsequent
       sweep with nothing changed sends neither channel again (shared dedup gate)
-- [ ] T010 [US1] Extend `src/client/sw.ts`: a `push` listener parses the JSON payload and calls
+- [X] T010 [US1] Extend `src/client/sw.ts`: a `push` listener parses the JSON payload and calls
       `self.registration.showNotification(title, {body})`; a `notificationclick` listener closes the
       notification and opens/focuses the app — neither touches the `fetch` path `sw.ts`'s own
       precache-only design deliberately avoids (specs/018)
-- [ ] T011 [US1] Create `src/client/push.ts`: `isPushSupported()`, `subscribeToPush()` (fetches the
+- [X] T011 [US1] Create `src/client/push.ts`: `isPushSupported()`, `subscribeToPush()` (fetches the
       VAPID public key, calls `registration.pushManager.subscribe`, `POST`s the resulting
       `PushSubscriptionJSON` to `/api/v1/push/subscriptions`) — surfaces a distinct
       permission-denied outcome rather than throwing generically (FR-003)
-- [ ] T012 [US1] Create `src/client/components/PushNotifications.tsx`: an opt-in toggle mirroring
+- [X] T012 [US1] Create `src/client/components/PushNotifications.tsx`: an opt-in toggle mirroring
       `ApiTokens.tsx`'s shape/placement/styling, showing enabled/disabled/unavailable state
-- [ ] T013 [US1] Add push-related strings to `src/client/i18n/strings.ts`; mount
+- [X] T013 [US1] Add push-related strings to `src/client/i18n/strings.ts`; mount
       `PushNotifications` in `src/client/App.tsx` alongside `ApiTokens`/`AccountDeletion`
 - [ ] T014 [US1] Live-verify (quickstart.md steps 1-5): opt-in prompts for permission and registers;
       denied permission is shown clearly, not silently treated as enabled; a due reminder produces a
@@ -93,7 +93,7 @@ SC-004). This is the MVP.
 **Goal**: A user can disable push on a device and stop receiving notifications there, without
 affecting email or any other device.
 
-- [ ] T015 [US2] Extend `src/client/push.ts`/`PushNotifications.tsx`: an "unsubscribe" action that
+- [X] T015 [US2] Extend `src/client/push.ts`/`PushNotifications.tsx`: an "unsubscribe" action that
       calls the browser's `PushSubscription.unsubscribe()` and `DELETE /api/v1/push/subscriptions`
       with the same endpoint, then reflects the toggle back to "disabled"
 - [ ] T016 [US2] Live-verify (quickstart.md step 7): disabling stops delivery to that device on the
@@ -119,7 +119,7 @@ in the first place, this just proves it.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T018 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
+- [X] T018 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
       and fix any failures across all files touched by this feature
 - [ ] T019 [P] Live-verify (quickstart.md step 8): a dead subscription is pruned on its next sweep
       without erroring, and re-opting-in afterward produces a fresh row rather than a duplicate
