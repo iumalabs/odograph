@@ -1,10 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "WebWorker"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
@@ -14,9 +13,7 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "resolveJsonModule": true,
-    "noEmit": true,
-    "types": ["vite/client"]
+    "noEmit": true
   },
-  "include": ["src", "vite.config.ts", "worker-configuration.d.ts"],
-  "exclude": ["src/client/sw.ts"]
+  "include": ["src/client/sw.ts"]
 }
