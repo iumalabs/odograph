@@ -115,3 +115,13 @@ export function BellIcon({ size = 20 }: IconProps) {
     </svg>
   );
 }
+
+// Not in the mockup's icon sheet — hand-rolled to the same spec (see CloseIcon).
+export function CameraIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.2-2h6.6l1.2 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z" />
+      <circle cx="12" cy="12.5" r="3.5" />
+    </svg>
+  );
+}
