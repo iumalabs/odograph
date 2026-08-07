@@ -40,8 +40,12 @@ const en = {
   costLabel: "Cost",
   notesLabel: "Notes",
   attachmentUploadLabel: "Attach a photo or receipt",
+  takePhotoLabel: "Take Photo",
   uploadAttachment: "Upload",
   attachmentsLabel: "Attachments",
+  attachmentTooLargeError: "That photo is too large to attach (max 10MB).",
+  attachmentUnsupportedTypeError:
+    "That file type isn't supported. Use a photo (JPEG/PNG/WebP) or PDF.",
   closeVehicle: "Close",
   fuelRecordsHeading: "Fuel history",
   noFuelRecordsYet: "No fuel records yet.",

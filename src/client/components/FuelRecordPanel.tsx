@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Attachment, FuelRecord } from "../fuel-records";
 import type { WithSyncStatus } from "../offline/merge";
-import { AddIcon, FuelIcon, ReceiptIcon, UploadIcon } from "../design/icons";
+import { AddIcon, CameraIcon, FuelIcon, ReceiptIcon, UploadIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
 type FuelRecordPanelProps = {
@@ -82,6 +82,7 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
 
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
   const [justUploadedId, setJustUploadedId] = useState<string | null>(null);
+  const cameraInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftFuelDate, setDraftFuelDate] = useState("");
   const [draftOdometerReading, setDraftOdometerReading] = useState("");
@@ -446,6 +447,41 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
                           }}
                         />
                       )}
+                      <button
+                        type="button"
+                        onClick={() => cameraInputRefs.current[record.id]?.click()}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          background: "transparent",
+                          border: "1px solid var(--line)",
+                          borderRadius: "var(--radius-sm)",
+                          padding: "4px 8px",
+                          color: "var(--dim)",
+                          font: "500 10.5px var(--font-mono)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <CameraIcon size={12} />
+                        {t("takePhotoLabel")}
+                      </button>
+                      <input
+                        ref={(el) => {
+                          cameraInputRefs.current[record.id] = el;
+                        }}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        hidden
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          if (!file) return;
+                          await onUploadAttachment(record.id, file);
+                          setJustUploadedId(record.id);
+                        }}
+                      />
                       {justUploadedId === record.id && (
                         <span
                           style={{

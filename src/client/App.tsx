@@ -8,6 +8,7 @@ import { deleteAccount, REQUIRED_CONFIRMATION_PHRASE } from "./account";
 import { createVehicle, listVehicles } from "./vehicles";
 import type { Vehicle } from "./vehicles";
 import {
+  AttachmentUploadError,
   createServiceRecord,
   deleteServiceRecord,
   dismissDuplicate as dismissServiceDuplicate,
@@ -17,6 +18,7 @@ import {
 } from "./service-records";
 import type { Attachment, ServiceRecord } from "./service-records";
 import {
+  AttachmentUploadError as FuelAttachmentUploadError,
   createFuelRecord,
   deleteFuelRecord,
   dismissDuplicate as dismissFuelDuplicate,
@@ -279,8 +281,16 @@ export function App() {
         ...current,
         [recordId]: [...(current[recordId] ?? []), attachment],
       }));
-    } catch {
-      setError(t("genericError"));
+    } catch (error) {
+      if (error instanceof AttachmentUploadError && error.code === "file_too_large") {
+        setError(t("attachmentTooLargeError"));
+      } else if (
+        error instanceof AttachmentUploadError && error.code === "unsupported_file_type"
+      ) {
+        setError(t("attachmentUnsupportedTypeError"));
+      } else {
+        setError(t("genericError"));
+      }
     }
   }
 
@@ -292,8 +302,16 @@ export function App() {
         ...current,
         [recordId]: [...(current[recordId] ?? []), attachment],
       }));
-    } catch {
-      setError(t("genericError"));
+    } catch (error) {
+      if (error instanceof FuelAttachmentUploadError && error.code === "file_too_large") {
+        setError(t("attachmentTooLargeError"));
+      } else if (
+        error instanceof FuelAttachmentUploadError && error.code === "unsupported_file_type"
+      ) {
+        setError(t("attachmentUnsupportedTypeError"));
+      } else {
+        setError(t("genericError"));
+      }
     }
   }
 

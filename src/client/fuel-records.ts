@@ -24,6 +24,29 @@ export type Attachment = {
   createdAt: string;
 };
 
+export type AttachmentUploadErrorCode = "file_too_large" | "unsupported_file_type" | "unknown";
+
+export class AttachmentUploadError extends Error {
+  code: AttachmentUploadErrorCode;
+
+  constructor(code: AttachmentUploadErrorCode) {
+    super(`attachment upload failed: ${code}`);
+    this.code = code;
+  }
+}
+
+async function attachmentErrorCode(res: Response): Promise<AttachmentUploadErrorCode> {
+  try {
+    const body = (await res.json()) as { error?: string };
+    if (body.error === "file_too_large" || body.error === "unsupported_file_type") {
+      return body.error;
+    }
+  } catch {
+    // response body wasn't JSON — fall through to "unknown"
+  }
+  return "unknown";
+}
+
 export type FuelRecordDetail = FuelRecord & { attachments: Attachment[] };
 
 async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -139,7 +162,7 @@ export async function uploadAttachment(fuelRecordId: string, file: File): Promis
     body: file,
   });
   if (!res.ok) {
-    throw new Error(`upload attachment failed: ${res.status}`);
+    throw new AttachmentUploadError(await attachmentErrorCode(res));
   }
   return res.json() as Promise<Attachment>;
 }

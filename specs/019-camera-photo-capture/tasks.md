@@ -19,10 +19,10 @@ No setup tasks — no new dependency, no scaffolding. This feature only extends 
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T001 [P] Add `CameraIcon` to `src/client/design/icons.tsx`, hand-rolled to the file's existing
+- [X] T001 [P] Add `CameraIcon` to `src/client/design/icons.tsx`, hand-rolled to the file's existing
       icon spec (24x24 viewBox, `currentColor` stroke only, no fill) since it isn't in the mockup's
       icon sheet — matching the file's own documented rule for such cases (research.md)
-- [ ] T002 [P] Add `takePhotoLabel: "Take Photo"` to the `en` string table in
+- [X] T002 [P] Add `takePhotoLabel: "Take Photo"` to the `en` string table in
       `src/client/i18n/strings.ts`, alongside the existing `attachmentUploadLabel`
 
 **Checkpoint**: The icon and label User Story 1's control needs both exist — nothing yet renders
@@ -36,14 +36,14 @@ them.
 device camera directly on a camera-equipped device and uploads the captured photo through the
 existing attachment flow.
 
-- [ ] T003 [US1] In `src/client/components/ServiceRecordPanel.tsx`, add a "Take Photo" toggle button
+- [X] T003 [US1] In `src/client/components/ServiceRecordPanel.tsx`, add a "Take Photo" toggle button
       (mirroring the existing "Attach a photo or receipt" button at ServiceRecordPanel.tsx:357-376:
       same visual treatment, `CameraIcon` instead of `UploadIcon`, `t("takePhotoLabel")`) that reveals
       a second `<input type="file" accept="image/*" capture="environment">` wired to the same
       `onUploadAttachment` handler as the existing file input, with a `<label>`/`aria-label`
       association so the control has a programmatic accessible name distinct from the existing
       toggle's (FR-008)
-- [ ] T004 [P] [US1] Apply the same "Take Photo" addition to
+- [X] T004 [P] [US1] Apply the same "Take Photo" addition to
       `src/client/components/FuelRecordPanel.tsx` (mirrors FuelRecordPanel.tsx:408-409 the same way
       T003 mirrors ServiceRecordPanel.tsx)
 - [ ] T005 [US1] Live-verify on a camera-equipped phone (quickstart.md steps 2-3): confirm "Take
@@ -76,20 +76,20 @@ already implemented.
 **Goal**: A rejected upload (too large / unsupported format) shows a specific reason instead of the
 single generic error message.
 
-- [ ] T007 [US3] In `src/client/service-records.ts`, add an `AttachmentUploadError` class (extends
+- [X] T007 [US3] In `src/client/service-records.ts`, add an `AttachmentUploadError` class (extends
       `Error`, carries a `code: "file_too_large" | "unsupported_file_type" | "unknown"` field per
       data-model.md) and update `uploadAttachment()` to read the JSON body on a non-2xx response and
       throw it with the server's `error` field as `code` (falling back to `"unknown"` if the body
       doesn't parse or match)
-- [ ] T008 [P] [US3] Apply the same change to `uploadAttachment()` in `src/client/fuel-records.ts`
+- [X] T008 [P] [US3] Apply the same change to `uploadAttachment()` in `src/client/fuel-records.ts`
       (mirrors T007)
-- [ ] T009 [US3] Add `attachmentTooLargeError` and `attachmentUnsupportedTypeError` strings to the
+- [X] T009 [US3] Add `attachmentTooLargeError` and `attachmentUnsupportedTypeError` strings to the
       `en` table in `src/client/i18n/strings.ts`, alongside `genericError`
-- [ ] T010 [US3] In `src/client/App.tsx`, update `handleUploadAttachment` to catch
+- [X] T010 [US3] In `src/client/App.tsx`, update `handleUploadAttachment` to catch
       `AttachmentUploadError`, map `code` to `attachmentTooLargeError` / `attachmentUnsupportedTypeError`
       / `genericError` (for `"unknown"` or a non-`AttachmentUploadError` failure), and call `setError`
       with the mapped message
-- [ ] T011 [US3] Apply the same change to `handleUploadFuelAttachment` in `src/client/App.tsx`
+- [X] T011 [US3] Apply the same change to `handleUploadFuelAttachment` in `src/client/App.tsx`
       (mirrors T010, same file — sequenced after T010, not parallel)
 - [ ] T012 [US3] Live-verify (quickstart.md steps 5-6): attempt an oversized upload and an
       unsupported-format upload for both record types, confirm each shows its specific message, not
@@ -101,7 +101,7 @@ single generic error message.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T013 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
+- [X] T013 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
       and fix any failures across all files touched by this feature
 - [ ] T014 [P] Accessibility live-verify (quickstart.md step 7): confirm both new "Take Photo"
       controls are keyboard-reachable and activatable, and expose a real accessible name (FR-008)
