@@ -4,6 +4,7 @@ import type { PasskeyIdentity } from "./auth/passkey";
 import { requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
 import { GOOGLE_LINK_URL, GOOGLE_SIGN_IN_URL } from "./auth/oidc";
 import { getCurrentIdentity } from "./auth/session";
+import { deleteAccount, REQUIRED_CONFIRMATION_PHRASE } from "./account";
 import { createVehicle, listVehicles } from "./vehicles";
 import type { Vehicle } from "./vehicles";
 import {
@@ -35,6 +36,7 @@ import { t } from "./i18n/strings";
 import type { AppView } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
 import { AuthScreen } from "./components/AuthScreen";
+import { AccountDeletion } from "./components/AccountDeletion";
 import { Garage } from "./components/Garage";
 import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
 import { FuelRecordPanel } from "./components/FuelRecordPanel";
@@ -155,6 +157,16 @@ export function App() {
     setError(null);
     try {
       onSuccess(await action());
+    } catch {
+      setError(t("genericError"));
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setError(null);
+    try {
+      await deleteAccount(REQUIRED_CONFIRMATION_PHRASE);
+      setIdentity(null);
     } catch {
       setError(t("genericError"));
     }
@@ -395,6 +407,7 @@ export function App() {
               {t("linkEmailSentBanner")}
             </span>
           )}
+          <AccountDeletion onConfirmDelete={handleDeleteAccount} />
         </div>
 
         <Garage
