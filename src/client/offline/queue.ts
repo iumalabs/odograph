@@ -37,10 +37,17 @@ let nextSequence = 1;
 let draining = false;
 let hydrated = false;
 
+// useSyncExternalStore requires getSnapshot() to return a referentially stable value between
+// notifications — a fresh object literal on every call makes React treat every render as "the
+// store changed," which can spin into an infinite re-render loop. `notify()` is the single point
+// that mutates this cache, exactly when (and only when) the underlying state actually changed.
+let cachedSnapshot: QueueSnapshot = { actions, online, needsReauth };
+
 const listeners = new Set<() => void>();
 const syncListeners = new Set<(event: SyncEvent) => void>();
 
 function notify(): void {
+  cachedSnapshot = { actions, online, needsReauth };
   for (const listener of listeners) listener();
 }
 
@@ -59,7 +66,7 @@ export function onSyncEvent(listener: (event: SyncEvent) => void): () => void {
 }
 
 export function getSnapshot(): QueueSnapshot {
-  return { actions, online, needsReauth };
+  return cachedSnapshot;
 }
 
 /** Loads the persisted queue and resumes draining if online — call once at app startup. */
