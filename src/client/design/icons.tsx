@@ -125,3 +125,14 @@ export function CameraIcon({ size = 20 }: IconProps) {
     </svg>
   );
 }
+
+// Not in the mockup's icon sheet — hand-rolled to the same spec (see CloseIcon).
+export function AlertIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M12 3.5 21.5 20h-19z" />
+      <path d="M12 9.5v5" />
+      <circle cx="12" cy="17.25" r="0.75" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}

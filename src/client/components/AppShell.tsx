@@ -1,32 +1,37 @@
 import type { ReactNode } from "react";
 import { Logo } from "./Logo";
-import { DashboardIcon, GarageIcon } from "../design/icons";
+import { AlertIcon, DashboardIcon, GarageIcon } from "../design/icons";
 import { useTheme } from "../theme";
 import { t } from "../i18n/strings";
 
-export type AppView = "garage" | "dashboard";
+export type AppView = "garage" | "dashboard" | "review";
 
 type AppShellProps = {
   title: string;
   view: AppView;
   onSelectView: (view: AppView) => void;
+  /** Shown as a small badge on the "review" nav entry (spec 021 FR-007/FR-008) — omit or 0 for none. */
+  reviewBadgeCount?: number;
   children: ReactNode;
 };
 
 const NAV_ITEMS: {
   view: AppView;
   icon: typeof GarageIcon;
-  labelKey: "garageNavLabel" | "dashboardNavLabel";
+  labelKey: "garageNavLabel" | "dashboardNavLabel" | "syncReviewNavLabel";
 }[] = [
   { view: "garage", icon: GarageIcon, labelKey: "garageNavLabel" },
   { view: "dashboard", icon: DashboardIcon, labelKey: "dashboardNavLabel" },
+  { view: "review", icon: AlertIcon, labelKey: "syncReviewNavLabel" },
 ];
 
 // The persistent chrome wrapping every signed-in screen — nav rail + header, ported from
 // docs/odograph-design.zip's "Кокпит" mockup. Both nav entries (Garage, Dashboard) are now live —
 // spec 014 is the first feature to make the nav rail an actual view switch rather than a single
 // decorative entry.
-export function AppShell({ title, view, onSelectView, children }: AppShellProps) {
+export function AppShell(
+  { title, view, onSelectView, reviewBadgeCount = 0, children }: AppShellProps,
+) {
   const [, toggleTheme] = useTheme();
 
   return (
@@ -66,7 +71,29 @@ export function AppShell({ title, view, onSelectView, children }: AppShellProps)
                 cursor: "pointer",
               }}
             >
-              <Icon size={18} />
+              <span style={{ position: "relative" }}>
+                <Icon size={18} />
+                {itemView === "review" && reviewBadgeCount > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -8,
+                      minWidth: 14,
+                      height: 14,
+                      borderRadius: 7,
+                      background: "var(--warn)",
+                      color: "var(--on-acc)",
+                      font: "600 8.5px var(--font-mono)",
+                      display: "grid",
+                      placeItems: "center",
+                      padding: "0 3px",
+                    }}
+                  >
+                    {reviewBadgeCount}
+                  </span>
+                )}
+              </span>
               <span style={{ font: "500 8.5px var(--font-mono)", letterSpacing: ".06em" }}>
                 {t(labelKey)}
               </span>

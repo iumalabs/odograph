@@ -17,16 +17,16 @@ No setup tasks — no new dependency, no scaffolding.
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T001 [P] Create `src/client/offline/describe-action.ts`: given a `PendingAction`, returns a
+- [X] T001 [P] Create `src/client/offline/describe-action.ts`: given a `PendingAction`, returns a
       plain-language "what was attempted" string (entity + action type + a recognizable field from
       `body` where one exists — description/fuelDate/label/name; nothing extra for
       delete/dismissDuplicate/markDone, which act on an id rather than a fresh payload)
-- [ ] T002 [P] Create `src/client/offline/reject-reason.ts`: formats a stored `rejectReason` for
+- [X] T002 [P] Create `src/client/offline/reject-reason.ts`: formats a stored `rejectReason` for
       display — recognizes `{"error":"invalid_request"}`-shaped JSON and maps it to a friendlier
       phrase, falls back to the raw stored text otherwise (e.g. Hono's default plain-text 404 body)
-- [ ] T003 [P] Add `AlertIcon` to `src/client/design/icons.tsx`, hand-rolled to the file's existing
+- [X] T003 [P] Add `AlertIcon` to `src/client/design/icons.tsx`, hand-rolled to the file's existing
       icon spec since it isn't in the mockup's icon sheet (matching `CameraIcon`'s precedent)
-- [ ] T004 [P] Add to `src/client/i18n/strings.ts`: nav label, review-screen heading, empty-state
+- [X] T004 [P] Add to `src/client/i18n/strings.ts`: nav label, review-screen heading, empty-state
       message, a label per entity type (vehicle/service record/fuel record/reminder) and per action
       type (create/edit/delete/dismiss duplicate/mark done), `discardAction`, `retryAction`,
       `rejectReasonLabel`
@@ -42,17 +42,17 @@ but nothing renders them yet.
 recognizable description and the rejection reason; reachable in one click from anywhere, with an
 at-a-glance signal when something's there.
 
-- [ ] T005 [US1] Extend `src/client/components/AppShell.tsx`: add a `"review"` value to `AppView`
+- [X] T005 [US1] Extend `src/client/components/AppShell.tsx`: add a `"review"` value to `AppView`
       and a corresponding nav-rail entry (`AlertIcon` + new nav label)
-- [ ] T006 [US1] Create `src/client/components/SyncReviewScreen.tsx`: given the queue snapshot,
+- [X] T006 [US1] Create `src/client/components/SyncReviewScreen.tsx`: given the queue snapshot,
       lists every action with `status === "rejected"` (across all vehicles — no `vehicleId`
       filtering), each row showing `describe-action.ts`'s description and `reject-reason.ts`'s
       formatted reason; a clear empty-state message when there are none (FR-009); no action buttons
       yet (US2/US3)
-- [ ] T007 [US1] Extend `src/client/components/SyncStatusIndicator.tsx`: the rejected-count badge
+- [X] T007 [US1] Extend `src/client/components/SyncStatusIndicator.tsx`: the rejected-count badge
       becomes clickable (a new `onOpenReview` prop), navigating to the `"review"` view instead of
       being purely informational
-- [ ] T008 [US1] Wire `src/client/App.tsx`: new `"review"` view branch rendering
+- [X] T008 [US1] Wire `src/client/App.tsx`: new `"review"` view branch rendering
       `SyncReviewScreen` with the current queue snapshot; pass the navigation handler through to
       `SyncStatusIndicator`
 - [ ] T009 [US1] Live-verify (quickstart.md steps 1-4): a rejection is discoverable at a glance and
@@ -69,7 +69,7 @@ satisfied — every rejection is visible in one place, even before Discard/Retry
 **Goal**: A rejected action the user no longer wants to pursue can be cleanly abandoned from the
 review screen.
 
-- [ ] T010 [US2] Extend `SyncReviewScreen.tsx`: a "Discard" button per row calling
+- [X] T010 [US2] Extend `SyncReviewScreen.tsx`: a "Discard" button per row calling
       `discardRejected(id)` (already exported from `offline/queue.ts` since spec 020, unused until
       now)
 - [ ] T011 [US2] Live-verify (quickstart.md step 5): discarding removes the item from the screen and
@@ -84,12 +84,12 @@ review screen.
 **Goal**: A rejected action can be resubmitted unchanged, without the user having to redo it from
 scratch.
 
-- [ ] T012 [US3] Add `retryRejected(id)` to `src/client/offline/queue.ts`: transitions the matching
+- [X] T012 [US3] Add `retryRejected(id)` to `src/client/offline/queue.ts`: transitions the matching
       action back to `"pending"` with `rejectReason` cleared, reusing its existing `id` unchanged
       (research.md — the same id is both the idempotency key and, for creates, the resource id;
       generating a new one would reopen the double-application risk idempotency exists to prevent),
       persists it, and triggers a drain attempt
-- [ ] T013 [US3] Extend `SyncReviewScreen.tsx`: a "Retry" button per row calling `retryRejected(id)`
+- [X] T013 [US3] Extend `SyncReviewScreen.tsx`: a "Retry" button per row calling `retryRejected(id)`
 - [ ] T014 [US3] Live-verify (quickstart.md steps 6-7): retrying a rejection whose underlying problem
       is resolved succeeds and clears from the screen; retrying one that isn't resolved is rejected
       again and shows a current (not stale) reason
@@ -101,7 +101,7 @@ pending, or retried and rejected again (SC-002/SC-004 complete).
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T015 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
+- [X] T015 Run `deno task check` (fmt, lint, typecheck, full test suite, repository-boundary guard)
       and fix any failures across all files touched by this feature
 - [ ] T016 [P] Live-verify (quickstart.md step 8): discard and retry both work while offline (discard
       immediately; retry marks pending and waits for reconnection like any other queued action)

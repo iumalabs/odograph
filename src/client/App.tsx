@@ -46,6 +46,7 @@ import { FuelRecordPanel } from "./components/FuelRecordPanel";
 import { ReminderRulePanel } from "./components/ReminderRulePanel";
 import { DashboardView } from "./components/DashboardView";
 import { SyncStatusIndicator } from "./components/SyncStatusIndicator";
+import { SyncReviewScreen } from "./components/SyncReviewScreen";
 import {
   mergeFuelRecords,
   mergeReminderRules,
@@ -108,6 +109,7 @@ export function App() {
   // Offline write queue (spec 020): re-renders whenever a pending/rejected action changes, so the
   // lists below always reflect the queue's current state without a manual refetch.
   const queueSnapshot = useSyncExternalStore(subscribeQueue, getQueueSnapshot);
+  const rejectedActionCount = queueSnapshot.actions.filter((a) => a.status === "rejected").length;
   const mergedVehicles = mergeVehicles(vehicles, queueSnapshot.actions);
   const vehicleScopedActions = queueSnapshot.actions.filter((a) =>
     a.vehicleId === selectedVehicleId
@@ -399,7 +401,12 @@ export function App() {
 
   if (view === "dashboard") {
     return (
-      <AppShell title={t("dashboardHeading")} view={view} onSelectView={setView}>
+      <AppShell
+        title={t("dashboardHeading")}
+        view={view}
+        onSelectView={setView}
+        reviewBadgeCount={rejectedActionCount}
+      >
         <DashboardView
           vehicles={mergedVehicles}
           onSelectVehicle={(id) => {
@@ -411,14 +418,35 @@ export function App() {
     );
   }
 
+  if (view === "review") {
+    return (
+      <AppShell
+        title={t("syncReviewHeading")}
+        view={view}
+        onSelectView={setView}
+        reviewBadgeCount={rejectedActionCount}
+      >
+        <SyncReviewScreen actions={queueSnapshot.actions} />
+      </AppShell>
+    );
+  }
+
   return (
-    <AppShell title={t("vehiclesHeading")} view={view} onSelectView={setView}>
+    <AppShell
+      title={t("vehiclesHeading")}
+      view={view}
+      onSelectView={setView}
+      reviewBadgeCount={rejectedActionCount}
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ font: "400 11.5px var(--font-mono)", color: "var(--dim)" }}>
             {t("signedInAs", { tenantId: identity.tenantId ?? "" })}
           </span>
-          <SyncStatusIndicator snapshot={queueSnapshot} />
+          <SyncStatusIndicator
+            snapshot={queueSnapshot}
+            onOpenReview={() => setView("review")}
+          />
           <button
             type="button"
             onClick={() => handle(addPasskey, () => {})}

@@ -215,9 +215,27 @@ export function resolveReauth(): void {
   if (isOnline()) void drain();
 }
 
-/** Removes a rejected action the user has acknowledged (used by a future review UI, issue #21). */
+/** Removes a rejected action the user has acknowledged (spec 021 User Story 2). */
 export function discardRejected(id: string): void {
   actions = actions.filter((a) => a.id !== id);
   notify();
   void deletePendingAction(id);
+}
+
+/**
+ * Resubmits a rejected action unchanged (spec 021 User Story 3, research.md): reuses its existing
+ * `id` — the same value serving as both the idempotency key and, for a create, the resource's own
+ * id (FR-007) — rather than generating a new one, which would reopen the double-application risk
+ * idempotency keys exist to prevent. Clears the stale reason so a second rejection (or a success)
+ * never leaves an old one visible.
+ */
+export async function retryRejected(id: string): Promise<void> {
+  const action = actions.find((a) => a.id === id);
+  if (!action || action.status !== "rejected") return;
+
+  const retried: PendingAction = { ...action, status: "pending", rejectReason: null };
+  actions = actions.map((a) => (a.id === id ? retried : a));
+  notify();
+  await putPendingAction(retried);
+  void drain();
 }

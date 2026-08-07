@@ -115,6 +115,23 @@ const en = {
   rejectedSyncLabel: "Rejected",
   rejectedSyncCountLabel: "{count} need attention",
   syncNeedsReauthLabel: "Sign in again to sync",
+  syncReviewNavLabel: "REVIEW",
+  syncReviewHeading: "Sync issues",
+  syncReviewEmpty: "Nothing needs attention right now.",
+  syncReviewReasonLabel: "Reason",
+  discardAction: "Discard",
+  retryAction: "Retry",
+  entityVehicleLabel: "Vehicle",
+  entityServiceRecordLabel: "Service record",
+  entityFuelRecordLabel: "Fuel record",
+  entityReminderRuleLabel: "Reminder",
+  actionCreateLabel: "Create",
+  actionUpdateLabel: "Edit",
+  actionDeleteLabel: "Delete",
+  actionDismissDuplicateLabel: "Dismiss duplicate",
+  actionMarkDoneLabel: "Mark done",
+  rejectReasonInvalidRequest: "The submitted data wasn't valid.",
+  rejectReasonUnknown: "No further detail is available.",
 } as const;
 
 export type StringKey = keyof typeof en;

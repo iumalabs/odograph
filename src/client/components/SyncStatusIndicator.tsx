@@ -3,6 +3,8 @@ import type { QueueSnapshot } from "../offline/queue";
 
 type SyncStatusIndicatorProps = {
   snapshot: QueueSnapshot;
+  /** Navigates to the review screen (spec 021) — omit to render the rejected badge inert. */
+  onOpenReview?: () => void;
 };
 
 const badgeStyle = {
@@ -16,11 +18,11 @@ const badgeStyle = {
 } as const;
 
 /**
- * At-a-glance offline/pending/rejected/reauth indicator (FR-003, FR-012) — the full triage
- * experience for rejected actions is a separate feature (issue #21); this only guarantees the
- * user can tell something needs attention without opening any per-record detail.
+ * At-a-glance offline/pending/rejected/reauth indicator (spec 020 FR-003/FR-012). The rejected
+ * badge doubles as the entry point into the full review screen (spec 021 FR-007/FR-008) when
+ * `onOpenReview` is supplied.
  */
-export function SyncStatusIndicator({ snapshot }: SyncStatusIndicatorProps) {
+export function SyncStatusIndicator({ snapshot, onOpenReview }: SyncStatusIndicatorProps) {
   const pendingCount = snapshot.actions.filter((a) => a.status !== "rejected").length;
   const rejectedCount = snapshot.actions.filter((a) => a.status === "rejected").length;
 
@@ -51,9 +53,27 @@ export function SyncStatusIndicator({ snapshot }: SyncStatusIndicatorProps) {
         </span>
       )}
       {rejectedCount > 0 && (
-        <span style={{ ...badgeStyle, color: "var(--warn)", borderColor: "var(--warn)" }}>
-          {t("rejectedSyncCountLabel", { count: String(rejectedCount) })}
-        </span>
+        onOpenReview
+          ? (
+            <button
+              type="button"
+              onClick={onOpenReview}
+              style={{
+                ...badgeStyle,
+                color: "var(--warn)",
+                borderColor: "var(--warn)",
+                background: "transparent",
+                cursor: "pointer",
+              }}
+            >
+              {t("rejectedSyncCountLabel", { count: String(rejectedCount) })}
+            </button>
+          )
+          : (
+            <span style={{ ...badgeStyle, color: "var(--warn)", borderColor: "var(--warn)" }}>
+              {t("rejectedSyncCountLabel", { count: String(rejectedCount) })}
+            </span>
+          )
       )}
     </span>
   );
