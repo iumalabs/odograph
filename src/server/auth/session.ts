@@ -117,3 +117,13 @@ export async function invalidateSession(
   await kv.delete(kvCacheKey(tokenHash));
   return true;
 }
+
+/**
+ * Deletes a session's cache-aside KV entry directly, without touching D1. Needed after account
+ * erasure: the `sessions` row is already cascade-deleted by that point, so `invalidateSession`
+ * would no-op (it looks the row up first and returns early) and leave a stale cache entry able to
+ * resolve the deleted account's session for up to CACHE_TTL_SECONDS longer (research.md).
+ */
+export async function clearSessionCache(kv: KVNamespace, tokenHash: string): Promise<void> {
+  await kv.delete(kvCacheKey(tokenHash));
+}

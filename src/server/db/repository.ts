@@ -144,6 +144,18 @@ export async function deleteUser(db: D1Database, userId: string): Promise<void> 
   await db.prepare("DELETE FROM users WHERE id = ?").bind(userId).run();
 }
 
+/**
+ * The entire GDPR erasure mechanism (constitution Principle VIII, spec 016): a single cascading
+ * delete of the tenant row removes every table that carries `tenant_id ... ON DELETE CASCADE` or
+ * is reachable through `users.id ... ON DELETE CASCADE` (data-model.md enumerates each one) — one
+ * atomic D1 statement, not a sequence of per-table deletes that could partially fail (FR-008).
+ * Returns whether a row actually existed to delete.
+ */
+export async function deleteTenantAccount(db: D1Database, tenantId: string): Promise<boolean> {
+  const result = await db.prepare("DELETE FROM tenants WHERE id = ?").bind(tenantId).run();
+  return result.meta.changes > 0;
+}
+
 // --- Tenant-scoped operations ----------------------------------------------
 //
 // Every function below takes a resolved TenantContext (never a bare id from
@@ -571,6 +583,25 @@ export async function consumeMagicLinkToken(
 }
 
 /**
+ * Deletes every outstanding magic_link_tokens row for this tenant's user(s), matched by email —
+ * the one table with no foreign key to tenants/users at all (research.md), since an ordinary
+ * sign-in token is created before the system knows which user it belongs to. Used by account
+ * erasure (spec 016) before the tenant cascade runs, so an unused sign-in link for the deleted
+ * account's email can't outlive the erasure (FR-005).
+ */
+export async function deleteOutstandingMagicLinkTokensForTenant(
+  db: D1Database,
+  ctx: TenantContext,
+): Promise<void> {
+  await db
+    .prepare(
+      "DELETE FROM magic_link_tokens WHERE email IN (SELECT email FROM users WHERE tenant_id = ?)",
+    )
+    .bind(ctx.tenantId)
+    .run();
+}
+
+/**
  * Account-linking bootstrap (specs/005): attaches `email` to an *existing*
  * user — never creates a tenant/user, unlike createMagicLinkUser. Insert-only
  * with no existence pre-check; throws (isUniqueConstraintError) if the email
@@ -989,6 +1020,23 @@ export async function listAttachmentKeysForVehicle(
        WHERE sr.vehicle_id = ? AND sr.tenant_id = ?`,
     )
     .bind(vehicleId, ctx.tenantId)
+    .all<{ r2Key: string }>();
+  return results.map((row) => row.r2Key);
+}
+
+/**
+ * Every attachment R2 key for this tenant across every vehicle, without deleting anything — used
+ * by account erasure (spec 016) to clean up R2 before the tenant cascade removes the rows. Unlike
+ * listAttachmentKeysForVehicle, no join is needed: service_record_attachments already carries its
+ * own tenant_id column directly.
+ */
+export async function listAttachmentKeysForTenant(
+  db: D1Database,
+  ctx: TenantContext,
+): Promise<string[]> {
+  const { results } = await db
+    .prepare("SELECT r2_key AS r2Key FROM service_record_attachments WHERE tenant_id = ?")
+    .bind(ctx.tenantId)
     .all<{ r2Key: string }>();
   return results.map((row) => row.r2Key);
 }
@@ -1420,6 +1468,22 @@ export async function listAttachmentKeysForVehicleFuelRecords(
        WHERE fr.vehicle_id = ? AND fr.tenant_id = ?`,
     )
     .bind(vehicleId, ctx.tenantId)
+    .all<{ r2Key: string }>();
+  return results.map((row) => row.r2Key);
+}
+
+/**
+ * Every fuel-record attachment R2 key for this tenant across every vehicle, without deleting
+ * anything — used by account erasure (spec 016), alongside listAttachmentKeysForTenant. No join
+ * needed: fuel_record_attachments already carries its own tenant_id column directly.
+ */
+export async function listAttachmentKeysForTenantFuelRecords(
+  db: D1Database,
+  ctx: TenantContext,
+): Promise<string[]> {
+  const { results } = await db
+    .prepare("SELECT r2_key AS r2Key FROM fuel_record_attachments WHERE tenant_id = ?")
+    .bind(ctx.tenantId)
     .all<{ r2Key: string }>();
   return results.map((row) => row.r2Key);
 }

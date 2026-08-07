@@ -82,6 +82,12 @@ const en = {
   averageFuelEconomyLabel: "Avg. economy",
   needsAttention: "Needs attention",
   allGood: "All good",
+  deleteAccountToggle: "Delete account",
+  deleteAccountWarning:
+    "This permanently deletes your account and every vehicle, record, attachment, and reminder in it. This cannot be undone.",
+  deleteAccountConfirmPrompt: 'Type "{phrase}" to confirm',
+  deleteAccountConfirmButton: "Permanently delete my account",
+  deleteAccountCancel: "Cancel",
 } as const;
 
 export type StringKey = keyof typeof en;

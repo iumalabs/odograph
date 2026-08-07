@@ -9,6 +9,7 @@ import { vehicles } from "./routes/v1/vehicles";
 import { serviceRecords } from "./routes/v1/service-records";
 import { fuelRecords } from "./routes/v1/fuel-records";
 import { reminderRules } from "./routes/v1/reminder-rules";
+import { account } from "./routes/v1/account";
 import { evaluateAllReminders } from "./db/repository";
 import { buildCspHeader, generateNonce } from "./security/csp";
 import type { AppEnv } from "./types";
@@ -25,6 +26,7 @@ app.route("/api/v1/vehicles", vehicles);
 app.route("/api/v1/service-records", serviceRecords);
 app.route("/api/v1/fuel-records", fuelRecords);
 app.route("/api/v1/reminder-rules", reminderRules);
+app.route("/api/v1/account", account);
 
 export default {
   // `assets.run_worker_first = true` (wrangler.toml) routes every request here first, including
