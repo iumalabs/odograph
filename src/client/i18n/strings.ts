@@ -105,6 +105,12 @@ const en = {
   apiTokenLastUsedAt: "Last used {date}",
   apiTokenRevoked: "Revoked",
   revokeApiToken: "Revoke",
+  offlineIndicatorLabel: "Offline",
+  pendingSyncLabel: "Pending sync",
+  pendingSyncCountLabel: "{count} pending",
+  rejectedSyncLabel: "Rejected",
+  rejectedSyncCountLabel: "{count} need attention",
+  syncNeedsReauthLabel: "Sign in again to sync",
 } as const;
 
 export type StringKey = keyof typeof en;

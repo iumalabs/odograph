@@ -1,10 +1,11 @@
 import { useState } from "react";
 import type { Attachment, FuelRecord } from "../fuel-records";
+import type { WithSyncStatus } from "../offline/merge";
 import { AddIcon, FuelIcon, ReceiptIcon, UploadIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
 type FuelRecordPanelProps = {
-  records: FuelRecord[];
+  records: WithSyncStatus<FuelRecord>[];
   fuelDate: string;
   onFuelDateChange: (value: string) => void;
   odometerReading: string;
@@ -312,6 +313,35 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
                                 : t("fuelEconomyNotEnoughData")}
                             </span>
                           )}
+                        {record.syncStatus === "pending" && (
+                          <span
+                            style={{
+                              font: "500 10.5px var(--font-mono)",
+                              color: "var(--dim)",
+                              border: "1px solid var(--line)",
+                              borderRadius: "var(--radius-sm)",
+                              padding: "4px 8px",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {t("pendingSyncLabel")}
+                          </span>
+                        )}
+                        {record.syncStatus === "rejected" && (
+                          <span
+                            title={record.rejectReason ?? undefined}
+                            style={{
+                              font: "500 10.5px var(--font-mono)",
+                              color: "var(--warn)",
+                              border: "1px solid var(--warn)",
+                              borderRadius: "var(--radius-sm)",
+                              padding: "4px 8px",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {t("rejectedSyncLabel")}
+                          </span>
+                        )}
                       </div>
                     )}
 

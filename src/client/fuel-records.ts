@@ -1,3 +1,6 @@
+import { enqueue } from "./offline/queue";
+import type { PendingAction } from "./offline/types";
+
 export type FuelRecord = {
   id: string;
   tenantId: string;
@@ -38,7 +41,42 @@ export async function listFuelRecords(vehicleId: string): Promise<FuelRecord[]> 
   return fuelRecords;
 }
 
-export function createFuelRecord(
+/**
+ * Builds a displayable record from a still-pending/rejected "create" action —
+ * `fuelEconomy`/`duplicateOfId` are left `null`, the same value they'd legitimately have before
+ * the server ever computes/checks them, not a guess (constitution Principles II and IV: aggregates
+ * are server-computed only, never client-side). Shared between this module's own optimistic
+ * return value and offline/merge.ts's overlay of the same action onto a fetched list.
+ */
+export function hydrateOptimisticFuelRecord(action: PendingAction): FuelRecord {
+  const body = action.body as {
+    id: string;
+    fuelDate: string;
+    odometerReading: number;
+    volume: number;
+    cost: number;
+    station?: string;
+    notes?: string;
+  };
+  return {
+    id: body.id,
+    tenantId: "",
+    vehicleId: action.vehicleId ?? "",
+    fuelDate: body.fuelDate,
+    odometerReading: body.odometerReading,
+    volume: body.volume,
+    cost: body.cost,
+    station: body.station ?? null,
+    notes: body.notes ?? null,
+    fuelEconomy: null,
+    duplicateOfId: null,
+    createdAt: action.createdAt,
+    updatedAt: action.createdAt,
+  };
+}
+
+/** Routes through the offline write queue (spec 020). */
+export async function createFuelRecord(
   vehicleId: string,
   input: {
     fuelDate: string;
@@ -49,33 +87,49 @@ export function createFuelRecord(
     notes?: string;
   },
 ): Promise<FuelRecord> {
-  return jsonFetch(`/api/v1/vehicles/${vehicleId}/fuel-records`, {
+  const action = await enqueue({
+    entity: "fuelRecord",
+    actionType: "create",
+    vehicleId,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    path: `/api/v1/vehicles/${vehicleId}/fuel-records`,
+    body: input,
   });
+  return hydrateOptimisticFuelRecord(action);
 }
 
 export function getFuelRecord(id: string): Promise<FuelRecordDetail> {
   return jsonFetch(`/api/v1/fuel-records/${id}`);
 }
 
-export function updateFuelRecord(
+/** Routes through the offline write queue; the patch is overlaid onto the cached record for
+ * display (offline/merge.ts) until the real sync response replaces it. */
+export async function updateFuelRecord(
   id: string,
+  vehicleId: string,
   patch: Partial<FuelRecord>,
-): Promise<FuelRecord> {
-  return jsonFetch(`/api/v1/fuel-records/${id}`, {
+): Promise<void> {
+  await enqueue({
+    entity: "fuelRecord",
+    actionType: "update",
+    vehicleId,
+    targetId: id,
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(patch),
+    path: `/api/v1/fuel-records/${id}`,
+    body: patch,
   });
 }
 
-export async function deleteFuelRecord(id: string): Promise<void> {
-  const res = await fetch(`/api/v1/fuel-records/${id}`, { method: "DELETE" });
-  if (!res.ok) {
-    throw new Error(`delete fuel record failed: ${res.status}`);
-  }
+export async function deleteFuelRecord(id: string, vehicleId: string): Promise<void> {
+  await enqueue({
+    entity: "fuelRecord",
+    actionType: "delete",
+    vehicleId,
+    targetId: id,
+    method: "DELETE",
+    path: `/api/v1/fuel-records/${id}`,
+    body: undefined,
+  });
 }
 
 export async function uploadAttachment(fuelRecordId: string, file: File): Promise<Attachment> {
@@ -94,6 +148,14 @@ export function attachmentDownloadUrl(fuelRecordId: string, attachmentId: string
   return `/api/v1/fuel-records/${fuelRecordId}/attachments/${attachmentId}`;
 }
 
-export function dismissDuplicate(id: string): Promise<FuelRecord> {
-  return jsonFetch(`/api/v1/fuel-records/${id}/dismiss-duplicate`, { method: "POST" });
+export async function dismissDuplicate(id: string, vehicleId: string): Promise<void> {
+  await enqueue({
+    entity: "fuelRecord",
+    actionType: "dismissDuplicate",
+    vehicleId,
+    targetId: id,
+    method: "POST",
+    path: `/api/v1/fuel-records/${id}/dismiss-duplicate`,
+    body: undefined,
+  });
 }

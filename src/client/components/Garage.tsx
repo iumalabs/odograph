@@ -1,9 +1,10 @@
 import type { Vehicle } from "../vehicles";
+import type { WithSyncStatus } from "../offline/merge";
 import { AddIcon, CarIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
 type GarageProps = {
-  vehicles: Vehicle[];
+  vehicles: WithSyncStatus<Vehicle>[];
   selectedVehicleId: string | null;
   onSelectVehicle: (id: string) => void;
   vehicleName: string;
@@ -74,6 +75,19 @@ export function Garage(props: GarageProps) {
             <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
               {vehicle.vin && <span style={chipStyle}>{vehicle.vin}</span>}
               <span style={chipStyle}>{vehicle.odometerUnit}</span>
+              {vehicle.syncStatus === "pending" && (
+                <span style={{ ...chipStyle, color: "var(--dim)" }}>
+                  {t("pendingSyncLabel")}
+                </span>
+              )}
+              {vehicle.syncStatus === "rejected" && (
+                <span
+                  style={{ ...chipStyle, color: "var(--warn)", borderColor: "var(--warn)" }}
+                  title={vehicle.rejectReason ?? undefined}
+                >
+                  {t("rejectedSyncLabel")}
+                </span>
+              )}
             </div>
           </button>
         );

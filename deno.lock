@@ -15,6 +15,7 @@
     "npm:@vitejs/plugin-react@^5.2.0": "5.2.0_vite@6.4.3__@types+node@26.1.2_@types+node@26.1.2",
     "npm:fido2-helpers@^1.7.2": "1.7.2",
     "npm:hono@^4.13.0": "4.13.0",
+    "npm:idb@^8.0.3": "8.0.3",
     "npm:jose@^6.2.8": "6.2.8",
     "npm:react-dom@^19.2.8": "19.2.8_react@19.2.8",
     "npm:react@^19.2.8": "19.2.8",
@@ -2508,6 +2509,9 @@
     "idb@7.1.1": {
       "integrity": "sha512-gchesWBzyvGHRO9W8tzUWFDycow5gwjvFKfyV9FF32Y7F50yZMp7mP+T2mJIWFx49zicqyC4uefHM17o6xKIVQ=="
     },
+    "idb@8.0.3": {
+      "integrity": "sha512-LtwtVyVYO5BqRvcsKuB2iUMnHwPVByPCXFXOpuU96IZPPoPN6xjOGxZQ74pgSVVLQWtUOYgyeL4GE98BY5D3wg=="
+    },
     "internal-slot@1.1.0": {
       "integrity": "sha512-4gd7VpWNQNB4UKKCFFVcp1AVv+FMOgs9NKzjHKusc8jTMhd5eL1NqQqOpE0KzMds804/yHlglp3uxgluOqAPLw==",
       "dependencies": [
@@ -3521,7 +3525,7 @@
     "workbox-background-sync@7.4.1": {
       "integrity": "sha512-HhT7KE8tOWDm02wRNshXUnUPofMlhenF2DBdUnDPOubhizzPeItkYTmAB6td1Z2cjYPa98vzEiPLEuzn5hN66g==",
       "dependencies": [
-        "idb",
+        "idb@7.1.1",
         "workbox-core"
       ]
     },
@@ -3585,7 +3589,7 @@
     "workbox-expiration@7.4.1": {
       "integrity": "sha512-lRKUF7b+OGbeXkQk1s6MHXOa3d7Xxf7Of31W6c6hCfipfIyrtdWZ89stq21AHZMaoG7VNFoHply4Ox+rU31TWg==",
       "dependencies": [
-        "idb",
+        "idb@7.1.1",
         "workbox-core"
       ]
     },
@@ -3728,6 +3732,7 @@
       "npm:@vitejs/plugin-react@^5.2.0",
       "npm:fido2-helpers@^1.7.2",
       "npm:hono@^4.13.0",
+      "npm:idb@^8.0.3",
       "npm:jose@^6.2.8",
       "npm:react-dom@^19.2.8",
       "npm:react@^19.2.8",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { addPasskey, loginWithPasskey, registerWithPasskey } from "./auth/passkey";
 import type { PasskeyIdentity } from "./auth/passkey";
 import { requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
@@ -43,6 +43,20 @@ import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
 import { FuelRecordPanel } from "./components/FuelRecordPanel";
 import { ReminderRulePanel } from "./components/ReminderRulePanel";
 import { DashboardView } from "./components/DashboardView";
+import { SyncStatusIndicator } from "./components/SyncStatusIndicator";
+import {
+  mergeFuelRecords,
+  mergeReminderRules,
+  mergeServiceRecords,
+  mergeVehicles,
+} from "./offline/merge";
+import {
+  getSnapshot as getQueueSnapshot,
+  onSyncEvent,
+  resolveReauth,
+  subscribe as subscribeQueue,
+} from "./offline/queue";
+import type { PendingActionType } from "./offline/types";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
@@ -89,6 +103,17 @@ export function App() {
   const [reminderLastDoneDate, setReminderLastDoneDate] = useState("");
   const [reminderLastDoneOdometer, setReminderLastDoneOdometer] = useState("");
 
+  // Offline write queue (spec 020): re-renders whenever a pending/rejected action changes, so the
+  // lists below always reflect the queue's current state without a manual refetch.
+  const queueSnapshot = useSyncExternalStore(subscribeQueue, getQueueSnapshot);
+  const mergedVehicles = mergeVehicles(vehicles, queueSnapshot.actions);
+  const vehicleScopedActions = queueSnapshot.actions.filter((a) =>
+    a.vehicleId === selectedVehicleId
+  );
+  const mergedServiceRecords = mergeServiceRecords(serviceRecords, vehicleScopedActions);
+  const mergedFuelRecords = mergeFuelRecords(fuelRecords, vehicleScopedActions);
+  const mergedReminderRules = mergeReminderRules(reminderRules, vehicleScopedActions);
+
   // GET /api/v1/auth/magic-link/verify redirects here with ?magicLink=ok/
   // error/linked, and GET /api/v1/auth/oidc/google/callback with
   // ?oidc=ok/error/linked (contracts/api.md) — the session cookie, if any,
@@ -124,6 +149,12 @@ export function App() {
     listVehicles().then(setVehicles).catch(() => setError(t("genericError")));
   }, [identity]);
 
+  // Resumes a queue paused on a 401 once the user signs back in (research.md) — a no-op if the
+  // queue was never paused (e.g. ordinary first sign-in).
+  useEffect(() => {
+    if (identity) resolveReauth();
+  }, [identity]);
+
   useEffect(() => {
     if (!selectedVehicleId) {
       setServiceRecords([]);
@@ -152,6 +183,63 @@ export function App() {
     listReminderRules(selectedVehicleId).then(setReminderRules).catch(() =>
       setError(t("genericError"))
     );
+  }, [selectedVehicleId]);
+
+  // Once a queued action actually syncs, patch it into the cached server-confirmed list (the
+  // same "apply the server's response" pattern every handler used before this feature) and let it
+  // fall out of the queue snapshot — merge.ts stops overlaying it automatically. Re-subscribes on
+  // every vehicle switch so it always applies to the vehicle currently being viewed, never a
+  // stale one captured at mount time.
+  useEffect(() => {
+    function upsert<T extends { id: string }>(
+      setState: (updater: (current: T[]) => T[]) => void,
+      actionType: PendingActionType,
+      resourceId: string,
+      responseBody: unknown,
+    ) {
+      if (actionType === "delete") {
+        setState((current) => current.filter((record) => record.id !== resourceId));
+        return;
+      }
+      const record = responseBody as T;
+      setState((current) =>
+        current.some((existing) => existing.id === record.id)
+          ? current.map((existing) => existing.id === record.id ? record : existing)
+          : [...current, record]
+      );
+    }
+
+    return onSyncEvent((event) => {
+      if (event.type === "needsReauth") {
+        // This app has no separate sign-out/session-expired screen — reusing AuthScreen (already
+        // shown whenever `identity` is null) is the smallest correct way to get the user back to
+        // a working sign-in flow (FR-011), rather than building a second one.
+        setIdentity(null);
+        return;
+      }
+      if (event.type !== "synced") return;
+      const { action, responseBody } = event;
+
+      if (action.entity === "vehicle") {
+        upsert<Vehicle>(setVehicles, action.actionType, action.resourceId, responseBody);
+      } else if (action.entity === "serviceRecord" && action.vehicleId === selectedVehicleId) {
+        upsert<ServiceRecord>(
+          setServiceRecords,
+          action.actionType,
+          action.resourceId,
+          responseBody,
+        );
+      } else if (action.entity === "fuelRecord" && action.vehicleId === selectedVehicleId) {
+        upsert<FuelRecord>(setFuelRecords, action.actionType, action.resourceId, responseBody);
+      } else if (action.entity === "reminderRule" && action.vehicleId === selectedVehicleId) {
+        upsert<ReminderRule>(
+          setReminderRules,
+          action.actionType,
+          action.resourceId,
+          responseBody,
+        );
+      }
+    });
   }, [selectedVehicleId]);
 
   async function handle<T>(action: () => Promise<T>, onSuccess: (result: T) => void) {
@@ -209,22 +297,18 @@ export function App() {
     }
   }
 
+  // These all route through the offline write queue (spec 020) — nothing to apply to state
+  // directly here. The pending overlay comes from merge.ts on every render; the confirmed
+  // server-side result gets applied by the onSyncEvent effect above once it actually syncs.
+
   function handleDismissServiceDuplicate(recordId: string) {
-    handle(
-      () => dismissServiceDuplicate(recordId),
-      (updated) => {
-        setServiceRecords((current) => current.map((r) => r.id === updated.id ? updated : r));
-      },
-    );
+    if (!selectedVehicleId) return;
+    handle(() => dismissServiceDuplicate(recordId, selectedVehicleId), () => {});
   }
 
   function handleDismissFuelDuplicate(recordId: string) {
-    handle(
-      () => dismissFuelDuplicate(recordId),
-      (updated) => {
-        setFuelRecords((current) => current.map((r) => r.id === updated.id ? updated : r));
-      },
-    );
+    if (!selectedVehicleId) return;
+    handle(() => dismissFuelDuplicate(recordId, selectedVehicleId), () => {});
   }
 
   function handleUpdateServiceRecord(
@@ -237,21 +321,13 @@ export function App() {
       notes: string | null;
     },
   ) {
-    handle(
-      () => updateServiceRecord(recordId, patch),
-      (updated) => {
-        setServiceRecords((current) => current.map((r) => r.id === updated.id ? updated : r));
-      },
-    );
+    if (!selectedVehicleId) return;
+    handle(() => updateServiceRecord(recordId, selectedVehicleId, patch), () => {});
   }
 
   function handleDeleteServiceRecord(recordId: string) {
-    handle(
-      () => deleteServiceRecord(recordId),
-      () => {
-        setServiceRecords((current) => current.filter((r) => r.id !== recordId));
-      },
-    );
+    if (!selectedVehicleId) return;
+    handle(() => deleteServiceRecord(recordId, selectedVehicleId), () => {});
   }
 
   function handleUpdateFuelRecord(
@@ -265,39 +341,23 @@ export function App() {
       notes: string | null;
     },
   ) {
-    handle(
-      () => updateFuelRecord(recordId, patch),
-      (updated) => {
-        setFuelRecords((current) => current.map((r) => r.id === updated.id ? updated : r));
-      },
-    );
+    if (!selectedVehicleId) return;
+    handle(() => updateFuelRecord(recordId, selectedVehicleId, patch), () => {});
   }
 
   function handleDeleteFuelRecord(recordId: string) {
-    handle(
-      () => deleteFuelRecord(recordId),
-      () => {
-        setFuelRecords((current) => current.filter((r) => r.id !== recordId));
-      },
-    );
+    if (!selectedVehicleId) return;
+    handle(() => deleteFuelRecord(recordId, selectedVehicleId), () => {});
   }
 
   function handleMarkReminderDone(ruleId: string) {
-    handle(
-      () => markReminderDone(ruleId),
-      (updated) => {
-        setReminderRules((current) => current.map((r) => r.id === updated.id ? updated : r));
-      },
-    );
+    if (!selectedVehicleId) return;
+    handle(() => markReminderDone(ruleId, selectedVehicleId), () => {});
   }
 
   function handleDeleteReminderRule(ruleId: string) {
-    handle(
-      () => deleteReminderRule(ruleId),
-      () => {
-        setReminderRules((current) => current.filter((r) => r.id !== ruleId));
-      },
-    );
+    if (!selectedVehicleId) return;
+    handle(() => deleteReminderRule(ruleId, selectedVehicleId), () => {});
   }
 
   if (!identity) {
@@ -323,7 +383,7 @@ export function App() {
     return (
       <AppShell title={t("dashboardHeading")} view={view} onSelectView={setView}>
         <DashboardView
-          vehicles={vehicles}
+          vehicles={mergedVehicles}
           onSelectVehicle={(id) => {
             setSelectedVehicleId(id);
             setView("garage");
@@ -340,6 +400,7 @@ export function App() {
           <span style={{ font: "400 11.5px var(--font-mono)", color: "var(--dim)" }}>
             {t("signedInAs", { tenantId: identity.tenantId ?? "" })}
           </span>
+          <SyncStatusIndicator snapshot={queueSnapshot} />
           <button
             type="button"
             onClick={() => handle(addPasskey, () => {})}
@@ -413,7 +474,7 @@ export function App() {
         </div>
 
         <Garage
-          vehicles={vehicles}
+          vehicles={mergedVehicles}
           selectedVehicleId={selectedVehicleId}
           onSelectVehicle={(id) => setSelectedVehicleId(selectedVehicleId === id ? null : id)}
           vehicleName={vehicleName}
@@ -423,8 +484,7 @@ export function App() {
           onAddVehicle={() =>
             handle(
               () => createVehicle({ name: vehicleName, odometerUnit: vehicleOdometerUnit }),
-              (vehicle) => {
-                setVehicles((current) => [...current, vehicle]);
+              () => {
                 setVehicleName("");
               },
             )}
@@ -436,7 +496,7 @@ export function App() {
               {t("serviceRecordsHeading")}
             </h2>
             <ServiceRecordPanel
-              records={serviceRecords}
+              records={mergedServiceRecords}
               serviceDate={serviceDate}
               onServiceDateChange={setServiceDate}
               serviceDescription={serviceDescription}
@@ -448,8 +508,7 @@ export function App() {
                       serviceDate,
                       description: serviceDescription,
                     }),
-                  (record) => {
-                    setServiceRecords((current) => [...current, record]);
+                  () => {
                     setServiceDate("");
                     setServiceDescription("");
                   },
@@ -471,7 +530,7 @@ export function App() {
               {t("fuelRecordsHeading")}
             </h2>
             <FuelRecordPanel
-              records={fuelRecords}
+              records={mergedFuelRecords}
               fuelDate={fuelDate}
               onFuelDateChange={setFuelDate}
               odometerReading={fuelOdometerReading}
@@ -489,8 +548,7 @@ export function App() {
                       volume: Number(fuelVolume),
                       cost: Number(fuelCost),
                     }),
-                  (record) => {
-                    setFuelRecords((current) => [...current, record]);
+                  () => {
                     setFuelDate("");
                     setFuelOdometerReading("");
                     setFuelVolume("");
@@ -514,7 +572,7 @@ export function App() {
               {t("reminderRulesHeading")}
             </h2>
             <ReminderRulePanel
-              rules={reminderRules}
+              rules={mergedReminderRules}
               label={reminderLabel}
               onLabelChange={setReminderLabel}
               intervalDays={reminderIntervalDays}
@@ -543,8 +601,7 @@ export function App() {
                         ? { lastDoneOdometer: Number(reminderLastDoneOdometer) }
                         : {}),
                     }),
-                  (rule) => {
-                    setReminderRules((current) => [...current, rule]);
+                  () => {
                     setReminderLabel("");
                     setReminderIntervalDays("");
                     setReminderIntervalDistance("");

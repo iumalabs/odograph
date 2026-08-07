@@ -19,6 +19,7 @@ import { contentTypeFor, detectFileType, MAX_ATTACHMENT_BYTES } from "../../atta
 import { stripJpegExif } from "../../attachments/strip-exif";
 import { rateLimitBySession } from "../../auth/rate-limit";
 import { tenantContextOrToken } from "../../middleware/tenant-context";
+import { idempotent } from "../../middleware/idempotency";
 import type { AppEnv } from "../../types";
 
 export const fuelRecords = new Hono<AppEnv>();
@@ -44,7 +45,7 @@ fuelRecords.get("/:id", async (c) => {
   return c.json({ ...record, attachments });
 });
 
-fuelRecords.post("/:id/dismiss-duplicate", rateLimitBySession, async (c) => {
+fuelRecords.post("/:id/dismiss-duplicate", rateLimitBySession, idempotent, async (c) => {
   const record = await dismissFuelRecordDuplicate(c.env.DB, c.get("tenant"), c.req.param("id"));
   if (!record) return c.notFound();
   return c.json(record);
@@ -90,7 +91,7 @@ function validatePatch(body: PatchBody): Partial<FuelRecordInput> | null {
   return patch;
 }
 
-fuelRecords.patch("/:id", rateLimitBySession, async (c) => {
+fuelRecords.patch("/:id", rateLimitBySession, idempotent, async (c) => {
   const body = await c.req.json().catch(() => ({}) as PatchBody);
   const patch = validatePatch(body);
   if (!patch) {
@@ -102,7 +103,7 @@ fuelRecords.patch("/:id", rateLimitBySession, async (c) => {
   return c.json(record);
 });
 
-fuelRecords.delete("/:id", rateLimitBySession, async (c) => {
+fuelRecords.delete("/:id", rateLimitBySession, idempotent, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
 

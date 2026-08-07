@@ -8,6 +8,7 @@ import {
 import type { ReminderRuleInput } from "../../db/repository";
 import { rateLimitBySession } from "../../auth/rate-limit";
 import { tenantContextOrToken } from "../../middleware/tenant-context";
+import { idempotent } from "../../middleware/idempotency";
 import type { AppEnv } from "../../types";
 
 export const reminderRules = new Hono<AppEnv>();
@@ -20,7 +21,7 @@ reminderRules.get("/:id", async (c) => {
   return c.json(rule);
 });
 
-reminderRules.post("/:id/mark-done", rateLimitBySession, async (c) => {
+reminderRules.post("/:id/mark-done", rateLimitBySession, idempotent, async (c) => {
   const rule = await markReminderRuleDone(c.env.DB, c.get("tenant"), c.req.param("id"));
   if (!rule) return c.notFound();
   return c.json(rule);
@@ -90,7 +91,7 @@ reminderRules.patch("/:id", rateLimitBySession, async (c) => {
   return c.json(rule);
 });
 
-reminderRules.delete("/:id", rateLimitBySession, async (c) => {
+reminderRules.delete("/:id", rateLimitBySession, idempotent, async (c) => {
   const deleted = await deleteReminderRule(c.env.DB, c.get("tenant"), c.req.param("id"));
   if (!deleted) return c.notFound();
   return c.body(null, 204);
