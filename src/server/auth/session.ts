@@ -18,12 +18,16 @@ function toBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-async function sha256Hex(input: string): Promise<string> {
+// Exported for reuse by API tokens (spec 017), which hash a differently-shaped credential
+// (prefixed, not a session cookie value) through the same digest.
+export async function sha256Hex(input: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function generateToken(): string {
+// Exported for reuse by API tokens (spec 017) — the same "32 random bytes, base64url" shape,
+// just with a different prefix applied by the caller before hashing.
+export function generateToken(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   return toBase64Url(bytes);

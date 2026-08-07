@@ -13,5 +13,6 @@ export type AppEnv = {
   Variables: {
     tenant: TenantContext;
     sessionTokenHash: string;
+    authScope: "session" | "read" | "write";
   };
 };

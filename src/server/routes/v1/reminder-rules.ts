@@ -7,12 +7,12 @@ import {
 } from "../../db/repository";
 import type { ReminderRuleInput } from "../../db/repository";
 import { rateLimitBySession } from "../../auth/rate-limit";
-import { tenantContext } from "../../middleware/tenant-context";
+import { tenantContextOrToken } from "../../middleware/tenant-context";
 import type { AppEnv } from "../../types";
 
 export const reminderRules = new Hono<AppEnv>();
 
-reminderRules.use("*", tenantContext);
+reminderRules.use("*", tenantContextOrToken);
 
 reminderRules.get("/:id", async (c) => {
   const rule = await findReminderRuleById(c.env.DB, c.get("tenant"), c.req.param("id"));
