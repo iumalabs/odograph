@@ -273,8 +273,9 @@ export async function createVehicle(
   db: D1Database,
   ctx: TenantContext,
   input: VehicleInput,
+  clientId?: string,
 ): Promise<Vehicle> {
-  const id = crypto.randomUUID();
+  const id = clientId ?? crypto.randomUUID();
   const now = new Date().toISOString();
   await db
     .prepare(
@@ -940,16 +941,18 @@ async function insertServiceRecordWithDuplicateDetection(
 /**
  * Bootstrap-shaped like createVehicle — the caller has already resolved
  * `vehicleId` belongs to `ctx.tenantId` (via findVehicleById) before calling
- * this; it trusts that check the same way createVehicle trusts ctx over any
- * client-supplied id.
+ * this; ownership always comes from `ctx`, never from the client, regardless
+ * of whether `clientId` is supplied (spec 020: a client may propose the
+ * record's own id, for the offline write queue, but never its tenant).
  */
 export async function createServiceRecord(
   db: D1Database,
   ctx: TenantContext,
   vehicleId: string,
   input: ServiceRecordInput,
+  clientId?: string,
 ): Promise<ServiceRecord> {
-  const id = crypto.randomUUID();
+  const id = clientId ?? crypto.randomUUID();
   const now = new Date().toISOString();
   const duplicateOfId = await insertServiceRecordWithDuplicateDetection(
     db,
@@ -1323,8 +1326,9 @@ export async function createFuelRecord(
   ctx: TenantContext,
   vehicleId: string,
   input: FuelRecordInput,
+  clientId?: string,
 ): Promise<FuelRecord> {
-  const id = crypto.randomUUID();
+  const id = clientId ?? crypto.randomUUID();
   const now = new Date().toISOString();
   const duplicateOfId = await insertFuelRecordWithDuplicateDetection(
     db,
@@ -1866,8 +1870,9 @@ export async function createReminderRule(
   ctx: TenantContext,
   vehicleId: string,
   input: ReminderRuleInput,
+  clientId?: string,
 ): Promise<ReminderRule> {
-  const id = crypto.randomUUID();
+  const id = clientId ?? crypto.randomUUID();
   const now = new Date().toISOString();
   await db
     .prepare(
@@ -2153,4 +2158,60 @@ export async function evaluateAllReminders(
   }
 
   return { evaluated, failed, notified };
+}
+
+// --- Idempotency ledger (spec 020: offline write queue, constitution Principle III) ---
+
+export type WriteOperationRecord = {
+  statusCode: number;
+  responseBody: string;
+};
+
+export async function findWriteOperation(
+  db: D1Database,
+  ctx: TenantContext,
+  idempotencyKey: string,
+): Promise<WriteOperationRecord | null> {
+  const row = await db
+    .prepare(
+      `SELECT status_code AS statusCode, response_body AS responseBody
+       FROM write_operations WHERE tenant_id = ? AND idempotency_key = ?`,
+    )
+    .bind(ctx.tenantId, idempotencyKey)
+    .first<WriteOperationRecord>();
+  return row ?? null;
+}
+
+/**
+ * `ON CONFLICT DO NOTHING` rather than letting a duplicate insert throw: a genuine race (the same
+ * key arriving twice concurrently, both missing the pre-check) should not surface as a 500 to
+ * whichever request loses the race — its own handler result is still returned to its caller
+ * normally, it just isn't the copy that ends up canonical in the ledger.
+ */
+export async function recordWriteOperation(
+  db: D1Database,
+  ctx: TenantContext,
+  input: {
+    idempotencyKey: string;
+    method: string;
+    path: string;
+    statusCode: number;
+    responseBody: string;
+  },
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO write_operations (tenant_id, idempotency_key, method, path, status_code, response_body)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (tenant_id, idempotency_key) DO NOTHING`,
+    )
+    .bind(
+      ctx.tenantId,
+      input.idempotencyKey,
+      input.method,
+      input.path,
+      input.statusCode,
+      input.responseBody,
+    )
+    .run();
 }

@@ -26,6 +26,7 @@ import type {
 import { deleteAttachments } from "../../attachments/storage";
 import { rateLimitBySession } from "../../auth/rate-limit";
 import { tenantContextOrToken } from "../../middleware/tenant-context";
+import { idempotent } from "../../middleware/idempotency";
 import type { AppEnv } from "../../types";
 
 export const vehicles = new Hono<AppEnv>();
@@ -34,6 +35,18 @@ vehicles.use("*", tenantContextOrToken);
 
 const ODOMETER_UNITS = new Set(["km", "mi"]);
 const MIN_YEAR = 1900;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Honors a client-supplied id on create (spec 020: a record created offline needs a stable
+ * identity before it ever syncs). `undefined` return means "present but invalid" so the caller
+ * can 400 rather than silently falling back to a server-generated id.
+ */
+function parseOptionalId(body: { id?: unknown }): string | null | undefined {
+  if (body.id === undefined) return null;
+  if (typeof body.id === "string" && UUID_RE.test(body.id)) return body.id;
+  return undefined;
+}
 
 function maxYear(): number {
   return new Date().getUTCFullYear() + 10;
@@ -45,6 +58,7 @@ function isValidYear(year: unknown): year is number {
 }
 
 type CreateBody = {
+  id?: unknown;
   name?: unknown;
   odometerUnit?: unknown;
   make?: unknown;
@@ -92,14 +106,18 @@ function validatePatch(body: CreateBody): Partial<VehicleInput> | null {
   return patch;
 }
 
-vehicles.post("/", rateLimitBySession, async (c) => {
+vehicles.post("/", rateLimitBySession, idempotent, async (c) => {
   const body = await c.req.json().catch(() => ({}) as CreateBody);
   const input = validateCreate(body);
   if (!input) {
     return c.json({ error: "invalid_request" }, 400);
   }
+  const clientId = parseOptionalId(body);
+  if (clientId === undefined) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
 
-  const vehicle = await createVehicle(c.env.DB, c.get("tenant"), input);
+  const vehicle = await createVehicle(c.env.DB, c.get("tenant"), input, clientId ?? undefined);
   return c.json(vehicle, 201);
 });
 
@@ -147,6 +165,7 @@ vehicles.delete("/:id", rateLimitBySession, async (c) => {
 });
 
 type ServiceRecordBody = {
+  id?: unknown;
   serviceDate?: unknown;
   description?: unknown;
   odometerReading?: unknown;
@@ -170,7 +189,7 @@ function validateServiceRecordCreate(body: ServiceRecordBody): ServiceRecordInpu
   };
 }
 
-vehicles.post("/:vehicleId/service-records", rateLimitBySession, async (c) => {
+vehicles.post("/:vehicleId/service-records", rateLimitBySession, idempotent, async (c) => {
   const tenant = c.get("tenant");
   const vehicleId = c.req.param("vehicleId");
 
@@ -182,8 +201,18 @@ vehicles.post("/:vehicleId/service-records", rateLimitBySession, async (c) => {
   if (!input) {
     return c.json({ error: "invalid_request" }, 400);
   }
+  const clientId = parseOptionalId(body);
+  if (clientId === undefined) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
 
-  const record = await createServiceRecord(c.env.DB, tenant, vehicleId, input);
+  const record = await createServiceRecord(
+    c.env.DB,
+    tenant,
+    vehicleId,
+    input,
+    clientId ?? undefined,
+  );
   return c.json(record, 201);
 });
 
@@ -199,6 +228,7 @@ vehicles.get("/:vehicleId/service-records", async (c) => {
 });
 
 type FuelRecordBody = {
+  id?: unknown;
   fuelDate?: unknown;
   odometerReading?: unknown;
   volume?: unknown;
@@ -225,7 +255,7 @@ function validateFuelRecordCreate(body: FuelRecordBody): FuelRecordInput | null 
   };
 }
 
-vehicles.post("/:vehicleId/fuel-records", rateLimitBySession, async (c) => {
+vehicles.post("/:vehicleId/fuel-records", rateLimitBySession, idempotent, async (c) => {
   const tenant = c.get("tenant");
   const vehicleId = c.req.param("vehicleId");
 
@@ -237,8 +267,12 @@ vehicles.post("/:vehicleId/fuel-records", rateLimitBySession, async (c) => {
   if (!input) {
     return c.json({ error: "invalid_request" }, 400);
   }
+  const clientId = parseOptionalId(body);
+  if (clientId === undefined) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
 
-  const record = await createFuelRecord(c.env.DB, tenant, vehicleId, input);
+  const record = await createFuelRecord(c.env.DB, tenant, vehicleId, input, clientId ?? undefined);
   // Computed fresh rather than assumed null — a backfilled fill-up can have a computable economy
   // even on creation, if it slots in after an earlier record by odometer reading (FR-007/FR-008).
   const withEconomy = await findFuelRecordById(c.env.DB, tenant, record.id);
@@ -269,6 +303,7 @@ vehicles.get("/:vehicleId/aggregates", async (c) => {
 });
 
 type ReminderRuleBody = {
+  id?: unknown;
   label?: unknown;
   intervalDays?: unknown;
   intervalDistance?: unknown;
@@ -297,7 +332,7 @@ function validateReminderRuleCreate(body: ReminderRuleBody): ReminderRuleInput |
   };
 }
 
-vehicles.post("/:vehicleId/reminder-rules", rateLimitBySession, async (c) => {
+vehicles.post("/:vehicleId/reminder-rules", rateLimitBySession, idempotent, async (c) => {
   const tenant = c.get("tenant");
   const vehicleId = c.req.param("vehicleId");
 
@@ -309,8 +344,18 @@ vehicles.post("/:vehicleId/reminder-rules", rateLimitBySession, async (c) => {
   if (!input) {
     return c.json({ error: "invalid_request" }, 400);
   }
+  const clientId = parseOptionalId(body);
+  if (clientId === undefined) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
 
-  const rule = await createReminderRule(c.env.DB, tenant, vehicleId, input);
+  const rule = await createReminderRule(
+    c.env.DB,
+    tenant,
+    vehicleId,
+    input,
+    clientId ?? undefined,
+  );
   const withStatus = await findReminderRuleById(c.env.DB, tenant, rule.id);
   return c.json(withStatus, 201);
 });

@@ -19,6 +19,7 @@ import { contentTypeFor, detectFileType, MAX_ATTACHMENT_BYTES } from "../../atta
 import { stripJpegExif } from "../../attachments/strip-exif";
 import { rateLimitBySession } from "../../auth/rate-limit";
 import { tenantContextOrToken } from "../../middleware/tenant-context";
+import { idempotent } from "../../middleware/idempotency";
 import type { AppEnv } from "../../types";
 
 export const serviceRecords = new Hono<AppEnv>();
@@ -44,7 +45,7 @@ serviceRecords.get("/:id", async (c) => {
   return c.json({ ...record, attachments });
 });
 
-serviceRecords.post("/:id/dismiss-duplicate", rateLimitBySession, async (c) => {
+serviceRecords.post("/:id/dismiss-duplicate", rateLimitBySession, idempotent, async (c) => {
   const record = await dismissServiceRecordDuplicate(c.env.DB, c.get("tenant"), c.req.param("id"));
   if (!record) return c.notFound();
   return c.json(record);
@@ -85,7 +86,7 @@ function validatePatch(body: PatchBody): Partial<ServiceRecordInput> | null {
   return patch;
 }
 
-serviceRecords.patch("/:id", rateLimitBySession, async (c) => {
+serviceRecords.patch("/:id", rateLimitBySession, idempotent, async (c) => {
   const body = await c.req.json().catch(() => ({}) as PatchBody);
   const patch = validatePatch(body);
   if (!patch) {
@@ -97,7 +98,7 @@ serviceRecords.patch("/:id", rateLimitBySession, async (c) => {
   return c.json(record);
 });
 
-serviceRecords.delete("/:id", rateLimitBySession, async (c) => {
+serviceRecords.delete("/:id", rateLimitBySession, idempotent, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
 

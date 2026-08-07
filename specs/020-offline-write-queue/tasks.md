@@ -15,7 +15,7 @@ constitution exception. Read the whole list before starting; Foundational alone 
 
 ## Phase 1: Setup
 
-- [ ] T001 Add `idb` to `deno.json`'s `imports` (`npm:idb@^8`), run `deno install` to resolve it
+- [X] T001 Add `idb` to `deno.json`'s `imports` (`npm:idb@^8`), run `deno install` to resolve it
 
 ---
 
@@ -23,26 +23,26 @@ constitution exception. Read the whole list before starting; Foundational alone 
 
 **⚠️ No user story work may start until this phase is complete.**
 
-- [ ] T002 [P] Create `migrations/0013_idempotency_keys.sql`: `write_operations` table per
+- [X] T002 [P] Create `migrations/0013_idempotency_keys.sql`: `write_operations` table per
       data-model.md (`tenant_id`, `idempotency_key`, `method`, `path`, `status_code`,
       `response_body`, `created_at`; primary key `(tenant_id, idempotency_key)`,
       `tenant_id ... ON DELETE CASCADE`)
-- [ ] T003 [P] Create `src/server/middleware/idempotency.ts`: reads the `Idempotency-Key` header; if
+- [X] T003 [P] Create `src/server/middleware/idempotency.ts`: reads the `Idempotency-Key` header; if
       a matching `(tenant_id, key)` row exists, returns the stored `status_code`/`response_body`
       verbatim without calling `next()`; otherwise calls `next()`, then persists the handler's actual
       response before returning it. No-op (today's exact behavior) when the header is absent
       (research.md: keeps existing API-token callers, specs/017, unaffected)
-- [ ] T004 Extend `src/server/db/repository.ts`: `createVehicle`, `createServiceRecord`,
+- [X] T004 Extend `src/server/db/repository.ts`: `createVehicle`, `createServiceRecord`,
       `createFuelRecord`, `createReminderRule` each accept an optional `id` parameter, used as the
       new row's id when present (and a syntactically valid UUID) instead of
       `crypto.randomUUID()`; behavior is unchanged when absent
-- [ ] T005 Wire the idempotency middleware (T003) onto: `src/server/routes/v1/vehicles.ts`'s
+- [X] T005 Wire the idempotency middleware (T003) onto: `src/server/routes/v1/vehicles.ts`'s
       create-vehicle route and its nested create-service-record/create-fuel-record/
       create-reminder-rule routes (passing a client-supplied body `id` through to T004's repository
       functions on all four); `src/server/routes/v1/service-records.ts`'s update/delete/
       dismiss-duplicate routes; `src/server/routes/v1/fuel-records.ts`'s update/delete/
       dismiss-duplicate routes; `src/server/routes/v1/reminder-rules.ts`'s delete/mark-done routes
-- [ ] T006 [P] `tests/server/idempotency.test.ts`: replaying the same `Idempotency-Key` returns the
+- [X] T006 [P] `tests/server/idempotency.test.ts`: replaying the same `Idempotency-Key` returns the
       original stored response without re-executing the handler (assert no second row is created);
       the same key under a *different* tenant is not short-circuited; a client-supplied `id` on
       create is honored; a request with no `Idempotency-Key` header behaves exactly as it did before
