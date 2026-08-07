@@ -37,7 +37,9 @@ test.describe("attachment validation (specs 007, 009, constitution Principle V)"
       buffer: NOT_A_REAL_FILE,
     });
 
-    await expect(authedPage.getByRole("alert").filter({ hasText: t("genericError") }))
+    await expect(
+      authedPage.getByRole("alert").filter({ hasText: t("attachmentUnsupportedTypeError") }),
+    )
       .toBeVisible();
     await expect(row.getByText(/KB$/)).toHaveCount(0);
   });
@@ -54,7 +56,7 @@ test.describe("attachment validation (specs 007, 009, constitution Principle V)"
       buffer: OVERSIZED_PNG,
     });
 
-    await expect(authedPage.getByRole("alert").filter({ hasText: t("genericError") }))
+    await expect(authedPage.getByRole("alert").filter({ hasText: t("attachmentTooLargeError") }))
       .toBeVisible();
     await expect(row.getByText(/KB$/)).toHaveCount(0);
   });
@@ -76,7 +78,9 @@ test.describe("attachment validation (specs 007, 009, constitution Principle V)"
       buffer: NOT_A_REAL_FILE,
     });
 
-    await expect(authedPage.getByRole("alert").filter({ hasText: t("genericError") }))
+    await expect(
+      authedPage.getByRole("alert").filter({ hasText: t("attachmentUnsupportedTypeError") }),
+    )
       .toBeVisible();
     await expect(row.getByText(/KB$/)).toHaveCount(0);
   });
@@ -98,7 +102,7 @@ test.describe("attachment validation (specs 007, 009, constitution Principle V)"
       buffer: OVERSIZED_PNG,
     });
 
-    await expect(authedPage.getByRole("alert").filter({ hasText: t("genericError") }))
+    await expect(authedPage.getByRole("alert").filter({ hasText: t("attachmentTooLargeError") }))
       .toBeVisible();
     await expect(row.getByText(/KB$/)).toHaveCount(0);
   });
