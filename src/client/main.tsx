@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { registerServiceWorker } from "./pwa";
 import "./design/tokens.css";
 import "./design/base.css";
 
@@ -14,3 +15,5 @@ createRoot(rootElement).render(
     <App />
   </StrictMode>,
 );
+
+registerServiceWorker();

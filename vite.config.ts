@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 import { unstable_readConfig } from "wrangler";
 
 // @cloudflare/vite-plugin builds against wrangler.toml's TOP-LEVEL section only — it has no
@@ -41,6 +42,23 @@ export default defineConfig(() => {
     plugins: [
       react(),
       cloudflare(wranglerEnv ? { configPath: configPathFor(wranglerEnv) } : {}),
+      // Manifest is hand-written at public/manifest.webmanifest (manifest: false) and
+      // registration is done manually from src/client/pwa.ts (injectRegister: null) — see
+      // specs/018-pwa-installability/research.md. injectManifest (not generateSW) hands full
+      // control of the service worker's fetch handling to src/client/sw.ts, whose own code
+      // contains no navigation-caching logic at all: every page load must reach the Worker over
+      // the network unconditionally so it gets a fresh CSP nonce (specs/015-csp-nonces) — a
+      // config flag can't guarantee that as reliably as the absence of the code that would do it.
+      VitePWA({
+        strategies: "injectManifest",
+        srcDir: "src/client",
+        filename: "sw.ts",
+        injectRegister: null,
+        manifest: false,
+        injectManifest: {
+          globPatterns: ["**/*.{js,css,woff2,png,svg}"],
+        },
+      }),
     ],
   };
 });
