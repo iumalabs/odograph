@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { Attachment, FuelRecord } from "../fuel-records";
 import type { WithSyncStatus } from "../offline/merge";
 import { AddIcon, CameraIcon, FuelIcon, ReceiptIcon, UploadIcon } from "../design/icons";
@@ -82,7 +82,7 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
 
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
   const [justUploadedId, setJustUploadedId] = useState<string | null>(null);
-  const cameraInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [cameraTargetId, setCameraTargetId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftFuelDate, setDraftFuelDate] = useState("");
   const [draftOdometerReading, setDraftOdometerReading] = useState("");
@@ -417,8 +417,10 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
                       ))}
                       <button
                         type="button"
-                        onClick={() =>
-                          setUploadTargetId(uploadTargetId === record.id ? null : record.id)}
+                        onClick={() => {
+                          setCameraTargetId(null);
+                          setUploadTargetId(uploadTargetId === record.id ? null : record.id);
+                        }}
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -449,7 +451,10 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
                       )}
                       <button
                         type="button"
-                        onClick={() => cameraInputRefs.current[record.id]?.click()}
+                        onClick={() => {
+                          setUploadTargetId(null);
+                          setCameraTargetId(cameraTargetId === record.id ? null : record.id);
+                        }}
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -466,22 +471,20 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
                         <CameraIcon size={12} />
                         {t("takePhotoLabel")}
                       </button>
-                      <input
-                        ref={(el) => {
-                          cameraInputRefs.current[record.id] = el;
-                        }}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        hidden
-                        onChange={async (event) => {
-                          const file = event.target.files?.[0];
-                          event.target.value = "";
-                          if (!file) return;
-                          await onUploadAttachment(record.id, file);
-                          setJustUploadedId(record.id);
-                        }}
-                      />
+                      {cameraTargetId === record.id && (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={async (event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) return;
+                            await onUploadAttachment(record.id, file);
+                            setCameraTargetId(null);
+                            setJustUploadedId(record.id);
+                          }}
+                        />
+                      )}
                       {justUploadedId === record.id && (
                         <span
                           style={{

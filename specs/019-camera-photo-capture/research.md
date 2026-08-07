@@ -8,7 +8,24 @@ alternatives considered, per `/speckit-plan`'s Phase 0 requirement.
 
 **Decision**: Implement "Take Photo" as a second, capture-hinted file input —
 `<input type="file" accept="image/*" capture="environment">` — rather than a custom camera UI built
-on `MediaDevices.getUserMedia()` + `<canvas>`.
+on `MediaDevices.getUserMedia()` + `<canvas>`. It's revealed by its own toggle button, mirroring the
+existing "Attach a photo or receipt" control's reveal-then-interact pattern exactly (own state,
+mutually exclusive with the existing upload toggle so at most one file input exists per record row
+at a time), rather than an always-mounted hidden input auto-clicked via a ref. Two considerations
+drove that specific shape, beyond the base `capture`-attribute decision:
+- **e2e compatibility**: `e2e/tests/attachments.spec.ts` locates the existing upload input via
+  `row.locator('input[type="file"]')` with no further narrowing — a second, simultaneously-mounted
+  `<input type="file">` in the same row would make that locator match two elements and throw a
+  Playwright strict-mode violation (default since ~1.14, still default in the
+  `@playwright/test@^1.55.0` this repo's e2e/ pins). Never mounting both inputs for the same row at
+  once avoids this without touching e2e/ (owned by a separate process, not this implementation).
+- **Reliable user-gesture chain**: an always-mounted hidden input clicked programmatically via a ref
+  callback re-fires on every re-render (inline ref functions get a new identity each render, so
+  React detaches/reattaches on every commit while any state changes), which would reopen the camera
+  unexpectedly; routing through `useEffect` to click once avoids that but breaks on browsers (Safari
+  in particular) that only honor `.click()` on a file input within the same synchronous task as the
+  actual user gesture. Reusing the existing toggle-then-interact pattern sidesteps both problems
+  entirely by relying on the native input's own click, not a proxied one.
 
 **Rationale**:
 - Zero new permission model to design: the browser's native camera app handles permission prompts,

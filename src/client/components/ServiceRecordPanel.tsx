@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { Attachment, ServiceRecord } from "../service-records";
 import type { WithSyncStatus } from "../offline/merge";
 import { AddIcon, CameraIcon, ReceiptIcon, ServiceIcon, UploadIcon } from "../design/icons";
@@ -71,7 +71,7 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
 
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
   const [justUploadedId, setJustUploadedId] = useState<string | null>(null);
-  const cameraInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [cameraTargetId, setCameraTargetId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftServiceDate, setDraftServiceDate] = useState("");
   const [draftDescription, setDraftDescription] = useState("");
@@ -387,8 +387,10 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
                       ))}
                       <button
                         type="button"
-                        onClick={() =>
-                          setUploadTargetId(uploadTargetId === record.id ? null : record.id)}
+                        onClick={() => {
+                          setCameraTargetId(null);
+                          setUploadTargetId(uploadTargetId === record.id ? null : record.id);
+                        }}
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -419,7 +421,10 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
                       )}
                       <button
                         type="button"
-                        onClick={() => cameraInputRefs.current[record.id]?.click()}
+                        onClick={() => {
+                          setUploadTargetId(null);
+                          setCameraTargetId(cameraTargetId === record.id ? null : record.id);
+                        }}
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -436,22 +441,20 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
                         <CameraIcon size={12} />
                         {t("takePhotoLabel")}
                       </button>
-                      <input
-                        ref={(el) => {
-                          cameraInputRefs.current[record.id] = el;
-                        }}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        hidden
-                        onChange={async (event) => {
-                          const file = event.target.files?.[0];
-                          event.target.value = "";
-                          if (!file) return;
-                          await onUploadAttachment(record.id, file);
-                          setJustUploadedId(record.id);
-                        }}
-                      />
+                      {cameraTargetId === record.id && (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={async (event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) return;
+                            await onUploadAttachment(record.id, file);
+                            setCameraTargetId(null);
+                            setJustUploadedId(record.id);
+                          }}
+                        />
+                      )}
                       {justUploadedId === record.id && (
                         <span
                           style={{
