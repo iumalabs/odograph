@@ -156,6 +156,102 @@ export async function deleteTenantAccount(db: D1Database, tenantId: string): Pro
   return result.meta.changes > 0;
 }
 
+// --- API tokens (constitution Principle VI, spec 017) ----------------------
+//
+// A credential table, like sessions/webauthn_credentials/magic_link_identities — keyed by
+// user_id, not tenant_id, and cascades away with the owning user (data-model.md).
+
+export type ApiToken = {
+  id: string;
+  userId: string;
+  label: string;
+  scope: "read" | "write";
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+};
+
+const API_TOKEN_COLUMNS =
+  "id, user_id AS userId, label, scope, created_at AS createdAt, last_used_at AS lastUsedAt, revoked_at AS revokedAt";
+
+export async function createApiToken(
+  db: D1Database,
+  ctx: TenantContext,
+  input: { label: string; scope: "read" | "write"; tokenHash: string },
+): Promise<ApiToken> {
+  const id = crypto.randomUUID();
+  await db
+    .prepare(
+      "INSERT INTO api_tokens (id, user_id, label, scope, token_hash) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(id, ctx.userId, input.label, input.scope, input.tokenHash)
+    .run();
+  const created = await db
+    .prepare(`SELECT ${API_TOKEN_COLUMNS} FROM api_tokens WHERE id = ?`)
+    .bind(id)
+    .first<ApiToken>();
+  if (!created) throw new Error("api token vanished immediately after insert");
+  return created;
+}
+
+export async function listApiTokens(db: D1Database, ctx: TenantContext): Promise<ApiToken[]> {
+  const { results } = await db
+    .prepare(`SELECT ${API_TOKEN_COLUMNS} FROM api_tokens WHERE user_id = ? ORDER BY created_at`)
+    .bind(ctx.userId)
+    .all<ApiToken>();
+  return results;
+}
+
+/**
+ * Resolves a bearer token's hash to {userId, tenantId, apiTokenId, scope} — the token-auth
+ * equivalent of findValidSessionByTokenHash, including the same JOIN users shape. Excludes
+ * revoked tokens (revoked_at IS NULL), mirroring how findValidSessionByTokenHash excludes
+ * invalidated sessions.
+ */
+export async function findValidApiTokenByHash(
+  db: D1Database,
+  tokenHash: string,
+): Promise<(ResolvedSession & { apiTokenId: string; scope: "read" | "write" }) | null> {
+  const row = await db
+    .prepare(
+      `SELECT api_tokens.id AS apiTokenId, api_tokens.scope AS scope,
+              api_tokens.user_id AS userId, users.tenant_id AS tenantId
+       FROM api_tokens
+       JOIN users ON users.id = api_tokens.user_id
+       WHERE api_tokens.token_hash = ?
+         AND api_tokens.revoked_at IS NULL`,
+    )
+    .bind(tokenHash)
+    .first<ResolvedSession & { apiTokenId: string; scope: "read" | "write" }>();
+  return row ?? null;
+}
+
+export async function touchApiTokenLastUsed(db: D1Database, apiTokenId: string): Promise<void> {
+  await db
+    .prepare("UPDATE api_tokens SET last_used_at = ? WHERE id = ?")
+    .bind(new Date().toISOString(), apiTokenId)
+    .run();
+}
+
+/**
+ * Sets revoked_at if the token belongs to ctx.userId — deliberately not conditioned on
+ * revoked_at IS NULL, so re-revoking an already-revoked token still counts as a match (changes >
+ * 0) rather than being indistinguishable from "not found." That distinction is what lets the
+ * route return 204 for "already revoked" (contracts/api.md: idempotent) versus 404 for "doesn't
+ * exist or isn't yours" — same not-found-or-not-yours contract as deleteVehicle otherwise.
+ */
+export async function revokeApiToken(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare("UPDATE api_tokens SET revoked_at = ? WHERE id = ? AND user_id = ?")
+    .bind(new Date().toISOString(), id, ctx.userId)
+    .run();
+  return result.meta.changes > 0;
+}
+
 // --- Tenant-scoped operations ----------------------------------------------
 //
 // Every function below takes a resolved TenantContext (never a bare id from

@@ -88,6 +88,23 @@ const en = {
   deleteAccountConfirmPrompt: 'Type "{phrase}" to confirm',
   deleteAccountConfirmButton: "Permanently delete my account",
   deleteAccountCancel: "Cancel",
+  apiTokensToggle: "API tokens",
+  apiTokensIntro: "Create tokens for programmatic access to your own account's data.",
+  apiTokenLabelLabel: "Label",
+  apiTokenScopeLabel: "Access",
+  apiTokenScopeRead: "Read-only",
+  apiTokenScopeWrite: "Read-write",
+  createApiToken: "Create token",
+  apiTokenCreatedWarning: "Copy this token now — it won't be shown again.",
+  apiTokenCreatedCopy: "Copy",
+  apiTokenCreatedCopied: "Copied",
+  apiTokenCreatedDone: "Done",
+  noApiTokensYet: "No API tokens yet.",
+  apiTokenCreatedAt: "Created {date}",
+  apiTokenLastUsedNever: "Never used",
+  apiTokenLastUsedAt: "Last used {date}",
+  apiTokenRevoked: "Revoked",
+  revokeApiToken: "Revoke",
 } as const;
 
 export type StringKey = keyof typeof en;

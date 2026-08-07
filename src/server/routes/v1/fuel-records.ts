@@ -18,12 +18,12 @@ import {
 import { contentTypeFor, detectFileType, MAX_ATTACHMENT_BYTES } from "../../attachments/validate";
 import { stripJpegExif } from "../../attachments/strip-exif";
 import { rateLimitBySession } from "../../auth/rate-limit";
-import { tenantContext } from "../../middleware/tenant-context";
+import { tenantContextOrToken } from "../../middleware/tenant-context";
 import type { AppEnv } from "../../types";
 
 export const fuelRecords = new Hono<AppEnv>();
 
-fuelRecords.use("*", tenantContext);
+fuelRecords.use("*", tenantContextOrToken);
 
 fuelRecords.get("/:id", async (c) => {
   const tenant = c.get("tenant");

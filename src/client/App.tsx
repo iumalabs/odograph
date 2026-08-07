@@ -37,6 +37,7 @@ import type { AppView } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
 import { AuthScreen } from "./components/AuthScreen";
 import { AccountDeletion } from "./components/AccountDeletion";
+import { ApiTokens } from "./components/ApiTokens";
 import { Garage } from "./components/Garage";
 import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
 import { FuelRecordPanel } from "./components/FuelRecordPanel";
@@ -407,6 +408,7 @@ export function App() {
               {t("linkEmailSentBanner")}
             </span>
           )}
+          <ApiTokens onError={() => setError(t("genericError"))} />
           <AccountDeletion onConfirmDelete={handleDeleteAccount} />
         </div>
 

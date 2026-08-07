@@ -25,12 +25,12 @@ import type {
 } from "../../db/repository";
 import { deleteAttachments } from "../../attachments/storage";
 import { rateLimitBySession } from "../../auth/rate-limit";
-import { tenantContext } from "../../middleware/tenant-context";
+import { tenantContextOrToken } from "../../middleware/tenant-context";
 import type { AppEnv } from "../../types";
 
 export const vehicles = new Hono<AppEnv>();
 
-vehicles.use("*", tenantContext);
+vehicles.use("*", tenantContextOrToken);
 
 const ODOMETER_UNITS = new Set(["km", "mi"]);
 const MIN_YEAR = 1900;
