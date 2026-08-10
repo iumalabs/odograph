@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import {
   computeVehicleAggregates,
+  computeVehicleExpenseBreakdown,
   createDocument,
   createFuelRecord,
   createPlanCard,
@@ -24,6 +25,7 @@ import {
 } from "../../db/repository";
 import type {
   DocumentInput,
+  ExpenseGroupBy,
   FuelRecordInput,
   PlanCardInput,
   ReminderRuleInput,
@@ -433,6 +435,30 @@ vehicles.get("/:vehicleId/aggregates", async (c) => {
 
   const aggregates = await computeVehicleAggregates(c.env.DB, tenant, vehicleId);
   return c.json(aggregates);
+});
+
+const EXPENSE_GROUP_BY_VALUES = new Set(["month", "year"]);
+
+// Read-only, not rate-limited — matches /:vehicleId/aggregates's existing posture.
+vehicles.get("/:vehicleId/expense-breakdown", async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const groupBy = c.req.query("groupBy");
+  if (typeof groupBy !== "string" || !EXPENSE_GROUP_BY_VALUES.has(groupBy)) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+
+  const periods = await computeVehicleExpenseBreakdown(
+    c.env.DB,
+    tenant,
+    vehicleId,
+    groupBy as ExpenseGroupBy,
+  );
+  return c.json({ periods });
 });
 
 type ReminderRuleBody = {
