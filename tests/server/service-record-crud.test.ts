@@ -436,7 +436,7 @@ describe("vehicle deletion cleans up R2 attachments (retrofit, research.md)", ()
       buildFixtureJpeg({ includeExif: false }),
     )).json()) as { id: string };
 
-    const key = attachmentKey(tenantId, recordId, created.id);
+    const key = attachmentKey(tenantId, "service-records", recordId, created.id);
     expect(await env.ATTACHMENTS.get(key)).not.toBeNull();
 
     const del = await deleteVehicleReq(cookie, vehicleId);

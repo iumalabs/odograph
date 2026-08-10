@@ -92,6 +92,31 @@ async function uploadFuelAttachment(cookie: string, fuelRecordId: string): Promi
   return (await res.json()) as { id: string };
 }
 
+async function createDocumentId(cookie: string, vehicleId: string): Promise<string> {
+  const res = await SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/documents`, {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": "application/json" },
+    body: JSON.stringify({ title: "Registration", category: "registration" }),
+  });
+  const created = (await res.json()) as { id: string };
+  return created.id;
+}
+
+async function uploadDocumentAttachment(
+  cookie: string,
+  documentId: string,
+): Promise<{ id: string }> {
+  const res = await SELF.fetch(
+    `https://example.com/api/v1/documents/${documentId}/attachments`,
+    {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "image/jpeg" },
+      body: buildFixtureJpeg({ includeExif: false }),
+    },
+  );
+  return (await res.json()) as { id: string };
+}
+
 function createReminderRule(cookie: string, vehicleId: string): Promise<Response> {
   return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/reminder-rules`, {
     method: "POST",
@@ -143,13 +168,22 @@ describe("account erasure — core erasure (User Story 1)", () => {
     const serviceAttachment = await uploadServiceAttachment(cookie, serviceRecordId);
     const fuelRecordId = await createFuelRecordId(cookie, vehicleId);
     const fuelAttachment = await uploadFuelAttachment(cookie, fuelRecordId);
+    const documentId = await createDocumentId(cookie, vehicleId);
+    const documentAttachment = await uploadDocumentAttachment(cookie, documentId);
     const reminderRes = await createReminderRule(cookie, vehicleId);
     expect(reminderRes.status).toBe(201);
 
-    const serviceKey = attachmentKey(tenantId, serviceRecordId, serviceAttachment.id);
-    const fuelKey = attachmentKey(tenantId, fuelRecordId, fuelAttachment.id);
+    const serviceKey = attachmentKey(
+      tenantId,
+      "service-records",
+      serviceRecordId,
+      serviceAttachment.id,
+    );
+    const fuelKey = attachmentKey(tenantId, "fuel-records", fuelRecordId, fuelAttachment.id);
+    const documentKey = attachmentKey(tenantId, "documents", documentId, documentAttachment.id);
     expect(await env.ATTACHMENTS.get(serviceKey)).not.toBeNull();
     expect(await env.ATTACHMENTS.get(fuelKey)).not.toBeNull();
+    expect(await env.ATTACHMENTS.get(documentKey)).not.toBeNull();
 
     const res = await deleteAccount(cookie, REQUIRED_CONFIRMATION);
     expect(res.status).toBe(204);
@@ -160,9 +194,12 @@ describe("account erasure — core erasure (User Story 1)", () => {
     expect(await countRows("service_record_attachments", tenantId)).toBe(0);
     expect(await countRows("fuel_records", tenantId)).toBe(0);
     expect(await countRows("fuel_record_attachments", tenantId)).toBe(0);
+    expect(await countRows("documents", tenantId)).toBe(0);
+    expect(await countRows("document_attachments", tenantId)).toBe(0);
     expect(await countRows("reminder_rules", tenantId)).toBe(0);
     expect(await env.ATTACHMENTS.get(serviceKey)).toBeNull();
     expect(await env.ATTACHMENTS.get(fuelKey)).toBeNull();
+    expect(await env.ATTACHMENTS.get(documentKey)).toBeNull();
   });
 
   it("deletes successfully for an account with zero vehicles or records", async () => {

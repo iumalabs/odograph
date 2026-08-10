@@ -2,6 +2,8 @@
 // isolation specifically) — mirrors how session.ts already keeps KV logic separate from
 // repository.ts's D1-only scope.
 
+export type AttachmentResourceType = "service-records" | "fuel-records" | "documents";
+
 /**
  * Tenant-scoped key path (research.md) — defense in depth alongside the D1-side ownership check;
  * a bug that somehow bypassed the D1 check still couldn't let one tenant enumerate or guess
@@ -9,10 +11,11 @@
  */
 export function attachmentKey(
   tenantId: string,
-  serviceRecordId: string,
+  resourceType: AttachmentResourceType,
+  resourceId: string,
   attachmentId: string,
 ): string {
-  return `tenants/${tenantId}/service-records/${serviceRecordId}/${attachmentId}`;
+  return `tenants/${tenantId}/${resourceType}/${resourceId}/${attachmentId}`;
 }
 
 export async function putAttachment(

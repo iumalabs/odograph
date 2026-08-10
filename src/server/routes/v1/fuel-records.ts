@@ -148,7 +148,7 @@ fuelRecords.post("/:id/attachments", rateLimitBySession, async (c) => {
   }
 
   const id = crypto.randomUUID();
-  const r2Key = attachmentKey(tenant.tenantId, fuelRecordId, id);
+  const r2Key = attachmentKey(tenant.tenantId, "fuel-records", fuelRecordId, id);
   await putAttachment(c.env.ATTACHMENTS, r2Key, bytes, contentTypeFor(detectedType));
 
   const attachment = await createFuelAttachment(c.env.DB, tenant, {
