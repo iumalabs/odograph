@@ -1,4 +1,9 @@
-export type PendingActionEntity = "vehicle" | "serviceRecord" | "fuelRecord" | "reminderRule";
+export type PendingActionEntity =
+  | "vehicle"
+  | "serviceRecord"
+  | "fuelRecord"
+  | "reminderRule"
+  | "planCard";
 
 export type PendingActionType = "create" | "update" | "delete" | "dismissDuplicate" | "markDone";
 

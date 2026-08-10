@@ -3,6 +3,7 @@ import {
   computeVehicleAggregates,
   createDocument,
   createFuelRecord,
+  createPlanCard,
   createReminderRule,
   createServiceRecord,
   createVehicle,
@@ -15,6 +16,7 @@ import {
   listAttachmentKeysForVehicleFuelRecords,
   listDocuments,
   listFuelRecordsWithEconomy,
+  listPlanCards,
   listReminderRulesWithStatus,
   listServiceRecords,
   listVehicles,
@@ -23,6 +25,7 @@ import {
 import type {
   DocumentInput,
   FuelRecordInput,
+  PlanCardInput,
   ReminderRuleInput,
   ServiceRecordInput,
   VehicleInput,
@@ -364,6 +367,60 @@ vehicles.get("/:vehicleId/documents", async (c) => {
 
   const results = await listDocuments(c.env.DB, tenant, vehicleId);
   return c.json({ documents: results });
+});
+
+type PlanCardBody = {
+  id?: unknown;
+  title?: unknown;
+  targetDate?: unknown;
+  estimatedCost?: unknown;
+  urgent?: unknown;
+};
+
+function validatePlanCardCreate(body: PlanCardBody): PlanCardInput | null {
+  if (typeof body.title !== "string" || body.title.length === 0) return null;
+  if (body.targetDate !== undefined && typeof body.targetDate !== "string") return null;
+  if (body.estimatedCost !== undefined && typeof body.estimatedCost !== "number") return null;
+  if (body.urgent !== undefined && typeof body.urgent !== "boolean") return null;
+
+  return {
+    title: body.title,
+    targetDate: typeof body.targetDate === "string" ? body.targetDate : null,
+    estimatedCost: typeof body.estimatedCost === "number" ? body.estimatedCost : null,
+    urgent: body.urgent === true,
+  };
+}
+
+vehicles.post("/:vehicleId/plan-cards", rateLimitBySession, idempotent, async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const body = await c.req.json().catch(() => ({}) as PlanCardBody);
+  const input = validatePlanCardCreate(body);
+  if (!input) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+  const clientId = parseOptionalId(body);
+  if (clientId === undefined) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+
+  const card = await createPlanCard(c.env.DB, tenant, vehicleId, input, clientId ?? undefined);
+  return c.json(card, 201);
+});
+
+vehicles.get("/:vehicleId/plan-cards", async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const results = await listPlanCards(c.env.DB, tenant, vehicleId);
+  return c.json({ planCards: results });
 });
 
 // Read-only, not rate-limited — matches every other GET in this file.

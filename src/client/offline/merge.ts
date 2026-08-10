@@ -7,6 +7,8 @@ import type { FuelRecord } from "../fuel-records";
 import { hydrateOptimisticFuelRecord } from "../fuel-records";
 import type { ReminderRule } from "../reminder-rules";
 import { hydrateOptimisticReminderRule } from "../reminder-rules";
+import type { PlanCard } from "../plan-cards";
+import { hydrateOptimisticPlanCard } from "../plan-cards";
 
 export type SyncStatus = "pending" | "rejected";
 export type WithSyncStatus<T> = T & { syncStatus?: SyncStatus; rejectReason?: string | null };
@@ -155,4 +157,19 @@ export function mergeReminderRules(
     hydrateOptimisticReminderRule,
     (record) => record,
   );
+}
+
+export function mergePlanCards(
+  server: PlanCard[],
+  actions: PendingAction[],
+): WithSyncStatus<PlanCard>[] {
+  // A stage move is just an "update" action with a `stage` field in its body — the done-
+  // transition's service-record creation is a server-owned side effect (constitution Principle
+  // II), never simulated here; the overlay only reflects the card's own fields.
+  return mergeGeneric(server, actions, "planCard", hydrateOptimisticPlanCard, (record, action) => {
+    if (action.actionType === "update") {
+      return { ...record, ...(action.body as Partial<PlanCard>) };
+    }
+    return record;
+  });
 }

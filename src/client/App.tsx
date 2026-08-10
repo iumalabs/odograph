@@ -43,6 +43,13 @@ import {
   uploadDocumentAttachment,
 } from "./documents";
 import type { DocumentCategory, VehicleDocument } from "./documents";
+import {
+  createPlanCard,
+  deletePlanCard,
+  listPlanCards,
+  updatePlanCard as updatePlanCardApi,
+} from "./plan-cards";
+import type { PlanCard, PlanCardStage } from "./plan-cards";
 import { t } from "./i18n/strings";
 import type { AppView } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
@@ -55,11 +62,13 @@ import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
 import { FuelRecordPanel } from "./components/FuelRecordPanel";
 import { ReminderRulePanel } from "./components/ReminderRulePanel";
 import { DocumentPanel } from "./components/DocumentPanel";
+import { PlanBoard } from "./components/PlanBoard";
 import { DashboardView } from "./components/DashboardView";
 import { SyncStatusIndicator } from "./components/SyncStatusIndicator";
 import { SyncReviewScreen } from "./components/SyncReviewScreen";
 import {
   mergeFuelRecords,
+  mergePlanCards,
   mergeReminderRules,
   mergeServiceRecords,
   mergeVehicles,
@@ -125,6 +134,13 @@ export function App() {
   const [documentAttachmentsByDocumentId, setDocumentAttachmentsByDocumentId] = useState<
     Record<string, Attachment[]>
   >({});
+  // Routed through the offline write queue (spec 020), unlike documents above — the issue's own
+  // text explicitly requires it for plan cards.
+  const [planCards, setPlanCards] = useState<PlanCard[]>([]);
+  const [planCardTitle, setPlanCardTitle] = useState("");
+  const [planCardTargetDate, setPlanCardTargetDate] = useState("");
+  const [planCardEstimatedCost, setPlanCardEstimatedCost] = useState("");
+  const [planCardUrgent, setPlanCardUrgent] = useState(false);
 
   // Offline write queue (spec 020): re-renders whenever a pending/rejected action changes, so the
   // lists below always reflect the queue's current state without a manual refetch.
@@ -137,6 +153,7 @@ export function App() {
   const mergedServiceRecords = mergeServiceRecords(serviceRecords, vehicleScopedActions);
   const mergedFuelRecords = mergeFuelRecords(fuelRecords, vehicleScopedActions);
   const mergedReminderRules = mergeReminderRules(reminderRules, vehicleScopedActions);
+  const mergedPlanCards = mergePlanCards(planCards, vehicleScopedActions);
 
   // GET /api/v1/auth/magic-link/verify redirects here with ?magicLink=ok/
   // error/linked, and GET /api/v1/auth/oidc/google/callback with
@@ -217,6 +234,14 @@ export function App() {
     listDocuments(selectedVehicleId).then(setDocuments).catch(() => setError(t("genericError")));
   }, [selectedVehicleId]);
 
+  useEffect(() => {
+    if (!selectedVehicleId) {
+      setPlanCards([]);
+      return;
+    }
+    listPlanCards(selectedVehicleId).then(setPlanCards).catch(() => setError(t("genericError")));
+  }, [selectedVehicleId]);
+
   // Once a queued action actually syncs, patch it into the cached server-confirmed list (the
   // same "apply the server's response" pattern every handler used before this feature) and let it
   // fall out of the queue snapshot — merge.ts stops overlaying it automatically. Re-subscribes on
@@ -270,6 +295,8 @@ export function App() {
           action.resourceId,
           responseBody,
         );
+      } else if (action.entity === "planCard" && action.vehicleId === selectedVehicleId) {
+        upsert<PlanCard>(setPlanCards, action.actionType, action.resourceId, responseBody);
       }
     });
   }, [selectedVehicleId]);
@@ -452,6 +479,16 @@ export function App() {
   function handleDeleteReminderRule(ruleId: string) {
     if (!selectedVehicleId) return;
     handle(() => deleteReminderRule(ruleId, selectedVehicleId), () => {});
+  }
+
+  function handleAdvancePlanCard(cardId: string, nextStage: PlanCardStage) {
+    if (!selectedVehicleId) return;
+    handle(() => updatePlanCardApi(cardId, selectedVehicleId, { stage: nextStage }), () => {});
+  }
+
+  function handleDeletePlanCard(cardId: string) {
+    if (!selectedVehicleId) return;
+    handle(() => deletePlanCard(cardId, selectedVehicleId), () => {});
   }
 
   if (!identity) {
@@ -765,6 +802,47 @@ export function App() {
               attachmentsByDocumentId={documentAttachmentsByDocumentId}
               onUpdateDocument={handleUpdateDocument}
               onDeleteDocument={handleDeleteDocument}
+            />
+
+            <h2
+              style={{
+                font: "600 14px var(--font-ui)",
+                letterSpacing: "-.01em",
+                marginTop: 20,
+              }}
+            >
+              {t("planBoardHeading")}
+            </h2>
+            <PlanBoard
+              cards={mergedPlanCards}
+              title={planCardTitle}
+              onTitleChange={setPlanCardTitle}
+              targetDate={planCardTargetDate}
+              onTargetDateChange={setPlanCardTargetDate}
+              estimatedCost={planCardEstimatedCost}
+              onEstimatedCostChange={setPlanCardEstimatedCost}
+              urgent={planCardUrgent}
+              onUrgentChange={setPlanCardUrgent}
+              onAddCard={() =>
+                handle(
+                  () =>
+                    createPlanCard(selectedVehicleId, {
+                      title: planCardTitle,
+                      ...(planCardTargetDate !== "" ? { targetDate: planCardTargetDate } : {}),
+                      ...(planCardEstimatedCost !== ""
+                        ? { estimatedCost: Number(planCardEstimatedCost) }
+                        : {}),
+                      ...(planCardUrgent ? { urgent: true } : {}),
+                    }),
+                  () => {
+                    setPlanCardTitle("");
+                    setPlanCardTargetDate("");
+                    setPlanCardEstimatedCost("");
+                    setPlanCardUrgent(false);
+                  },
+                )}
+              onAdvanceCard={handleAdvancePlanCard}
+              onDeleteCard={handleDeletePlanCard}
             />
           </div>
         )}

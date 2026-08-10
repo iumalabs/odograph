@@ -6,6 +6,7 @@ const ENTITY_LABEL_KEY = {
   serviceRecord: "entityServiceRecordLabel",
   fuelRecord: "entityFuelRecordLabel",
   reminderRule: "entityReminderRuleLabel",
+  planCard: "entityPlanCardLabel",
 } as const;
 
 const ACTION_LABEL_KEY = {
@@ -31,7 +32,7 @@ function recognizableField(action: PendingAction): string | null {
   const body = action.body as Record<string, unknown> | undefined;
   if (!body || typeof body !== "object") return null;
 
-  const candidate = body.description ?? body.fuelDate ?? body.label ?? body.name;
+  const candidate = body.description ?? body.fuelDate ?? body.label ?? body.name ?? body.title;
   return typeof candidate === "string" && candidate.length > 0 ? candidate : null;
 }
 

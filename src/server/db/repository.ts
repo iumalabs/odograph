@@ -2112,6 +2112,183 @@ export async function evaluateAllDocumentReminders(
   return { evaluated, failed, notified };
 }
 
+// --- Plan cards (specs/025: maintenance planner kanban board) ---------------
+
+export type PlanCardStage = "idea" | "buy" | "doing" | "done";
+
+export type PlanCard = {
+  id: string;
+  tenantId: string;
+  vehicleId: string;
+  title: string;
+  stage: PlanCardStage;
+  targetDate: string | null;
+  estimatedCost: number | null;
+  urgent: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PlanCardInput = {
+  title: string;
+  targetDate: string | null;
+  estimatedCost: number | null;
+  urgent: boolean;
+};
+
+const PLAN_CARD_COLUMNS =
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, title, stage, target_date AS targetDate, estimated_cost AS estimatedCost, urgent, created_at AS createdAt, updated_at AS updatedAt";
+
+type PlanCardRow = Omit<PlanCard, "urgent"> & { urgent: number };
+
+function fromPlanCardRow(row: PlanCardRow): PlanCard {
+  return { ...row, urgent: row.urgent !== 0 };
+}
+
+export async function createPlanCard(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+  input: PlanCardInput,
+  clientId?: string,
+): Promise<PlanCard> {
+  const id = clientId ?? crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO plan_cards
+       (id, tenant_id, vehicle_id, title, stage, target_date, estimated_cost, urgent, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'idea', ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      id,
+      ctx.tenantId,
+      vehicleId,
+      input.title,
+      input.targetDate,
+      input.estimatedCost,
+      input.urgent ? 1 : 0,
+      now,
+      now,
+    )
+    .run();
+  return {
+    id,
+    tenantId: ctx.tenantId,
+    vehicleId,
+    title: input.title,
+    stage: "idea",
+    targetDate: input.targetDate,
+    estimatedCost: input.estimatedCost,
+    urgent: input.urgent,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export async function listPlanCards(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<PlanCard[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${PLAN_CARD_COLUMNS} FROM plan_cards
+       WHERE vehicle_id = ? AND tenant_id = ? ORDER BY created_at`,
+    )
+    .bind(vehicleId, ctx.tenantId)
+    .all<PlanCardRow>();
+  return results.map(fromPlanCardRow);
+}
+
+/**
+ * Returns null both when no row has this id and when it belongs to a different tenant — same
+ * not-found-or-not-yours contract as findDocumentById (FR-010).
+ */
+export async function findPlanCardById(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<PlanCard | null> {
+  const row = await db
+    .prepare(`SELECT ${PLAN_CARD_COLUMNS} FROM plan_cards WHERE id = ? AND tenant_id = ?`)
+    .bind(id, ctx.tenantId)
+    .first<PlanCardRow>();
+  return row ? fromPlanCardRow(row) : null;
+}
+
+/**
+ * Applies only the fields present in `patch` — everything else keeps its stored value (FR-006),
+ * same pattern updateDocument established. `stage` is validated by the route layer against the
+ * four defined values before this is called (FR-005) — this function trusts it's already valid.
+ *
+ * Done-transition (FR-007/FR-008, data-model.md): when the merged stage becomes "done" and the
+ * existing stage wasn't already "done", creates a real service record via the existing
+ * createServiceRecord — never a second, parallel record type. Odometer reading and cost are only
+ * ever what's actually known (constitution Principle IV) — never fabricated. Re-setting an
+ * already-"done" card to "done" is a no-op for this side effect.
+ */
+export async function updatePlanCard(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+  patch: Partial<PlanCardInput> & { stage?: PlanCardStage },
+): Promise<PlanCard | null> {
+  const existing = await findPlanCardById(db, ctx, id);
+  if (!existing) return null;
+
+  const merged: PlanCardInput & { stage: PlanCardStage } = {
+    title: patch.title ?? existing.title,
+    stage: patch.stage ?? existing.stage,
+    targetDate: "targetDate" in patch ? patch.targetDate ?? null : existing.targetDate,
+    estimatedCost: "estimatedCost" in patch ? patch.estimatedCost ?? null : existing.estimatedCost,
+    urgent: patch.urgent ?? existing.urgent,
+  };
+  const updatedAt = new Date().toISOString();
+
+  await db
+    .prepare(
+      `UPDATE plan_cards
+       SET title = ?, stage = ?, target_date = ?, estimated_cost = ?, urgent = ?, updated_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(
+      merged.title,
+      merged.stage,
+      merged.targetDate,
+      merged.estimatedCost,
+      merged.urgent ? 1 : 0,
+      updatedAt,
+      id,
+      ctx.tenantId,
+    )
+    .run();
+
+  if (existing.stage !== "done" && merged.stage === "done") {
+    const odometerReading = await getVehicleCurrentOdometer(db, ctx, existing.vehicleId);
+    await createServiceRecord(db, ctx, existing.vehicleId, {
+      serviceDate: todayDateOnly(),
+      description: merged.title,
+      odometerReading,
+      cost: merged.estimatedCost,
+      notes: "Created from the maintenance planner",
+    });
+  }
+
+  return { ...existing, ...merged, updatedAt };
+}
+
+export async function deletePlanCard(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<boolean> {
+  const { meta } = await db.prepare("DELETE FROM plan_cards WHERE id = ? AND tenant_id = ?")
+    .bind(id, ctx.tenantId)
+    .run();
+  return meta.changes > 0;
+}
+
 // --- Vehicle aggregates -----------------------------------------------------
 
 export type VehicleAggregates = {
