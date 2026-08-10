@@ -3,6 +3,7 @@ import {
   deleteOutstandingMagicLinkTokensForTenant,
   deleteTenantAccount,
   listAttachmentKeysForTenant,
+  listAttachmentKeysForTenantDocuments,
   listAttachmentKeysForTenantFuelRecords,
 } from "../../db/repository";
 import { deleteAttachments } from "../../attachments/storage";
@@ -35,7 +36,12 @@ account.delete("/", rateLimitBySession, async (c) => {
   // left entirely intact (FR-008).
   const serviceAttachmentKeys = await listAttachmentKeysForTenant(c.env.DB, tenant);
   const fuelAttachmentKeys = await listAttachmentKeysForTenantFuelRecords(c.env.DB, tenant);
-  await deleteAttachments(c.env.ATTACHMENTS, [...serviceAttachmentKeys, ...fuelAttachmentKeys]);
+  const documentAttachmentKeys = await listAttachmentKeysForTenantDocuments(c.env.DB, tenant);
+  await deleteAttachments(c.env.ATTACHMENTS, [
+    ...serviceAttachmentKeys,
+    ...fuelAttachmentKeys,
+    ...documentAttachmentKeys,
+  ]);
 
   // magic_link_tokens has no foreign key to tenants/users at all (research.md) — delete it
   // explicitly before the cascade, so an outstanding sign-in link can't outlive the erasure.

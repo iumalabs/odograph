@@ -143,7 +143,7 @@ serviceRecords.post("/:id/attachments", rateLimitBySession, async (c) => {
   }
 
   const id = crypto.randomUUID();
-  const r2Key = attachmentKey(tenant.tenantId, serviceRecordId, id);
+  const r2Key = attachmentKey(tenant.tenantId, "service-records", serviceRecordId, id);
   await putAttachment(c.env.ATTACHMENTS, r2Key, bytes, contentTypeFor(detectedType));
 
   const attachment = await createAttachment(c.env.DB, tenant, {

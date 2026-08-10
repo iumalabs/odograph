@@ -34,6 +34,15 @@ import {
   markDone as markReminderDone,
 } from "./reminder-rules";
 import type { ReminderRule } from "./reminder-rules";
+import {
+  AttachmentUploadError as DocumentAttachmentUploadError,
+  createDocument,
+  deleteDocument,
+  listDocuments,
+  updateDocument,
+  uploadDocumentAttachment,
+} from "./documents";
+import type { DocumentCategory, VehicleDocument } from "./documents";
 import { t } from "./i18n/strings";
 import type { AppView } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
@@ -45,6 +54,7 @@ import { Garage } from "./components/Garage";
 import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
 import { FuelRecordPanel } from "./components/FuelRecordPanel";
 import { ReminderRulePanel } from "./components/ReminderRulePanel";
+import { DocumentPanel } from "./components/DocumentPanel";
 import { DashboardView } from "./components/DashboardView";
 import { SyncStatusIndicator } from "./components/SyncStatusIndicator";
 import { SyncReviewScreen } from "./components/SyncReviewScreen";
@@ -106,6 +116,15 @@ export function App() {
   const [reminderIntervalDistance, setReminderIntervalDistance] = useState("");
   const [reminderLastDoneDate, setReminderLastDoneDate] = useState("");
   const [reminderLastDoneOdometer, setReminderLastDoneOdometer] = useState("");
+  // Not routed through the offline write queue (spec 020) — documents (specs/023) explicitly
+  // scope offline sync out, so this state is plain fetched-then-locally-patched data, not a
+  // merge.ts overlay like serviceRecords/fuelRecords/reminderRules above.
+  const [documents, setDocuments] = useState<VehicleDocument[]>([]);
+  const [documentTitle, setDocumentTitle] = useState("");
+  const [documentCategory, setDocumentCategory] = useState<DocumentCategory>("registration");
+  const [documentAttachmentsByDocumentId, setDocumentAttachmentsByDocumentId] = useState<
+    Record<string, Attachment[]>
+  >({});
 
   // Offline write queue (spec 020): re-renders whenever a pending/rejected action changes, so the
   // lists below always reflect the queue's current state without a manual refetch.
@@ -188,6 +207,14 @@ export function App() {
     listReminderRules(selectedVehicleId).then(setReminderRules).catch(() =>
       setError(t("genericError"))
     );
+  }, [selectedVehicleId]);
+
+  useEffect(() => {
+    if (!selectedVehicleId) {
+      setDocuments([]);
+      return;
+    }
+    listDocuments(selectedVehicleId).then(setDocuments).catch(() => setError(t("genericError")));
   }, [selectedVehicleId]);
 
   // Once a queued action actually syncs, patch it into the cached server-confirmed list (the
@@ -316,6 +343,52 @@ export function App() {
         setError(t("genericError"));
       }
     }
+  }
+
+  async function handleUploadDocumentAttachment(documentId: string, file: File) {
+    setError(null);
+    try {
+      const attachment = await uploadDocumentAttachment(documentId, file);
+      setDocumentAttachmentsByDocumentId((current) => ({
+        ...current,
+        [documentId]: [...(current[documentId] ?? []), attachment],
+      }));
+    } catch (error) {
+      if (error instanceof DocumentAttachmentUploadError && error.code === "file_too_large") {
+        setError(t("attachmentTooLargeError"));
+      } else if (
+        error instanceof DocumentAttachmentUploadError && error.code === "unsupported_file_type"
+      ) {
+        setError(t("attachmentUnsupportedTypeError"));
+      } else {
+        setError(t("genericError"));
+      }
+    }
+  }
+
+  // Plain fetch-then-patch-local-state, not the offline-queue pattern below — documents
+  // (specs/023) explicitly scope offline sync out, so there's no merge.ts overlay or
+  // onSyncEvent-driven confirmation to wait for.
+  function handleUpdateDocument(
+    documentId: string,
+    patch: {
+      title: string;
+      category: DocumentCategory;
+      expiryDate: string | null;
+      notes: string | null;
+    },
+  ) {
+    handle(
+      () => updateDocument(documentId, patch),
+      (updated) => setDocuments((current) => current.map((d) => d.id === documentId ? updated : d)),
+    );
+  }
+
+  function handleDeleteDocument(documentId: string) {
+    handle(
+      () => deleteDocument(documentId),
+      () => setDocuments((current) => current.filter((d) => d.id !== documentId)),
+    );
   }
 
   // These all route through the offline write queue (spec 020) — nothing to apply to state
@@ -659,6 +732,39 @@ export function App() {
                 )}
               onMarkDone={handleMarkReminderDone}
               onDeleteRule={handleDeleteReminderRule}
+            />
+
+            <h2
+              style={{
+                font: "600 14px var(--font-ui)",
+                letterSpacing: "-.01em",
+                marginTop: 20,
+              }}
+            >
+              {t("documentsHeading")}
+            </h2>
+            <DocumentPanel
+              documents={documents}
+              title={documentTitle}
+              onTitleChange={setDocumentTitle}
+              category={documentCategory}
+              onCategoryChange={setDocumentCategory}
+              onAddDocument={() =>
+                handle(
+                  () =>
+                    createDocument(selectedVehicleId, {
+                      title: documentTitle,
+                      category: documentCategory,
+                    }),
+                  (created) => {
+                    setDocuments((current) => [...current, created]);
+                    setDocumentTitle("");
+                  },
+                )}
+              onUploadAttachment={handleUploadDocumentAttachment}
+              attachmentsByDocumentId={documentAttachmentsByDocumentId}
+              onUpdateDocument={handleUpdateDocument}
+              onDeleteDocument={handleDeleteDocument}
             />
           </div>
         )}

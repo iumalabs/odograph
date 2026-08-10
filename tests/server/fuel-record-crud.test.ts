@@ -450,7 +450,7 @@ describe("fuel record update/delete (User Story 3)", () => {
       id,
       buildFixtureJpeg({ includeExif: false }),
     )).json()) as { id: string };
-    const key = attachmentKey(tenantId, id, attachment.id);
+    const key = attachmentKey(tenantId, "fuel-records", id, attachment.id);
     expect(await env.ATTACHMENTS.get(key)).not.toBeNull();
 
     const del = await deleteFuelRecordReq(cookie, id);
@@ -582,7 +582,7 @@ describe("vehicle deletion cleans up both fuel and service record R2 attachments
       fuelRecordId,
       buildFixtureJpeg({ includeExif: false }),
     )).json()) as { id: string };
-    const fuelKey = attachmentKey(tenantId, fuelRecordId, fuelAttachment.id);
+    const fuelKey = attachmentKey(tenantId, "fuel-records", fuelRecordId, fuelAttachment.id);
 
     const serviceRes = await SELF.fetch(
       `https://example.com/api/v1/vehicles/${vehicleId}/service-records`,
@@ -602,7 +602,12 @@ describe("vehicle deletion cleans up both fuel and service record R2 attachments
       },
     );
     const serviceAttachment = (await serviceAttachmentRes.json()) as { id: string };
-    const serviceKey = attachmentKey(tenantId, serviceRecord.id, serviceAttachment.id);
+    const serviceKey = attachmentKey(
+      tenantId,
+      "service-records",
+      serviceRecord.id,
+      serviceAttachment.id,
+    );
 
     expect(await env.ATTACHMENTS.get(fuelKey)).not.toBeNull();
     expect(await env.ATTACHMENTS.get(serviceKey)).not.toBeNull();
