@@ -245,3 +245,23 @@ CREATE TABLE document_attachments (
 
 CREATE INDEX idx_document_attachments_document_id
   ON document_attachments (document_id);
+
+-- See specs/025-maintenance-planner/data-model.md. No R2/attachment table — plan cards have no
+-- attachments (spec.md Assumptions); a completed card converts into a real service_records row,
+-- which already supports attachments.
+
+CREATE TABLE plan_cards (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+  vehicle_id TEXT NOT NULL REFERENCES vehicles (id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  stage TEXT NOT NULL DEFAULT 'idea',
+  target_date TEXT,
+  estimated_cost REAL,
+  urgent INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX idx_plan_cards_vehicle_id ON plan_cards (vehicle_id);
+CREATE INDEX idx_plan_cards_tenant_id ON plan_cards (tenant_id);
