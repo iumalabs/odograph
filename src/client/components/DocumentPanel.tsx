@@ -289,6 +289,24 @@ export function DocumentPanel(props: DocumentPanelProps) {
                             {t("documentExpiredLabel")}
                           </span>
                         )}
+                        {document.reminderStatus === "coming_up" && (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5,
+                              font: "500 10.5px var(--font-mono)",
+                              color: "var(--dim)",
+                              border: "1px solid var(--line)",
+                              borderRadius: "var(--radius-sm)",
+                              padding: "4px 8px",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            <AlertIcon size={12} />
+                            {t("documentComingUpLabel")}
+                          </span>
+                        )}
                       </div>
                     )}
 

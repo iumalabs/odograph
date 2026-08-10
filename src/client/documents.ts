@@ -1,5 +1,7 @@
 export type DocumentCategory = "registration" | "insurance" | "warranty" | "inspection" | "other";
 
+export type DocumentReminderStatus = "on_track" | "coming_up" | "overdue";
+
 export type VehicleDocument = {
   id: string;
   tenantId: string;
@@ -9,6 +11,7 @@ export type VehicleDocument = {
   expiryDate: string | null;
   notes: string | null;
   isExpired: boolean;
+  reminderStatus: DocumentReminderStatus | null;
   createdAt: string;
   updatedAt: string;
 };

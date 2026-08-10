@@ -1666,6 +1666,8 @@ export async function listAttachmentsForFuelRecord(
 
 export type DocumentCategory = "registration" | "insurance" | "warranty" | "inspection" | "other";
 
+export type DocumentReminderStatus = "on_track" | "coming_up" | "overdue";
+
 export type Document = {
   id: string;
   tenantId: string;
@@ -1675,6 +1677,10 @@ export type Document = {
   expiryDate: string | null;
   notes: string | null;
   isExpired: boolean;
+  reminderStatus: DocumentReminderStatus | null;
+  cachedStatus: DocumentReminderStatus | null;
+  lastEvaluatedAt: string | null;
+  lastNotifiedSeverity: "coming_up" | "overdue" | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -1687,9 +1693,9 @@ export type DocumentInput = {
 };
 
 const DOCUMENT_COLUMNS =
-  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, title, category, expiry_date AS expiryDate, notes, created_at AS createdAt, updated_at AS updatedAt";
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, title, category, expiry_date AS expiryDate, notes, cached_status AS cachedStatus, last_evaluated_at AS lastEvaluatedAt, last_notified_severity AS lastNotifiedSeverity, created_at AS createdAt, updated_at AS updatedAt";
 
-type DocumentRow = Omit<Document, "isExpired">;
+type DocumentRow = Omit<Document, "isExpired" | "reminderStatus">;
 
 /**
  * "Today" as a date-only string, so it compares correctly against expiry_date's own date-only
@@ -1701,12 +1707,36 @@ function todayDateOnly(): string {
 }
 
 /**
- * isExpired is derived at read time, never stored (research.md) — avoids a background job to keep
- * a stored flag from going stale.
+ * A document has no interval or "last done" anchor (specs/024 research.md) — a fixed absolute
+ * window is the only classification that makes sense for a single fixed expiry_date, unlike
+ * reminder_rules' proportional-remaining threshold (classifyRemainingFraction below).
  */
-function withIsExpired(row: DocumentRow): Document {
+const DOCUMENT_COMING_UP_WINDOW_DAYS = 30;
+
+/**
+ * Pure function, no D1 access — directly unit-testable, same posture as computeReminderStatus.
+ */
+export function computeDocumentReminderStatus(
+  expiryDate: string,
+  now: Date,
+): DocumentReminderStatus {
+  const remainingDays = (Date.parse(expiryDate) - now.getTime()) / 86_400_000;
+  if (remainingDays < 0) return "overdue";
+  if (remainingDays <= DOCUMENT_COMING_UP_WINDOW_DAYS) return "coming_up";
+  return "on_track";
+}
+
+/**
+ * isExpired and reminderStatus are both derived at read time, never from cached_status
+ * (specs/024 research.md) — avoids a background job to keep a stored flag from going stale.
+ */
+function withDocumentStatus(row: DocumentRow): Document {
   const today = todayDateOnly();
-  return { ...row, isExpired: row.expiryDate !== null && row.expiryDate <= today };
+  const isExpired = row.expiryDate !== null && row.expiryDate <= today;
+  const reminderStatus = row.expiryDate !== null
+    ? computeDocumentReminderStatus(row.expiryDate, new Date())
+    : null;
+  return { ...row, isExpired, reminderStatus };
 }
 
 export async function createDocument(
@@ -1735,7 +1765,7 @@ export async function createDocument(
       now,
     )
     .run();
-  return withIsExpired({
+  return withDocumentStatus({
     id,
     tenantId: ctx.tenantId,
     vehicleId,
@@ -1743,6 +1773,9 @@ export async function createDocument(
     category: input.category,
     expiryDate: input.expiryDate,
     notes: input.notes,
+    cachedStatus: null,
+    lastEvaluatedAt: null,
+    lastNotifiedSeverity: null,
     createdAt: now,
     updatedAt: now,
   });
@@ -1760,7 +1793,7 @@ export async function listDocuments(
     )
     .bind(vehicleId, ctx.tenantId)
     .all<DocumentRow>();
-  return results.map(withIsExpired);
+  return results.map(withDocumentStatus);
 }
 
 /**
@@ -1776,13 +1809,15 @@ export async function findDocumentById(
     .prepare(`SELECT ${DOCUMENT_COLUMNS} FROM documents WHERE id = ? AND tenant_id = ?`)
     .bind(id, ctx.tenantId)
     .first<DocumentRow>();
-  return row ? withIsExpired(row) : null;
+  return row ? withDocumentStatus(row) : null;
 }
 
 /**
  * Applies only the fields present in `patch` — everything else keeps its stored value (FR-008),
  * same pattern updateServiceRecord established, including the omitted-vs-null distinction for
- * expiryDate/notes.
+ * expiryDate/notes. When `expiryDate` is included (a new value or an explicit null),
+ * last_notified_severity is also cleared (specs/024 FR-007) — a renewed or cleared document isn't
+ * silently suppressed by escalation state from before the edit.
  */
 export async function updateDocument(
   db: D1Database,
@@ -1800,11 +1835,15 @@ export async function updateDocument(
     notes: "notes" in patch ? patch.notes ?? null : existing.notes,
   };
   const updatedAt = new Date().toISOString();
+  const clearsNotifiedSeverity = "expiryDate" in patch;
+  const lastNotifiedSeverity = clearsNotifiedSeverity ? null : existing.lastNotifiedSeverity;
 
   await db
     .prepare(
       `UPDATE documents
-       SET title = ?, category = ?, expiry_date = ?, notes = ?, updated_at = ?
+       SET title = ?, category = ?, expiry_date = ?, notes = ?, updated_at = ?${
+        clearsNotifiedSeverity ? ", last_notified_severity = NULL" : ""
+      }
        WHERE id = ? AND tenant_id = ?`,
     )
     .bind(
@@ -1818,7 +1857,7 @@ export async function updateDocument(
     )
     .run();
 
-  return withIsExpired({ ...existing, ...merged, updatedAt });
+  return withDocumentStatus({ ...existing, ...merged, updatedAt, lastNotifiedSeverity });
 }
 
 /**
@@ -1953,6 +1992,124 @@ export async function listDocumentAttachmentsForDocument(
     .bind(documentId, ctx.tenantId)
     .all<DocumentAttachment>();
   return results;
+}
+
+/**
+ * The Cron-triggered sweep for document expiry reminders (specs/024) — mirrors
+ * evaluateAllReminders' exact structure and contract: no TenantContext (evaluates every tenant's
+ * documents in one run, same documented cross-tenant exception), persists
+ * cached_status/last_evaluated_at per row, isolates a single row's failure so the rest of the
+ * sweep still completes, and drives the same email (spec 012) and push (spec 022) side effects —
+ * reusing sendReminderDueEmail/sendReminderPushNotification unchanged (research.md's itemLabel
+ * generalization) rather than a second notification system. Only documents with a non-null
+ * expiry_date are candidates (FR-002) — a document with none is never selected.
+ */
+export async function evaluateAllDocumentReminders(
+  env: Env & VapidSecrets,
+): Promise<{ evaluated: number; failed: number; notified: number }> {
+  const db = env.DB;
+  const { results } = await db
+    .prepare(
+      `SELECT ${DOCUMENT_COLUMNS} FROM documents WHERE expiry_date IS NOT NULL`,
+    )
+    .all<DocumentRow>();
+
+  let vapidKeys: CryptoKeyPair | null = null;
+  if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
+    try {
+      vapidKeys = await deserializeVapidKeys({
+        publicKey: env.VAPID_PUBLIC_KEY,
+        privateKey: env.VAPID_PRIVATE_KEY,
+      });
+    } catch {
+      vapidKeys = null;
+    }
+  }
+
+  const now = new Date();
+  let evaluated = 0;
+  let failed = 0;
+  let notified = 0;
+
+  for (const document of results) {
+    try {
+      // expiry_date is non-null by the WHERE clause above, but the column type is nullable —
+      // narrow it explicitly rather than assert.
+      if (document.expiryDate === null) continue;
+      const status = computeDocumentReminderStatus(document.expiryDate, now);
+      await db
+        .prepare(
+          "UPDATE documents SET cached_status = ?, last_evaluated_at = ? WHERE id = ?",
+        )
+        .bind(status, now.toISOString(), document.id)
+        .run();
+      evaluated++;
+
+      if (status === "on_track") {
+        if (document.lastNotifiedSeverity !== null) {
+          await db
+            .prepare("UPDATE documents SET last_notified_severity = NULL WHERE id = ?")
+            .bind(document.id)
+            .run();
+        }
+      } else {
+        const notifiedSeverity = REMINDER_URGENCY[document.lastNotifiedSeverity ?? "on_track"];
+        if (REMINDER_URGENCY[status] > notifiedSeverity) {
+          const vehicle = await db
+            .prepare("SELECT name FROM vehicles WHERE id = ?")
+            .bind(document.vehicleId)
+            .first<{ name: string }>();
+          const vehicleName = vehicle?.name ?? "your vehicle";
+
+          let attempted = false;
+          let sent = false;
+
+          const recipient = await findDeliverableReminderRecipient(db, document.tenantId);
+          if (recipient !== null) {
+            attempted = true;
+            const emailResult = await sendReminderDueEmail(env, {
+              to: recipient,
+              vehicleName,
+              itemLabel: document.title,
+              status,
+            });
+            if (emailResult.sent) sent = true;
+          }
+
+          if (vapidKeys) {
+            const subscriptions = await listPushSubscriptions(db, document.tenantId);
+            for (const subscription of subscriptions) {
+              attempted = true;
+              const pushResult = await sendReminderPushNotification(vapidKeys, subscription, {
+                vehicleName,
+                itemLabel: document.title,
+                status,
+              });
+              if (pushResult.sent) {
+                sent = true;
+              } else if (pushResult.expired) {
+                await deletePushSubscriptionById(db, subscription.id);
+              }
+            }
+          }
+
+          if (sent) {
+            await db
+              .prepare("UPDATE documents SET last_notified_severity = ? WHERE id = ?")
+              .bind(status, document.id)
+              .run();
+            notified++;
+          } else if (attempted) {
+            failed++;
+          }
+        }
+      }
+    } catch {
+      failed++;
+    }
+  }
+
+  return { evaluated, failed, notified };
 }
 
 // --- Vehicle aggregates -----------------------------------------------------
@@ -2523,7 +2680,7 @@ export async function evaluateAllReminders(
             const emailResult = await sendReminderDueEmail(env, {
               to: recipient,
               vehicleName,
-              ruleLabel: rule.label,
+              itemLabel: rule.label,
               status,
             });
             if (emailResult.sent) sent = true;
@@ -2535,7 +2692,7 @@ export async function evaluateAllReminders(
               attempted = true;
               const pushResult = await sendReminderPushNotification(vapidKeys, subscription, {
                 vehicleName,
-                ruleLabel: rule.label,
+                itemLabel: rule.label,
                 status,
               });
               if (pushResult.sent) {

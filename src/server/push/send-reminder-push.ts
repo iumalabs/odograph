@@ -18,16 +18,19 @@ export type SendReminderPushResult =
  * relies on this. `expired: true` (a 404/410 from the push service) tells the caller the
  * subscription is gone for good and should be deleted (research.md) — any other failure (network
  * error, 5xx) is transient and the row is left alone to retry on the next sweep.
+ *
+ * Shared between evaluateAllReminders and evaluateAllDocumentReminders — see
+ * reminder-notification.ts's identical note (specs/024 research.md).
  */
 export async function sendReminderPushNotification(
   vapidKeys: CryptoKeyPair,
   subscription: PushSubscriptionInput,
-  input: { vehicleName: string; ruleLabel: string; status: "coming_up" | "overdue" },
+  input: { vehicleName: string; itemLabel: string; status: "coming_up" | "overdue" },
 ): Promise<SendReminderPushResult> {
   const statusText = input.status === "overdue" ? "is overdue" : "is coming up";
   const payload = JSON.stringify({
-    title: `${input.vehicleName}: ${input.ruleLabel} ${statusText}`,
-    body: `Your reminder "${input.ruleLabel}" for ${input.vehicleName} ${statusText}.`,
+    title: `${input.vehicleName}: ${input.itemLabel} ${statusText}`,
+    body: `Your reminder "${input.itemLabel}" for ${input.vehicleName} ${statusText}.`,
   });
 
   try {
