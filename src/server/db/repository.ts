@@ -1662,6 +1662,299 @@ export async function listAttachmentsForFuelRecord(
   return results;
 }
 
+// --- Documents (specs/023: expiry tracking, spec/fuel-record-style attachments) --------------
+
+export type DocumentCategory = "registration" | "insurance" | "warranty" | "inspection" | "other";
+
+export type Document = {
+  id: string;
+  tenantId: string;
+  vehicleId: string;
+  title: string;
+  category: DocumentCategory;
+  expiryDate: string | null;
+  notes: string | null;
+  isExpired: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DocumentInput = {
+  title: string;
+  category: DocumentCategory;
+  expiryDate: string | null;
+  notes: string | null;
+};
+
+const DOCUMENT_COLUMNS =
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, title, category, expiry_date AS expiryDate, notes, created_at AS createdAt, updated_at AS updatedAt";
+
+type DocumentRow = Omit<Document, "isExpired">;
+
+/**
+ * "Today" as a date-only string, so it compares correctly against expiry_date's own date-only
+ * format (research.md) — a full ISO timestamp would misclassify a same-day expiry depending on
+ * time of day.
+ */
+function todayDateOnly(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * isExpired is derived at read time, never stored (research.md) — avoids a background job to keep
+ * a stored flag from going stale.
+ */
+function withIsExpired(row: DocumentRow): Document {
+  const today = todayDateOnly();
+  return { ...row, isExpired: row.expiryDate !== null && row.expiryDate <= today };
+}
+
+export async function createDocument(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+  input: DocumentInput,
+  clientId?: string,
+): Promise<Document> {
+  const id = clientId ?? crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO documents (id, tenant_id, vehicle_id, title, category, expiry_date, notes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      id,
+      ctx.tenantId,
+      vehicleId,
+      input.title,
+      input.category,
+      input.expiryDate,
+      input.notes,
+      now,
+      now,
+    )
+    .run();
+  return withIsExpired({
+    id,
+    tenantId: ctx.tenantId,
+    vehicleId,
+    title: input.title,
+    category: input.category,
+    expiryDate: input.expiryDate,
+    notes: input.notes,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+export async function listDocuments(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<Document[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${DOCUMENT_COLUMNS} FROM documents
+       WHERE vehicle_id = ? AND tenant_id = ? ORDER BY created_at`,
+    )
+    .bind(vehicleId, ctx.tenantId)
+    .all<DocumentRow>();
+  return results.map(withIsExpired);
+}
+
+/**
+ * Returns null both when no row has this id and when it belongs to a different tenant — same
+ * not-found-or-not-yours contract as findServiceRecordById (FR-010).
+ */
+export async function findDocumentById(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<Document | null> {
+  const row = await db
+    .prepare(`SELECT ${DOCUMENT_COLUMNS} FROM documents WHERE id = ? AND tenant_id = ?`)
+    .bind(id, ctx.tenantId)
+    .first<DocumentRow>();
+  return row ? withIsExpired(row) : null;
+}
+
+/**
+ * Applies only the fields present in `patch` — everything else keeps its stored value (FR-008),
+ * same pattern updateServiceRecord established, including the omitted-vs-null distinction for
+ * expiryDate/notes.
+ */
+export async function updateDocument(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+  patch: Partial<DocumentInput>,
+): Promise<Document | null> {
+  const existing = await findDocumentById(db, ctx, id);
+  if (!existing) return null;
+
+  const merged: DocumentInput = {
+    title: patch.title ?? existing.title,
+    category: patch.category ?? existing.category,
+    expiryDate: "expiryDate" in patch ? patch.expiryDate ?? null : existing.expiryDate,
+    notes: "notes" in patch ? patch.notes ?? null : existing.notes,
+  };
+  const updatedAt = new Date().toISOString();
+
+  await db
+    .prepare(
+      `UPDATE documents
+       SET title = ?, category = ?, expiry_date = ?, notes = ?, updated_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(
+      merged.title,
+      merged.category,
+      merged.expiryDate,
+      merged.notes,
+      updatedAt,
+      id,
+      ctx.tenantId,
+    )
+    .run();
+
+  return withIsExpired({ ...existing, ...merged, updatedAt });
+}
+
+/**
+ * Returns the R2 keys of every attachment that belonged to this document (deleted from D1 via
+ * cascade, along with the document itself) — null if the document didn't exist or belonged to a
+ * different tenant. repository.ts never touches R2 itself (Principle I); the caller (route layer)
+ * uses these keys to delete the matching R2 objects.
+ */
+export async function deleteDocument(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<string[] | null> {
+  const existing = await findDocumentById(db, ctx, id);
+  if (!existing) return null;
+
+  const { results } = await db
+    .prepare("SELECT r2_key AS r2Key FROM document_attachments WHERE document_id = ?")
+    .bind(id)
+    .all<{ r2Key: string }>();
+
+  await db.prepare("DELETE FROM documents WHERE id = ? AND tenant_id = ?")
+    .bind(id, ctx.tenantId)
+    .run();
+
+  return results.map((row) => row.r2Key);
+}
+
+/**
+ * Every attachment R2 key across every document belonging to this vehicle, without deleting
+ * anything — used by deleteVehicle's retrofit to clean up R2 before the D1 cascade removes the
+ * rows.
+ */
+export async function listAttachmentKeysForVehicleDocuments(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<string[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT da.r2_key AS r2Key FROM document_attachments da
+       JOIN documents d ON d.id = da.document_id
+       WHERE d.vehicle_id = ? AND d.tenant_id = ?`,
+    )
+    .bind(vehicleId, ctx.tenantId)
+    .all<{ r2Key: string }>();
+  return results.map((row) => row.r2Key);
+}
+
+/**
+ * Every attachment R2 key for this tenant across every vehicle, without deleting anything — used
+ * by account erasure (spec 016) to clean up R2 before the tenant cascade removes the rows. No join
+ * needed: document_attachments already carries its own tenant_id column directly.
+ */
+export async function listAttachmentKeysForTenantDocuments(
+  db: D1Database,
+  ctx: TenantContext,
+): Promise<string[]> {
+  const { results } = await db
+    .prepare("SELECT r2_key AS r2Key FROM document_attachments WHERE tenant_id = ?")
+    .bind(ctx.tenantId)
+    .all<{ r2Key: string }>();
+  return results.map((row) => row.r2Key);
+}
+
+export type DocumentAttachment = {
+  id: string;
+  tenantId: string;
+  documentId: string;
+  r2Key: string;
+  contentType: string;
+  size: number;
+  createdAt: string;
+};
+
+const DOCUMENT_ATTACHMENT_COLUMNS =
+  "id, tenant_id AS tenantId, document_id AS documentId, r2_key AS r2Key, content_type AS contentType, size, created_at AS createdAt";
+
+export async function createDocumentAttachment(
+  db: D1Database,
+  ctx: TenantContext,
+  input: { id: string; documentId: string; r2Key: string; contentType: string; size: number },
+): Promise<DocumentAttachment> {
+  const { id } = input;
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO document_attachments
+       (id, tenant_id, document_id, r2_key, content_type, size, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(id, ctx.tenantId, input.documentId, input.r2Key, input.contentType, input.size, now)
+    .run();
+  return {
+    id,
+    tenantId: ctx.tenantId,
+    documentId: input.documentId,
+    r2Key: input.r2Key,
+    contentType: input.contentType,
+    size: input.size,
+    createdAt: now,
+  };
+}
+
+/**
+ * Same not-found-or-not-yours contract as findDocumentById (FR-010).
+ */
+export async function findDocumentAttachmentById(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<DocumentAttachment | null> {
+  const row = await db
+    .prepare(
+      `SELECT ${DOCUMENT_ATTACHMENT_COLUMNS} FROM document_attachments WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(id, ctx.tenantId)
+    .first<DocumentAttachment>();
+  return row ?? null;
+}
+
+export async function listDocumentAttachmentsForDocument(
+  db: D1Database,
+  ctx: TenantContext,
+  documentId: string,
+): Promise<DocumentAttachment[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${DOCUMENT_ATTACHMENT_COLUMNS} FROM document_attachments
+       WHERE document_id = ? AND tenant_id = ? ORDER BY created_at`,
+    )
+    .bind(documentId, ctx.tenantId)
+    .all<DocumentAttachment>();
+  return results;
+}
+
 // --- Vehicle aggregates -----------------------------------------------------
 
 export type VehicleAggregates = {

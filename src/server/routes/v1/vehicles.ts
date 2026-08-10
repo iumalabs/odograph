@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import {
   computeVehicleAggregates,
+  createDocument,
   createFuelRecord,
   createReminderRule,
   createServiceRecord,
@@ -10,7 +11,9 @@ import {
   findReminderRuleById,
   findVehicleById,
   listAttachmentKeysForVehicle,
+  listAttachmentKeysForVehicleDocuments,
   listAttachmentKeysForVehicleFuelRecords,
+  listDocuments,
   listFuelRecordsWithEconomy,
   listReminderRulesWithStatus,
   listServiceRecords,
@@ -18,6 +21,7 @@ import {
   updateVehicle,
 } from "../../db/repository";
 import type {
+  DocumentInput,
   FuelRecordInput,
   ReminderRuleInput,
   ServiceRecordInput,
@@ -149,15 +153,25 @@ vehicles.delete("/:id", rateLimitBySession, async (c) => {
   const vehicleId = c.req.param("id");
 
   // R2 objects never cascade from a D1 delete (constitution Principle VIII) — clean them up
-  // before removing the D1 rows that reference them. Both attachment kinds (service records and
-  // fuel records) belonging to this vehicle must be cleaned up (spec 009's retrofit).
+  // before removing the D1 rows that reference them. All three attachment kinds (service records,
+  // fuel records, documents) belonging to this vehicle must be cleaned up (spec 009's retrofit,
+  // extended by specs/023).
   const serviceAttachmentKeys = await listAttachmentKeysForVehicle(c.env.DB, tenant, vehicleId);
   const fuelAttachmentKeys = await listAttachmentKeysForVehicleFuelRecords(
     c.env.DB,
     tenant,
     vehicleId,
   );
-  await deleteAttachments(c.env.ATTACHMENTS, [...serviceAttachmentKeys, ...fuelAttachmentKeys]);
+  const documentAttachmentKeys = await listAttachmentKeysForVehicleDocuments(
+    c.env.DB,
+    tenant,
+    vehicleId,
+  );
+  await deleteAttachments(c.env.ATTACHMENTS, [
+    ...serviceAttachmentKeys,
+    ...fuelAttachmentKeys,
+    ...documentAttachmentKeys,
+  ]);
 
   const deleted = await deleteVehicle(c.env.DB, tenant, vehicleId);
   if (!deleted) return c.notFound();
@@ -288,6 +302,68 @@ vehicles.get("/:vehicleId/fuel-records", async (c) => {
 
   const results = await listFuelRecordsWithEconomy(c.env.DB, tenant, vehicleId);
   return c.json({ fuelRecords: results });
+});
+
+const DOCUMENT_CATEGORIES = new Set([
+  "registration",
+  "insurance",
+  "warranty",
+  "inspection",
+  "other",
+]);
+
+type DocumentBody = {
+  id?: unknown;
+  title?: unknown;
+  category?: unknown;
+  expiryDate?: unknown;
+  notes?: unknown;
+};
+
+function validateDocumentCreate(body: DocumentBody): DocumentInput | null {
+  if (typeof body.title !== "string" || body.title.length === 0) return null;
+  if (typeof body.category !== "string" || !DOCUMENT_CATEGORIES.has(body.category)) return null;
+  if (body.expiryDate !== undefined && typeof body.expiryDate !== "string") return null;
+  if (body.notes !== undefined && typeof body.notes !== "string") return null;
+
+  return {
+    title: body.title,
+    category: body.category as DocumentInput["category"],
+    expiryDate: typeof body.expiryDate === "string" ? body.expiryDate : null,
+    notes: typeof body.notes === "string" ? body.notes : null,
+  };
+}
+
+vehicles.post("/:vehicleId/documents", rateLimitBySession, idempotent, async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const body = await c.req.json().catch(() => ({}) as DocumentBody);
+  const input = validateDocumentCreate(body);
+  if (!input) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+  const clientId = parseOptionalId(body);
+  if (clientId === undefined) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+
+  const document = await createDocument(c.env.DB, tenant, vehicleId, input, clientId ?? undefined);
+  return c.json(document, 201);
+});
+
+vehicles.get("/:vehicleId/documents", async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const results = await listDocuments(c.env.DB, tenant, vehicleId);
+  return c.json({ documents: results });
 });
 
 // Read-only, not rate-limited — matches every other GET in this file.
