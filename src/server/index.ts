@@ -13,7 +13,7 @@ import { reminderRules } from "./routes/v1/reminder-rules";
 import { account } from "./routes/v1/account";
 import { tokens } from "./routes/v1/tokens";
 import { push } from "./routes/v1/push";
-import { evaluateAllReminders } from "./db/repository";
+import { evaluateAllDocumentReminders, evaluateAllReminders } from "./db/repository";
 import { buildCspHeader, generateNonce } from "./security/csp";
 import type { AppEnv, VapidSecrets } from "./types";
 
@@ -66,12 +66,15 @@ export default {
     return response;
   },
   // The daily sweep (wrangler.toml's [triggers]) — the only entry point in this codebase
-  // reaching evaluateAllReminders, which deliberately has no per-request TenantContext.
+  // reaching evaluateAllReminders/evaluateAllDocumentReminders, both of which deliberately have
+  // no per-request TenantContext. Two sequential sweeps, one shared schedule (specs/024
+  // research.md) — no separate Cron trigger needed for document expiry reminders.
   scheduled: async (
     _controller: ScheduledController,
     env: Env & VapidSecrets,
     _ctx: ExecutionContext,
   ) => {
     await evaluateAllReminders(env);
+    await evaluateAllDocumentReminders(env);
   },
 } satisfies ExportedHandler<Env>;

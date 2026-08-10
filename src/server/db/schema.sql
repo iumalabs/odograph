@@ -209,6 +209,12 @@ CREATE INDEX idx_reminder_rules_tenant_id ON reminder_rules (tenant_id);
 -- See specs/023-vehicle-document-records/data-model.md. is_expired is deliberately not a column —
 -- computed at read time from expiry_date (constitution Principle II-style derived value).
 
+-- cached_status/last_evaluated_at/last_notified_severity: see
+-- specs/024-document-expiry-reminders/data-model.md. Written only by the Cron-triggered sweep
+-- (evaluateAllDocumentReminders) and never read by this feature's own API responses, which always
+-- recompute status fresh (constitution Principle II) — same posture reminder_rules' equivalent
+-- columns already have.
+
 CREATE TABLE documents (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
@@ -217,6 +223,9 @@ CREATE TABLE documents (
   category TEXT NOT NULL,
   expiry_date TEXT,
   notes TEXT,
+  cached_status TEXT,
+  last_evaluated_at TEXT,
+  last_notified_severity TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

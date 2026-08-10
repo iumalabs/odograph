@@ -88,6 +88,7 @@ const en = {
   documentExpiryDateLabel: "Expiry date",
   addDocument: "Add document",
   documentExpiredLabel: "Expired",
+  documentComingUpLabel: "Renewal coming up",
   genericError: "Something went wrong. Please try again.",
   garageNavLabel: "GARAGE",
   dashboardNavLabel: "DASHBOARD",
