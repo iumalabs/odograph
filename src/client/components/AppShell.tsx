@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { Logo } from "./Logo";
-import { AlertIcon, DashboardIcon, GarageIcon } from "../design/icons";
+import { AlertIcon, DashboardIcon, GarageIcon, SettingsIcon } from "../design/icons";
 import { useTheme } from "../theme";
 import { t } from "../i18n/strings";
 
-export type AppView = "garage" | "dashboard" | "review";
+export type AppView = "garage" | "dashboard" | "review" | "settings";
 
 type AppShellProps = {
   title: string;
@@ -18,11 +18,12 @@ type AppShellProps = {
 const NAV_ITEMS: {
   view: AppView;
   icon: typeof GarageIcon;
-  labelKey: "garageNavLabel" | "dashboardNavLabel" | "syncReviewNavLabel";
+  labelKey: "garageNavLabel" | "dashboardNavLabel" | "syncReviewNavLabel" | "settingsNavLabel";
 }[] = [
   { view: "garage", icon: GarageIcon, labelKey: "garageNavLabel" },
   { view: "dashboard", icon: DashboardIcon, labelKey: "dashboardNavLabel" },
   { view: "review", icon: AlertIcon, labelKey: "syncReviewNavLabel" },
+  { view: "settings", icon: SettingsIcon, labelKey: "settingsNavLabel" },
 ];
 
 // The persistent chrome wrapping every signed-in screen — nav rail + header, ported from
