@@ -2354,6 +2354,63 @@ export async function computeVehicleAggregates(
   return { costPerDistance, costPerTime, averageFuelEconomy };
 }
 
+export type ExpenseGroupBy = "month" | "year";
+
+export type ExpensePeriod = {
+  period: string;
+  maintenanceCost: number;
+  fuelCost: number;
+  totalCost: number;
+};
+
+/**
+ * A second, derived view over the exact same records computeVehicleAggregates reads (specs/026)
+ * — same D-005 duplicate exclusion, same trust contract (caller has already resolved vehicleId
+ * belongs to ctx.tenantId via findVehicleById). Period keys are string-sliced directly from the
+ * stored date-only strings (research.md) — no Date parsing, and the slice sorts chronologically
+ * for free. Only periods with at least one qualifying record are included (FR-004); a missing
+ * service-record cost contributes 0, never fabricated or skipped (FR-005).
+ */
+export async function computeVehicleExpenseBreakdown(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+  groupBy: ExpenseGroupBy,
+): Promise<ExpensePeriod[]> {
+  const [serviceRecords, fuelRecords] = await Promise.all([
+    listServiceRecords(db, ctx, vehicleId),
+    listFuelRecordsWithEconomy(db, ctx, vehicleId),
+  ]);
+  const services = serviceRecords.filter((r) => r.duplicateOfId === null);
+  const fuels = fuelRecords.filter((r) => r.duplicateOfId === null);
+
+  const sliceLength = groupBy === "month" ? 7 : 4;
+  const byPeriod = new Map<string, ExpensePeriod>();
+
+  function bucket(period: string): ExpensePeriod {
+    let entry = byPeriod.get(period);
+    if (!entry) {
+      entry = { period, maintenanceCost: 0, fuelCost: 0, totalCost: 0 };
+      byPeriod.set(period, entry);
+    }
+    return entry;
+  }
+
+  for (const record of services) {
+    const entry = bucket(record.serviceDate.slice(0, sliceLength));
+    const cost = record.cost ?? 0;
+    entry.maintenanceCost += cost;
+    entry.totalCost += cost;
+  }
+  for (const record of fuels) {
+    const entry = bucket(record.fuelDate.slice(0, sliceLength));
+    entry.fuelCost += record.cost;
+    entry.totalCost += record.cost;
+  }
+
+  return [...byPeriod.values()].sort((a, b) => a.period.localeCompare(b.period));
+}
+
 // --- Reminder rules --------------------------------------------------------
 
 export type ReminderStatus = "on_track" | "coming_up" | "overdue" | "not_enough_data";

@@ -78,6 +78,24 @@ function getAggregates(cookie: string, vehicleId: string): Promise<Response> {
   });
 }
 
+function getExpenseBreakdown(
+  cookie: string,
+  vehicleId: string,
+  groupBy?: string,
+): Promise<Response> {
+  const query = groupBy !== undefined ? `?groupBy=${groupBy}` : "";
+  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/expense-breakdown${query}`, {
+    headers: { Cookie: cookie },
+  });
+}
+
+type ExpensePeriod = {
+  period: string;
+  maintenanceCost: number;
+  fuelCost: number;
+  totalCost: number;
+};
+
 type Aggregates = {
   costPerDistance: number | null;
   costPerTime: number | null;
@@ -368,5 +386,172 @@ describe("vehicle aggregates: averageFuelEconomy (spec 013, US2)", () => {
     expect(aggregates.averageFuelEconomy).toBeNull();
     expect(aggregates.costPerDistance).toBeCloseTo(250 / 200, 5);
     expect(aggregates.costPerTime).toBeCloseTo(250 / 10, 5);
+  });
+});
+
+describe("expense breakdown (monthly, User Story 1)", () => {
+  it("sums maintenance/fuel/total per month across two different months (SC-002)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-01-05",
+      description: "Oil change",
+      cost: 60,
+    });
+    await createFuelRecord(cookie, vehicleId, {
+      fuelDate: "2026-01-20",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 55,
+    });
+    await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-02-10",
+      description: "Tire rotation",
+      cost: 40,
+    });
+
+    const res = await getExpenseBreakdown(cookie, vehicleId, "month");
+    expect(res.status).toBe(200);
+    const { periods } = (await res.json()) as { periods: ExpensePeriod[] };
+    expect(periods).toEqual([
+      { period: "2026-01", maintenanceCost: 60, fuelCost: 55, totalCost: 115 },
+      { period: "2026-02", maintenanceCost: 40, fuelCost: 0, totalCost: 40 },
+    ]);
+  });
+
+  it("returns an empty list for a vehicle with no records, not an error (SC-003)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    const res = await getExpenseBreakdown(cookie, vehicleId, "month");
+    expect(res.status).toBe(200);
+    const { periods } = (await res.json()) as { periods: ExpensePeriod[] };
+    expect(periods).toEqual([]);
+  });
+
+  it("treats a service record with no cost as contributing zero, not fabricated or skipped (FR-005)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-03-01",
+      description: "Inspection, no receipt",
+    });
+
+    const { periods } = (await (await getExpenseBreakdown(cookie, vehicleId, "month")).json()) as {
+      periods: ExpensePeriod[];
+    };
+    expect(periods).toEqual([
+      { period: "2026-03", maintenanceCost: 0, fuelCost: 0, totalCost: 0 },
+    ]);
+  });
+
+  it("excludes a record flagged as a semantic duplicate from its period's totals (FR-006)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-04-01",
+      description: "Oil change",
+      cost: 60,
+    });
+    // Same date + same description (case-insensitive) auto-flags as a duplicate (D-005).
+    await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-04-01",
+      description: "OIL CHANGE",
+      cost: 999,
+    });
+
+    const { periods } = (await (await getExpenseBreakdown(cookie, vehicleId, "month")).json()) as {
+      periods: ExpensePeriod[];
+    };
+    expect(periods).toEqual([
+      { period: "2026-04", maintenanceCost: 60, fuelCost: 0, totalCost: 60 },
+    ]);
+  });
+
+  it("returns periods in chronological order (FR-008)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-06-01",
+      description: "Later",
+      cost: 10,
+    });
+    await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-01-01",
+      description: "Earlier",
+      cost: 10,
+    });
+
+    const { periods } = (await (await getExpenseBreakdown(cookie, vehicleId, "month")).json()) as {
+      periods: ExpensePeriod[];
+    };
+    expect(periods.map((p) => p.period)).toEqual(["2026-01", "2026-06"]);
+  });
+});
+
+describe("expense breakdown (yearly, User Story 2)", () => {
+  it("groups the same records by year, summing to the same totals (SC-001, SC-002)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-01-05",
+      description: "Oil change",
+      cost: 60,
+    });
+    await createFuelRecord(cookie, vehicleId, {
+      fuelDate: "2026-11-20",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 55,
+    });
+    await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2027-02-10",
+      description: "Tire rotation",
+      cost: 40,
+    });
+
+    const { periods } = (await (await getExpenseBreakdown(cookie, vehicleId, "year")).json()) as {
+      periods: ExpensePeriod[];
+    };
+    expect(periods).toEqual([
+      { period: "2026", maintenanceCost: 60, fuelCost: 55, totalCost: 115 },
+      { period: "2027", maintenanceCost: 40, fuelCost: 0, totalCost: 40 },
+    ]);
+  });
+
+  it("rejects an invalid groupBy value and computes nothing", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    const res = await getExpenseBreakdown(cookie, vehicleId, "week");
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a missing groupBy query param rather than silently defaulting (FR-002)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    const res = await getExpenseBreakdown(cookie, vehicleId);
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("expense breakdown cross-tenant isolation", () => {
+  it("refuses a different tenant's vehicle or a made-up id, identically (SC-004, FR-007)", async () => {
+    const owner = await createSession();
+    const other = await createSession();
+    const vehicleId = await createVehicleId(owner.cookie);
+    const madeUpId = crypto.randomUUID();
+
+    const crossFetch = await getExpenseBreakdown(other.cookie, vehicleId, "month");
+    const madeUpFetch = await getExpenseBreakdown(other.cookie, madeUpId, "month");
+    expect(crossFetch.status).toBe(404);
+    expect(madeUpFetch.status).toBe(404);
+    expect(await crossFetch.text()).toBe(await madeUpFetch.text());
   });
 });

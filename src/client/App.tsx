@@ -63,6 +63,7 @@ import { FuelRecordPanel } from "./components/FuelRecordPanel";
 import { ReminderRulePanel } from "./components/ReminderRulePanel";
 import { DocumentPanel } from "./components/DocumentPanel";
 import { PlanBoard } from "./components/PlanBoard";
+import { ExpenseBreakdownPanel } from "./components/ExpenseBreakdownPanel";
 import { DashboardView } from "./components/DashboardView";
 import { SyncStatusIndicator } from "./components/SyncStatusIndicator";
 import { SyncReviewScreen } from "./components/SyncReviewScreen";
@@ -844,6 +845,17 @@ export function App() {
               onAdvanceCard={handleAdvancePlanCard}
               onDeleteCard={handleDeletePlanCard}
             />
+
+            <h2
+              style={{
+                font: "600 14px var(--font-ui)",
+                letterSpacing: "-.01em",
+                marginTop: 20,
+              }}
+            >
+              {t("expenseBreakdownHeading")}
+            </h2>
+            <ExpenseBreakdownPanel vehicleId={selectedVehicleId} />
           </div>
         )}
 
