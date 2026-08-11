@@ -11,7 +11,7 @@ import type { AppEnv } from "../types";
  * nothing at all for this route — no rate-limit counter write, no session
  * lookup — not just an early return from within the handler.
  */
-const notFoundOutsideDev = createMiddleware<AppEnv>(async (c, next) => {
+export const notFoundOutsideDev = createMiddleware<AppEnv>(async (c, next) => {
   if (c.env.ENVIRONMENT === "production") return c.notFound();
   await next();
 });

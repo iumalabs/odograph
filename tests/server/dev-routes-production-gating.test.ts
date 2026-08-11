@@ -24,4 +24,18 @@ describe("dev session routes are unreachable in production (FR-009)", () => {
     );
     expect(res.status).toBe(404);
   });
+
+  it("GET /_dev/magic-link-token returns 404, with or without an email query param", async () => {
+    const withoutEmail = await app.fetch(
+      new Request("https://example.com/api/v1/_dev/magic-link-token"),
+      prodEnv,
+    );
+    expect(withoutEmail.status).toBe(404);
+
+    const withEmail = await app.fetch(
+      new Request("https://example.com/api/v1/_dev/magic-link-token?email=owner@example.com"),
+      prodEnv,
+    );
+    expect(withEmail.status).toBe(404);
+  });
 });
