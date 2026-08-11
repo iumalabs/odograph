@@ -64,6 +64,7 @@ import { ReminderRulePanel } from "./components/ReminderRulePanel";
 import { DocumentPanel } from "./components/DocumentPanel";
 import { PlanBoard } from "./components/PlanBoard";
 import { ExpenseBreakdownPanel } from "./components/ExpenseBreakdownPanel";
+import { reportDownloadUrl } from "./vehicle-aggregates";
 import { DashboardView } from "./components/DashboardView";
 import { SyncStatusIndicator } from "./components/SyncStatusIndicator";
 import { SyncReviewScreen } from "./components/SyncReviewScreen";
@@ -856,6 +857,24 @@ export function App() {
               {t("expenseBreakdownHeading")}
             </h2>
             <ExpenseBreakdownPanel vehicleId={selectedVehicleId} />
+
+            <a
+              href={reportDownloadUrl(selectedVehicleId)}
+              style={{
+                display: "inline-flex",
+                alignSelf: "flex-start",
+                marginTop: 14,
+                background: "transparent",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--radius-md)",
+                padding: "10px 14px",
+                color: "var(--fg)",
+                font: "600 11.5px var(--font-ui)",
+                textDecoration: "none",
+              }}
+            >
+              {t("downloadReportLabel")}
+            </a>
           </div>
         )}
 

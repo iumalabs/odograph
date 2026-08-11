@@ -12,6 +12,7 @@ import {
   findFuelRecordById,
   findReminderRuleById,
   findVehicleById,
+  getVehicleHistoryForReport,
   listAttachmentKeysForVehicle,
   listAttachmentKeysForVehicleDocuments,
   listAttachmentKeysForVehicleFuelRecords,
@@ -33,6 +34,8 @@ import type {
   VehicleInput,
 } from "../../db/repository";
 import { deleteAttachments } from "../../attachments/storage";
+import { buildReportData } from "../../reports/maintenance-history-report";
+import { renderReportPdf } from "../../reports/render-pdf";
 import { rateLimitBySession } from "../../auth/rate-limit";
 import { tenantContextOrToken } from "../../middleware/tenant-context";
 import { idempotent } from "../../middleware/idempotency";
@@ -459,6 +462,33 @@ vehicles.get("/:vehicleId/expense-breakdown", async (c) => {
     groupBy as ExpenseGroupBy,
   );
   return c.json({ periods });
+});
+
+/** Only safe filename characters — a vehicle name is free text and could otherwise break the
+ * Content-Disposition header or produce an unusable filename on the client's filesystem. */
+function safeFilenameFragment(name: string): string {
+  const sanitized = name.replace(/[^a-zA-Z0-9-_ ]/g, "").trim();
+  return sanitized.length > 0 ? sanitized : "vehicle";
+}
+
+// Read-only, not rate-limited — matches /:vehicleId/aggregates's/expense-breakdown's existing
+// posture; PDF generation is in-memory, bounded by the vehicle's own record count.
+vehicles.get("/:vehicleId/report.pdf", async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const { services, fuels } = await getVehicleHistoryForReport(c.env.DB, tenant, vehicleId);
+  const reportData = buildReportData(vehicle, services, fuels);
+  const pdfBytes = await renderReportPdf(reportData);
+
+  const filename = `${safeFilenameFragment(vehicle.name)}-maintenance-history.pdf`;
+  return c.body(pdfBytes, 200, {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `attachment; filename="${filename}"`,
+  });
 });
 
 type ReminderRuleBody = {

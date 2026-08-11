@@ -110,6 +110,7 @@ const en = {
   expenseFuelLabel: "Fuel",
   expenseTotalLabel: "Total",
   noExpenseDataYet: "No spending recorded yet.",
+  downloadReportLabel: "Download maintenance history (PDF)",
   genericError: "Something went wrong. Please try again.",
   garageNavLabel: "GARAGE",
   dashboardNavLabel: "DASHBOARD",

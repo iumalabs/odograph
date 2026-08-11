@@ -34,3 +34,10 @@ export async function getVehicleExpenseBreakdown(
   );
   return periods;
 }
+
+/** Plain URL, not a fetch+blob dance (specs/027 research.md) — the response's
+ * Content-Disposition: attachment header handles the download natively on direct navigation,
+ * mirroring attachmentDownloadUrl's existing pattern. */
+export function reportDownloadUrl(vehicleId: string): string {
+  return `/api/v1/vehicles/${vehicleId}/report.pdf`;
+}
