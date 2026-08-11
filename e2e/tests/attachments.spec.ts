@@ -45,6 +45,12 @@ test.describe("attachment validation (specs 007, 009, constitution Principle V)"
   });
 
   test("a service record rejects a file over the 10MB cap", async ({ authedPage }) => {
+    // CI-only: a 10MB+ POST that gets rejected (non-2xx) intermittently crashes
+    // @cloudflare/vite-plugin's own internal Miniflare proxy dispatch on this project's current
+    // alpha pin — never reproduces locally. Not a client/server bug; see issue #89 for the full
+    // root-cause writeup and upstream reports. Runs normally everywhere except CI.
+    test.skip(!!process.env.CI, "known CI-only Miniflare alpha flake — see issue #89");
+
     await addVehicle(authedPage, { name: "Oversize Car", odometerUnit: "km" });
     await selectVehicle(authedPage, "Oversize Car");
     await addServiceRecord(authedPage, { date: "2026-06-01", description: "Timing belt" });
@@ -86,6 +92,10 @@ test.describe("attachment validation (specs 007, 009, constitution Principle V)"
   });
 
   test("a fuel record rejects a file over the 10MB cap", async ({ authedPage }) => {
+    // CI-only: see the identical skip on the service-record variant above — same root cause
+    // (issue #89), not specific to which entity the record is.
+    test.skip(!!process.env.CI, "known CI-only Miniflare alpha flake — see issue #89");
+
     await addVehicle(authedPage, { name: "Fuel Oversize Car", odometerUnit: "km" });
     await selectVehicle(authedPage, "Fuel Oversize Car");
     await addFuelRecord(authedPage, {

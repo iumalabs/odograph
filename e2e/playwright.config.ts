@@ -17,25 +17,15 @@ export default defineConfig({
   // particular target, which local dev tooling doesn't parallelize well.
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  // Same single-dev-server caveat as above, plus a specific, now-identified
-  // one: @cloudflare/vite-plugin's Miniflare 5.x-alpha (this root project's
-  // current pin — see deno.lock) intermittently crashes its own internal
-  // undici proxy ("fetch failed" in Miniflare's dispatchFetch) on a POST
-  // whose handler returns a non-2xx status, more often the larger/slower
-  // the request body is — matches several still/recently-open upstream
-  // reports against older Miniflare 4.x
-  // (github.com/cloudflare/workers-sdk/issues/13013, /13189, /13327) for the
-  // same "fetch failed in dispatchFetch" signature, though those describe
-  // it as fully deterministic where this alpha's manifestation is
-  // intermittent and body-size-correlated instead — a variant, not
-  // necessarily the identical regression. Only ever observed on CI (never
-  // locally, dozens of runs), which tracks: CI's constrained resources give
-  // that internal race more room to lose. Two retries there (one still
-  // locally, where it's never been needed) absorbs it without masking a
-  // genuine repro, which would still fail a third time too. Filed as
-  // issue #89 for the dev agent — pinning Miniflare to a fixed version is
-  // a root deno.json change outside this suite's scope.
-  retries: process.env.CI ? 2 : 1,
+  // Same single-dev-server caveat as above. One retry has been enough for
+  // every genuine flake seen against this target (dropped clicks, a
+  // dev-server hiccup on reload, etc.) — the one category that reliably
+  // needed more (a Miniflare-alpha proxy crash on large-body POSTs that
+  // don't return 2xx, which can leave the shared webServer process
+  // degraded for the rest of the job, so more retries against the same
+  // process don't help) is skipped on CI at the two tests that trigger it
+  // instead of tuned around here — see issue #89.
+  retries: 1,
   workers: 1,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
 
