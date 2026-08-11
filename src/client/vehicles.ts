@@ -39,15 +39,19 @@ export function hydrateOptimisticVehicle(action: PendingAction): Vehicle {
     id: string;
     name: string;
     odometerUnit: "km" | "mi";
+    make?: string | null;
+    model?: string | null;
+    year?: number | null;
+    vin?: string | null;
   };
   return {
     id: body.id,
     tenantId: "",
     name: body.name,
-    make: null,
-    model: null,
-    year: null,
-    vin: null,
+    make: body.make ?? null,
+    model: body.model ?? null,
+    year: body.year ?? null,
+    vin: body.vin ?? null,
     odometerUnit: body.odometerUnit,
     createdAt: action.createdAt,
     updatedAt: action.createdAt,
@@ -59,7 +63,14 @@ export function hydrateOptimisticVehicle(action: PendingAction): Vehicle {
  * right away (survives no connectivity) and synced automatically once online.
  */
 export async function createVehicle(
-  input: { name: string; odometerUnit: "km" | "mi" },
+  input: {
+    name: string;
+    odometerUnit: "km" | "mi";
+    make?: string | null;
+    model?: string | null;
+    year?: number | null;
+    vin?: string | null;
+  },
 ): Promise<Vehicle> {
   const action = await enqueue({
     entity: "vehicle",

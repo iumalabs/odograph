@@ -7,6 +7,7 @@ import { getCurrentIdentity } from "./auth/session";
 import { deleteAccount, REQUIRED_CONFIRMATION_PHRASE } from "./account";
 import { createVehicle, listVehicles } from "./vehicles";
 import type { Vehicle } from "./vehicles";
+import { lookupVin } from "./vin-lookup";
 import {
   AttachmentUploadError,
   createServiceRecord,
@@ -105,6 +106,12 @@ export function App() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleName, setVehicleName] = useState("");
   const [vehicleOdometerUnit, setVehicleOdometerUnit] = useState<"km" | "mi">("km");
+  const [vehicleVin, setVehicleVin] = useState("");
+  const [vehicleMake, setVehicleMake] = useState("");
+  const [vehicleModel, setVehicleModel] = useState("");
+  const [vehicleYear, setVehicleYear] = useState("");
+  const [vinLookupPending, setVinLookupPending] = useState(false);
+  const [vinLookupNotFound, setVinLookupNotFound] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [serviceRecords, setServiceRecords] = useState<ServiceRecord[]>([]);
   const [serviceDate, setServiceDate] = useState("");
@@ -319,6 +326,24 @@ export function App() {
     } catch {
       setError(t("genericError"));
     }
+  }
+
+  // Pre-submit assist step, not part of vehicle creation itself (specs/030 FR-009) — never
+  // enqueued, always resolves rather than throwing (vin-lookup.ts). Only fields the lookup
+  // actually returned are pre-filled; the VIN input is locked while in flight so a stale response
+  // can never land against a VIN the owner has since changed (speckit-analyze finding, FR-011).
+  async function handleLookupVin() {
+    setVinLookupPending(true);
+    setVinLookupNotFound(false);
+    const result = await lookupVin(vehicleVin);
+    setVinLookupPending(false);
+    if (!result.found) {
+      setVinLookupNotFound(true);
+      return;
+    }
+    if (result.make !== null) setVehicleMake(result.make);
+    if (result.model !== null) setVehicleModel(result.model);
+    if (result.year !== null) setVehicleYear(String(result.year));
   }
 
   async function handleAuthAction<T>(action: () => Promise<T>, onSuccess: (result: T) => void) {
@@ -655,11 +680,38 @@ export function App() {
           onVehicleNameChange={setVehicleName}
           vehicleOdometerUnit={vehicleOdometerUnit}
           onVehicleOdometerUnitChange={setVehicleOdometerUnit}
+          vehicleVin={vehicleVin}
+          onVehicleVinChange={(value) => {
+            setVehicleVin(value);
+            setVinLookupNotFound(false);
+          }}
+          vehicleMake={vehicleMake}
+          onVehicleMakeChange={setVehicleMake}
+          vehicleModel={vehicleModel}
+          onVehicleModelChange={setVehicleModel}
+          vehicleYear={vehicleYear}
+          onVehicleYearChange={setVehicleYear}
+          vinLookupPending={vinLookupPending}
+          onLookupVin={handleLookupVin}
+          vinLookupNotFound={vinLookupNotFound}
           onAddVehicle={() =>
             handle(
-              () => createVehicle({ name: vehicleName, odometerUnit: vehicleOdometerUnit }),
+              () =>
+                createVehicle({
+                  name: vehicleName,
+                  odometerUnit: vehicleOdometerUnit,
+                  make: vehicleMake || null,
+                  model: vehicleModel || null,
+                  year: vehicleYear.trim() ? Number(vehicleYear) : null,
+                  vin: vehicleVin || null,
+                }),
               () => {
                 setVehicleName("");
+                setVehicleVin("");
+                setVehicleMake("");
+                setVehicleModel("");
+                setVehicleYear("");
+                setVinLookupNotFound(false);
               },
             )}
         />
