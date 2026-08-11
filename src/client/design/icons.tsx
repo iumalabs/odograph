@@ -136,3 +136,14 @@ export function AlertIcon({ size = 20 }: IconProps) {
     </svg>
   );
 }
+
+export function SettingsIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M4 7.5h8M17 7.5h3" />
+      <circle cx="14.5" cy="7.5" r="2.3" />
+      <path d="M4 16.5h4M12.5 16.5h7.5" />
+      <circle cx="10.2" cy="16.5" r="2.3" />
+    </svg>
+  );
+}

@@ -122,6 +122,8 @@ const en = {
   garageNavLabel: "GARAGE",
   dashboardNavLabel: "DASHBOARD",
   dashboardHeading: "Dashboard",
+  settingsNavLabel: "SETTINGS",
+  settingsScreenHeading: "Settings",
   noVehiclesOnDashboard: "No vehicles yet — add one from the Garage.",
   costPerDistanceLabel: "Cost / distance",
   costPerTimeLabel: "Cost / time",

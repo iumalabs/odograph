@@ -54,9 +54,7 @@ import { t } from "./i18n/strings";
 import type { AppView } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
 import { AuthScreen } from "./components/AuthScreen";
-import { AccountDeletion } from "./components/AccountDeletion";
-import { ApiTokens } from "./components/ApiTokens";
-import { PushNotifications } from "./components/PushNotifications";
+import { SettingsView } from "./components/SettingsView";
 import { Garage } from "./components/Garage";
 import { SearchBar } from "./components/SearchBar";
 import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
@@ -545,6 +543,22 @@ export function App() {
     );
   }
 
+  if (view === "settings") {
+    return (
+      <AppShell
+        title={t("settingsScreenHeading")}
+        view={view}
+        onSelectView={setView}
+        reviewBadgeCount={rejectedActionCount}
+      >
+        <SettingsView
+          onError={() => setError(t("genericError"))}
+          onConfirmDelete={handleDeleteAccount}
+        />
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell
       title={t("vehiclesHeading")}
@@ -629,9 +643,6 @@ export function App() {
               {t("linkEmailSentBanner")}
             </span>
           )}
-          <ApiTokens onError={() => setError(t("genericError"))} />
-          <PushNotifications onError={() => setError(t("genericError"))} />
-          <AccountDeletion onConfirmDelete={handleDeleteAccount} />
         </div>
 
         <SearchBar onSelectVehicle={(id) => setSelectedVehicleId(id)} />
