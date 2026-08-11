@@ -61,6 +61,83 @@ function clientRelativePath(url: string): string | null {
 interface FileStats {
   total: number;
   covered: number;
+  // Per-function hit/miss, in encounter order — kept (not just the total/
+  // covered counts) so the Cobertura export below has something concrete to
+  // map each function onto a distinct synthetic <line>.
+  functionHits: boolean[];
+}
+
+interface FileRow {
+  file: string;
+  pct: number;
+  covered: number;
+  total: number;
+  functionHits: boolean[];
+}
+
+function xmlEscape(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(
+    /"/g,
+    "&quot;",
+  );
+}
+
+/**
+ * Cobertura XML — the format GitHub's native "Restrict code coverage" and
+ * "Require code quality results" ruleset rules ingest (uploaded via
+ * `actions/upload-code-coverage`; see .github/workflows/ci.yml). Cobertura's
+ * schema is fundamentally line-level (`<line number hits>`), which this
+ * suite doesn't produce — it measures function-level coverage (was this
+ * function called at least once?), not per-line execution. Rather than fake
+ * line numbers that don't correspond to anything in the real source, each
+ * function becomes its own synthetic `<line>` (1-indexed by encounter
+ * order within the file) with hits=1/0 — an honest, if coarser-grained,
+ * mapping onto Cobertura's schema, not a claim of real line coverage.
+ * Classes are grouped into one package per file (directory, dotted) since
+ * this suite has no notion of Cobertura's other package-level metrics.
+ */
+function generateCoberturaXml(rows: FileRow[], totalCovered: number, totalFns: number): string {
+  const lineRate = totalFns === 0 ? 0 : totalCovered / totalFns;
+  const timestamp = Date.now();
+
+  const classesXml = rows.map((row) => {
+    const dir = row.file.includes("/") ? row.file.slice(0, row.file.lastIndexOf("/")) : "";
+    const packageName = dir.replace(/\//g, ".") || "root";
+    const className = row.file.slice(row.file.lastIndexOf("/") + 1).replace(/\.tsx?$/, "");
+    const fileLineRate = row.total === 0 ? 1 : row.covered / row.total;
+    const linesXml = row.functionHits
+      .map((hit, i) => `        <line number="${i + 1}" hits="${hit ? 1 : 0}" branch="false"/>`)
+      .join("\n");
+    return {
+      packageName,
+      xml: `    <package name="${
+        xmlEscape(packageName)
+      }" line-rate="${fileLineRate}" branch-rate="0" complexity="0">
+      <classes>
+        <class name="${xmlEscape(className)}" filename="${
+        xmlEscape(row.file)
+      }" line-rate="${fileLineRate}" branch-rate="0" complexity="0">
+          <methods/>
+          <lines>
+${linesXml}
+          </lines>
+        </class>
+      </classes>
+    </package>`,
+    };
+  });
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">
+<coverage line-rate="${lineRate}" branch-rate="0" lines-covered="${totalCovered}" lines-valid="${totalFns}" branches-covered="0" branches-valid="0" complexity="0" version="1.0" timestamp="${timestamp}">
+  <sources>
+    <source>.</source>
+  </sources>
+  <packages>
+${classesXml.map((c) => c.xml).join("\n")}
+  </packages>
+</coverage>
+`;
 }
 
 class CoverageAccumulator {
@@ -70,12 +147,14 @@ class CoverageAccumulator {
     for (const entry of entries) {
       const relPath = clientRelativePath(entry.url);
       if (!relPath) continue;
-      const stats = this.byFile.get(relPath) ?? { total: 0, covered: 0 };
+      const stats = this.byFile.get(relPath) ?? { total: 0, covered: 0, functionHits: [] };
       for (const fn of entry.functions as Array<{ ranges: Array<{ count: number }> }>) {
         const topLevel = fn.ranges[0];
         if (!topLevel) continue;
         stats.total += 1;
-        if (topLevel.count > 0) stats.covered += 1;
+        const hit = topLevel.count > 0;
+        if (hit) stats.covered += 1;
+        stats.functionHits.push(hit);
       }
       this.byFile.set(relPath, stats);
     }
@@ -90,6 +169,7 @@ class CoverageAccumulator {
         pct: s.total === 0 ? 100 : Math.round((s.covered / s.total) * 1000) / 10,
         covered: s.covered,
         total: s.total,
+        functionHits: s.functionHits,
       }))
       .sort((a, b) => a.pct - b.pct);
 
@@ -131,10 +211,21 @@ td,th{border:1px solid #ccc;padding:4px 10px;text-align:left}
     writeFileSync(
       `${OUTPUT_DIR}/coverage-summary.json`,
       JSON.stringify(
-        { overallPct, totalCovered, totalFunctions: totalFns, fileCount: rows.length, files: rows },
+        {
+          overallPct,
+          totalCovered,
+          totalFunctions: totalFns,
+          fileCount: rows.length,
+          files: rows.map(({ file, pct, covered, total }) => ({ file, pct, covered, total })),
+        },
         null,
         2,
       ),
+    );
+
+    writeFileSync(
+      `${OUTPUT_DIR}/cobertura.xml`,
+      generateCoberturaXml(rows, totalCovered, totalFns),
     );
 
     return { overallPct, fileCount: rows.length };
