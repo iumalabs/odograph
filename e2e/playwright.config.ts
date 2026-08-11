@@ -17,11 +17,14 @@ export default defineConfig({
   // particular target, which local dev tooling doesn't parallelize well.
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  // Same single-dev-server caveat as above, plus: the oversized-upload
-  // attachment tests (10MB+ bodies) occasionally trip a transient "socket
-  // hang up" against that one local process right after — a real repro
-  // would still fail on the retry too, so this doesn't mask a genuine
-  // failure, just this target's connection handling under load.
+  // Same single-dev-server caveat as above. One retry has been enough for
+  // every genuine flake seen against this target (dropped clicks, a
+  // dev-server hiccup on reload, etc.) — the one category that reliably
+  // needed more (a Miniflare-alpha proxy crash on large-body POSTs that
+  // don't return 2xx, which can leave the shared webServer process
+  // degraded for the rest of the job, so more retries against the same
+  // process don't help) is skipped on CI at the two tests that trigger it
+  // instead of tuned around here — see issue #89.
   retries: 1,
   workers: 1,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",

@@ -38,6 +38,12 @@ jobs:
     name: e2e (Playwright) + client coverage gate
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Job-level permissions replace (not merge with) the workflow-level block above, so
+    # contents:read has to be repeated here alongside the code-quality:write this job additionally
+    # needs to upload Cobertura coverage for GitHub's native ruleset coverage rules.
+    permissions:
+      contents: read
+      code-quality: write
     steps:
       - uses: actions/checkout@v4
 
@@ -69,6 +75,23 @@ jobs:
       - name: Run e2e suite with coverage
         working-directory: e2e
         run: deno task test:coverage
+
+      # Feeds GitHub's native ruleset coverage rules ("Require code quality results" /
+      # "Restrict code coverage") — those need a Cobertura XML report on the repo's Code Quality
+      # feature, uploaded via this action, before they have anything to enforce against. Enabling
+      # the actual ruleset rule is a repo-settings change (Settings > Rules > Rulesets), done once
+      # by the repo owner, not by CI. Until GitHub Code Quality itself is turned on for this repo
+      # (a separate, more basic prerequisite than the ruleset rule), the upload endpoint 404s —
+      # fail-on-error:false keeps that from failing every PR's required check in the meantime; drop
+      # it once Code Quality is confirmed enabled.
+      - name: Upload code coverage report
+        if: always()
+        uses: actions/upload-code-coverage@v1
+        with:
+          file: e2e/coverage/cobertura.xml
+          language: TypeScript
+          label: e2e-client-coverage
+          fail-on-error: false
 
       # Gate on the client function-coverage floor — see
       # support/check-coverage-threshold.ts for why this isn't 100% yet
