@@ -32,12 +32,37 @@ import { mkdirSync, writeFileSync } from "node:fs";
  *
  * Opt-in via COVERAGE=1 — startJSCoverage/stopJSCoverage adds real
  * per-test overhead, so a normal `deno task test` run skips it entirely.
+ *
+ * ## Cross-worker aggregation (issue #89)
+ *
+ * The accumulator below is a module-level singleton, which only holds data
+ * for the current *worker process*. That used to be treated as "the whole
+ * run's data", on the assumption that `workers: 1` means one continuous
+ * process end to end. That assumption is false: Playwright starts a brand
+ * new worker process for every retry (`WorkerInfo.workerIndex` — "When a
+ * worker is restarted, for example after a failure, the new worker process
+ * gets a new unique workerIndex"), and this suite's own CI runs confirm it
+ * empirically — a clean 0-failure run prints this fixture's summary
+ * exactly once, but a run with 19 failures (each retried once) printed it
+ * 39 times, with the reported percentage bouncing non-monotonically
+ * (50.9 → 45.9 → 51.2 → 43 → 50 → ...) instead of trending up, because each
+ * new worker's accumulator started empty and its full report write
+ * clobbered the previous worker's files.
+ *
+ * So: per-worker teardown (the `coverageReport` fixture below) now only
+ * flushes a *cheap partial* (a JSON dump of this worker's own accumulated
+ * `byFile` map) to `PARTIAL_DIR`, one file per worker index — no HTML/XML
+ * generation, no full-report write, on every recycle. The real report
+ * (summary.txt/index.html/coverage-summary.json/cobertura.xml) is
+ * generated exactly once, in `globalTeardown` (see
+ * `coverage-global-teardown.ts`), by merging every worker's partial.
  */
-const COVERAGE_ENABLED = process.env.COVERAGE === "1";
+export const COVERAGE_ENABLED = process.env.COVERAGE === "1";
 // Playwright loads spec/support files as CommonJS, so this is relative to
 // the process cwd — always `e2e/` since that's where `deno task
 // test:coverage` runs from.
-const OUTPUT_DIR = `${process.cwd()}/coverage`;
+export const OUTPUT_DIR = `${process.cwd()}/coverage`;
+export const PARTIAL_DIR = `${OUTPUT_DIR}/.partial`;
 
 // deno-lint-ignore no-explicit-any
 type JSCoverageEntry = any;
@@ -58,7 +83,7 @@ function clientRelativePath(url: string): string | null {
   }
 }
 
-interface FileStats {
+export interface FileStats {
   total: number;
   covered: number;
   // Per-function hit/miss, in encounter order — kept (not just the total/
@@ -140,6 +165,30 @@ ${classesXml.map((c) => c.xml).join("\n")}
 `;
 }
 
+/**
+ * Unions two recordings of the same file's function hits — a function
+ * counts as covered if EITHER recording saw it called. Needed because the
+ * same source file gets recorded independently by every worker process
+ * that happened to load it (see the module doc comment above); without
+ * this, whichever worker's partial merges last would silently discard
+ * every other worker's hits for files they share (virtually all of
+ * them — shared components, App.tsx, etc.).
+ *
+ * Assumes both recordings enumerate the same file's top-level function
+ * ranges in the same order (true in practice: V8 parses the same script
+ * source into the same ranges every time). Defensively tolerates a length
+ * mismatch by taking the longer recording's length and treating a missing
+ * tail entry in the shorter one as not-yet-observed rather than throwing.
+ */
+export function mergeFileStats(a: FileStats, b: FileStats): FileStats {
+  const length = Math.max(a.functionHits.length, b.functionHits.length);
+  const functionHits: boolean[] = [];
+  for (let i = 0; i < length; i++) {
+    functionHits.push(Boolean(a.functionHits[i]) || Boolean(b.functionHits[i]));
+  }
+  return { total: length, covered: functionHits.filter(Boolean).length, functionHits };
+}
+
 class CoverageAccumulator {
   private byFile = new Map<string, FileStats>();
 
@@ -158,6 +207,17 @@ class CoverageAccumulator {
       }
       this.byFile.set(relPath, stats);
     }
+  }
+
+  /** This worker's own accumulated data, serializable to its partial file. */
+  toPartial(): Record<string, FileStats> {
+    return Object.fromEntries(this.byFile);
+  }
+
+  /** Merges one file's stats (e.g. from another worker's partial) into this accumulator. */
+  mergeFile(file: string, stats: FileStats): void {
+    const existing = this.byFile.get(file);
+    this.byFile.set(file, existing ? mergeFileStats(existing, stats) : stats);
   }
 
   generate(): { overallPct: number; fileCount: number } {
@@ -238,6 +298,24 @@ function getAccumulator(): CoverageAccumulator {
   return accumulator;
 }
 
+/**
+ * Merges every worker's partial (as written by the `coverageReport`
+ * fixture below) into one accumulator and generates the real report from
+ * it — called exactly once, from `coverage-global-teardown.ts`, after all
+ * workers (including retries) have finished.
+ */
+export function mergeAndGenerate(
+  partials: Record<string, FileStats>[],
+): { overallPct: number; fileCount: number } {
+  const merged = new CoverageAccumulator();
+  for (const partial of partials) {
+    for (const [file, stats] of Object.entries(partial)) {
+      merged.mergeFile(file, stats);
+    }
+  }
+  return merged.generate();
+}
+
 // deno-lint-ignore ban-types
 export const test = base.extend<{}, { coverageReport: void }>({
   page: async ({ page }, use) => {
@@ -251,21 +329,27 @@ export const test = base.extend<{}, { coverageReport: void }>({
     getAccumulator().add(coverage);
   },
 
-  // Worker-scoped + auto-use: this suite runs workers:1, so "once per
-  // worker" is "once per full test run" — fires after every test has
-  // added its coverage. Playwright parses this function's own parameter
-  // list at runtime to resolve fixture dependencies, so the first
-  // parameter must be a literal (even if empty) destructuring pattern, not
-  // a plain identifier.
+  // Worker-scoped + auto-use: fires once per worker PROCESS, which is not
+  // once per full run — Playwright starts a fresh worker (and thus a fresh
+  // module instance, a fresh `accumulator`) on every retry. So this only
+  // flushes this worker's own partial to disk; it must not regenerate the
+  // real report (see the module doc comment above and
+  // `coverage-global-teardown.ts`, which merges every partial exactly
+  // once). Playwright parses this function's own parameter list at runtime
+  // to resolve fixture dependencies, so the first parameter must be a
+  // literal (even if empty) destructuring pattern, not a plain identifier.
   // deno-lint-ignore no-empty-pattern
-  coverageReport: [async ({}, use) => {
+  coverageReport: [async ({}, use, workerInfo) => {
     await use();
     if (COVERAGE_ENABLED) {
-      const { overallPct, fileCount } = getAccumulator().generate();
-      console.log(
-        `\nClient coverage (${fileCount} file${fileCount === 1 ? "" : "s"} under src/client/): ` +
-          `${overallPct}% of functions called at least once — report at ${OUTPUT_DIR}/index.html\n`,
-      );
+      const partial = getAccumulator().toPartial();
+      if (Object.keys(partial).length > 0) {
+        mkdirSync(PARTIAL_DIR, { recursive: true });
+        writeFileSync(
+          `${PARTIAL_DIR}/worker-${workerInfo.workerIndex}.json`,
+          JSON.stringify(partial),
+        );
+      }
     }
   }, { scope: "worker", auto: true }],
 });
