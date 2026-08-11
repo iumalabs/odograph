@@ -2411,6 +2411,28 @@ export async function computeVehicleExpenseBreakdown(
   return [...byPeriod.values()].sort((a, b) => a.period.localeCompare(b.period));
 }
 
+/**
+ * The same filtered, non-duplicate service+fuel records computeVehicleExpenseBreakdown reads —
+ * returned unaggregated (specs/027) rather than folded into period sums, for the PDF report to
+ * format directly. Third occurrence of this exact fetch+filter shape (after
+ * computeVehicleAggregates and computeVehicleExpenseBreakdown), now worth naming once
+ * (research.md).
+ */
+export async function getVehicleHistoryForReport(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<{ services: ServiceRecord[]; fuels: FuelRecordWithEconomy[] }> {
+  const [serviceRecords, fuelRecords] = await Promise.all([
+    listServiceRecords(db, ctx, vehicleId),
+    listFuelRecordsWithEconomy(db, ctx, vehicleId),
+  ]);
+  return {
+    services: serviceRecords.filter((r) => r.duplicateOfId === null),
+    fuels: fuelRecords.filter((r) => r.duplicateOfId === null),
+  };
+}
+
 // --- Reminder rules --------------------------------------------------------
 
 export type ReminderStatus = "on_track" | "coming_up" | "overdue" | "not_enough_data";
