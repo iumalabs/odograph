@@ -8,24 +8,24 @@ D1 data at all, it's a pure proxy to NHTSA vPIC. Rate-limited via `rateLimitBySe
 — defense-in-depth against relaying abuse traffic to a third party, not a D1-write concern).
 
 **Path parameter**: `vin` — the VIN string as typed by the owner. A locally-obvious malformation
-(e.g. under a minimal plausible length) short-circuits to the same `404`/not-found response below
-without calling NHTSA at all (spec.md edge case — avoids a pointless round-trip).
+(under a minimal plausible length, or over a generous maximum) short-circuits to the same `200
+found:false` response below without calling NHTSA at all (spec.md edge case — avoids a pointless
+round-trip; the max-length bound is a code-review-driven abuse-prevention addition, not a VIN
+format validator — NHTSA's own response remains the format authority per spec.md).
 
 **Response** `200`: `{ "found": true, "make": string | null, "model": string | null, "year": number
 | null }` — `found: true` only when NHTSA returned at least one usable field; a field NHTSA didn't
 return is `null`, never guessed (FR-003, FR-005, constitution Principle IV).
 
 **Response** `200` (not found): `{ "found": false, "make": null, "model": null, "year": null }` —
-used for BOTH "NHTSA reached but returned an undecodable/empty result" and, from the client's
-perspective, indistinguishable in shape from a locally-short-circuited malformed VIN. A `200` (not a
-`4xx`) because "no details available" is an expected, valid outcome, not a client error (spec.md
-User Story 2 — must never block vehicle creation).
-
-**Response** `503`: the proxy call to NHTSA itself failed (timeout, unreachable, non-2xx from
-NHTSA) — a genuine infrastructure-level failure, distinct from "reached NHTSA, got an empty
-result." The client treats `200 found:false` and `503` identically in its UI messaging
-(spec.md — distinguishing them is explicitly not required), but the distinct status codes are kept
-so server-side logs/metrics can tell the two apart if that's ever useful later.
+used uniformly for every failure mode: a locally-short-circuited malformed VIN, a transport-level
+failure reaching NHTSA (timeout, unreachable, non-2xx), and a reached-but-undecodable/empty NHTSA
+result. All collapse to the same `DecodeResult.ok: false` in `decodeVin` (implementation note,
+corrected from an earlier draft of this contract that specified a distinct `503` for transport
+failures — `decodeVin`'s result type has no such discriminant, and spec.md is explicit that
+distinguishing these cases in the UI is not required, so the simpler uniform shape is what's
+actually built). A `200` (not a `4xx`/`5xx`) because "no details available" is an expected, valid
+outcome, not a client error (spec.md User Story 2 — must never block vehicle creation).
 
 ## Cross-cutting
 

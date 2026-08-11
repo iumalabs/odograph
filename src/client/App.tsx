@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { addPasskey, loginWithPasskey, registerWithPasskey } from "./auth/passkey";
 import type { PasskeyIdentity } from "./auth/passkey";
 import { requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
@@ -112,6 +112,11 @@ export function App() {
   const [vehicleYear, setVehicleYear] = useState("");
   const [vinLookupPending, setVinLookupPending] = useState(false);
   const [vinLookupNotFound, setVinLookupNotFound] = useState(false);
+  // Bumped whenever the add-vehicle form is reset (a successful create) so a lookup already in
+  // flight at that moment can detect it's stale and not apply its result to the next vehicle's
+  // now-blank form (code-review finding — createVehicle resolves near-instantly since it only
+  // writes to the local offline queue, so it can easily finish before a slower NHTSA round trip).
+  const vinLookupFormGeneration = useRef(0);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [serviceRecords, setServiceRecords] = useState<ServiceRecord[]>([]);
   const [serviceDate, setServiceDate] = useState("");
@@ -332,11 +337,17 @@ export function App() {
   // enqueued, always resolves rather than throwing (vin-lookup.ts). Only fields the lookup
   // actually returned are pre-filled; the VIN input is locked while in flight so a stale response
   // can never land against a VIN the owner has since changed (speckit-analyze finding, FR-011).
+  // Also guarded against a subtler race (code-review finding): createVehicle resolves near-
+  // instantly (local offline queue write, no network round trip), so the owner can submit and
+  // reset the form for a *second* vehicle before this lookup's NHTSA round trip returns — the
+  // generation check below discards the result rather than pre-filling the wrong vehicle's form.
   async function handleLookupVin() {
+    const generation = vinLookupFormGeneration.current;
     setVinLookupPending(true);
     setVinLookupNotFound(false);
     const result = await lookupVin(vehicleVin);
     setVinLookupPending(false);
+    if (generation !== vinLookupFormGeneration.current) return;
     if (!result.found) {
       setVinLookupNotFound(true);
       return;
@@ -706,6 +717,7 @@ export function App() {
                   vin: vehicleVin || null,
                 }),
               () => {
+                vinLookupFormGeneration.current += 1;
                 setVehicleName("");
                 setVehicleVin("");
                 setVehicleMake("");

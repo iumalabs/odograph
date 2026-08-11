@@ -224,6 +224,7 @@ export function Garage(props: GarageProps) {
             type="text"
             value={vehicleVin}
             disabled={vinLookupPending}
+            maxLength={25}
             onChange={(event) => onVehicleVinChange(event.target.value)}
             style={{
               background: "var(--panel2)",
@@ -267,6 +268,7 @@ export function Garage(props: GarageProps) {
           <input
             type="text"
             value={vehicleMake}
+            disabled={vinLookupPending}
             onChange={(event) => onVehicleMakeChange(event.target.value)}
             style={{
               background: "var(--panel2)",
@@ -294,6 +296,7 @@ export function Garage(props: GarageProps) {
           <input
             type="text"
             value={vehicleModel}
+            disabled={vinLookupPending}
             onChange={(event) => onVehicleModelChange(event.target.value)}
             style={{
               background: "var(--panel2)",
@@ -322,6 +325,7 @@ export function Garage(props: GarageProps) {
             type="text"
             inputMode="numeric"
             value={vehicleYear}
+            disabled={vinLookupPending}
             onChange={(event) => onVehicleYearChange(event.target.value)}
             style={{
               background: "var(--panel2)",

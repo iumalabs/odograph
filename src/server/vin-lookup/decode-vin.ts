@@ -1,5 +1,10 @@
 const VPIC_DECODE_URL = "https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues";
 const MIN_PLAUSIBLE_VIN_LENGTH = 11;
+// A real VIN is always 17 chars; this is a generous upper bound, not a strict format check (NHTSA
+// itself is the format authority per spec.md) — it exists only to stop an oversized string from
+// being relayed to a third party through this app's identity (code-review finding).
+const MAX_PLAUSIBLE_VIN_LENGTH = 25;
+const MIN_PLAUSIBLE_MODEL_YEAR = 1900;
 
 export type DecodeResult =
   | { ok: true; make: string | null; model: string | null; year: number | null }
@@ -12,13 +17,20 @@ type VpicResult = {
 };
 
 function emptyToNull(value: string | undefined): string | null {
-  return value && value.trim().length > 0 ? value : null;
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : null;
+}
+
+function maxPlausibleModelYear(): number {
+  return new Date().getUTCFullYear() + 10;
 }
 
 function parseYear(value: string | undefined): number | null {
   if (!value) return null;
   const year = Number(value);
-  return Number.isInteger(year) ? year : null;
+  if (!Number.isInteger(year)) return null;
+  if (year < MIN_PLAUSIBLE_MODEL_YEAR || year > maxPlausibleModelYear()) return null;
+  return year;
 }
 
 /**
@@ -42,12 +54,15 @@ export async function decodeVin(
   vin: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<DecodeResult> {
-  if (vin.trim().length < MIN_PLAUSIBLE_VIN_LENGTH) {
+  const trimmedVin = vin.trim();
+  if (
+    trimmedVin.length < MIN_PLAUSIBLE_VIN_LENGTH || trimmedVin.length > MAX_PLAUSIBLE_VIN_LENGTH
+  ) {
     return { ok: false };
   }
 
   try {
-    const url = `${VPIC_DECODE_URL}/${encodeURIComponent(vin)}?format=json`;
+    const url = `${VPIC_DECODE_URL}/${encodeURIComponent(trimmedVin)}?format=json`;
     const response = await fetchImpl(url);
     if (!response.ok) {
       return { ok: false };
