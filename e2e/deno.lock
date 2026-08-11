@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "npm:@playwright/test@*": "1.62.1",
     "npm:@playwright/test@^1.55.0": "1.62.1",
     "npm:playwright@*": "1.62.1",
     "npm:vite@*": "8.2.0"

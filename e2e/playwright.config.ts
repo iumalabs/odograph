@@ -29,6 +29,12 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
 
+  // Coverage aggregation must run exactly once, after every worker
+  // (including every retry's fresh worker process) has finished — see
+  // support/coverage.ts's module doc comment for why per-worker teardown
+  // alone can't do this (issue #89).
+  globalTeardown: "./support/coverage-global-teardown.ts",
+
   use: {
     baseURL: BASE_URL,
     trace: "retain-on-failure",
