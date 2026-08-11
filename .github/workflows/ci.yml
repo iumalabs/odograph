@@ -80,7 +80,10 @@ jobs:
       # "Restrict code coverage") — those need a Cobertura XML report on the repo's Code Quality
       # feature, uploaded via this action, before they have anything to enforce against. Enabling
       # the actual ruleset rule is a repo-settings change (Settings > Rules > Rulesets), done once
-      # by the repo owner, not by CI.
+      # by the repo owner, not by CI. Until GitHub Code Quality itself is turned on for this repo
+      # (a separate, more basic prerequisite than the ruleset rule), the upload endpoint 404s —
+      # fail-on-error:false keeps that from failing every PR's required check in the meantime; drop
+      # it once Code Quality is confirmed enabled.
       - name: Upload code coverage report
         if: always()
         uses: actions/upload-code-coverage@v1
@@ -88,6 +91,7 @@ jobs:
           file: e2e/coverage/cobertura.xml
           language: TypeScript
           label: e2e-client-coverage
+          fail-on-error: false
 
       # Gate on the client function-coverage floor — see
       # support/check-coverage-threshold.ts for why this isn't 100% yet
