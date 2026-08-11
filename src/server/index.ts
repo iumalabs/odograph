@@ -14,6 +14,7 @@ import { reminderRules } from "./routes/v1/reminder-rules";
 import { account } from "./routes/v1/account";
 import { tokens } from "./routes/v1/tokens";
 import { push } from "./routes/v1/push";
+import { search } from "./routes/v1/search";
 import { evaluateAllDocumentReminders, evaluateAllReminders } from "./db/repository";
 import { buildCspHeader, generateNonce } from "./security/csp";
 import type { AppEnv, VapidSecrets } from "./types";
@@ -35,6 +36,7 @@ app.route("/api/v1/reminder-rules", reminderRules);
 app.route("/api/v1/account", account);
 app.route("/api/v1/tokens", tokens);
 app.route("/api/v1/push", push);
+app.route("/api/v1/search", search);
 
 export default {
   // `assets.run_worker_first = true` (wrangler.toml) routes every request here first, including

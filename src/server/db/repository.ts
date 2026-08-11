@@ -3033,3 +3033,108 @@ export async function recordWriteOperation(
     )
     .run();
 }
+
+// --- Search (specs/028: tenant-wide search across vehicles and records) ----
+
+const LIKE_ESCAPE_CHAR = "\\";
+
+/**
+ * PURE — no D1 access, directly unit-testable (specs/028 research.md). Escapes `\`, `%`, `_` (in
+ * that order, so an already-escaped backslash is never double-escaped) so a literal percent sign
+ * or underscore in a user's search term is matched literally rather than acting as a SQL LIKE
+ * wildcard.
+ */
+export function escapeLikePattern(query: string): string {
+  return query
+    .replaceAll(LIKE_ESCAPE_CHAR, LIKE_ESCAPE_CHAR + LIKE_ESCAPE_CHAR)
+    .replaceAll("%", LIKE_ESCAPE_CHAR + "%")
+    .replaceAll("_", LIKE_ESCAPE_CHAR + "_");
+}
+
+export type VehicleMatch = {
+  id: string;
+  name: string;
+  make: string | null;
+  model: string | null;
+  year: number | null;
+  vin: string | null;
+};
+
+export type RecordMatch = {
+  id: string;
+  vehicleId: string;
+  vehicleName: string;
+  date: string | null;
+  title: string;
+  notes: string | null;
+};
+
+export type SearchResults = {
+  vehicles: VehicleMatch[];
+  serviceRecords: RecordMatch[];
+  fuelRecords: RecordMatch[];
+  documents: RecordMatch[];
+};
+
+/**
+ * Tenant-wide — unlike every other function in this file, there is no vehicle id to resolve
+ * ownership through first, so each of the four queries scopes itself directly by
+ * `ctx.tenantId` (specs/028 FR-009). Deliberately does NOT filter on `duplicateOfId` — a
+ * duplicate-flagged record is still real, findable data (FR-007, research.md), unlike the cost
+ * aggregates' exclusion rule.
+ */
+export async function searchTenantData(
+  db: D1Database,
+  ctx: TenantContext,
+  query: string,
+): Promise<SearchResults> {
+  const pattern = `%${escapeLikePattern(query)}%`;
+
+  const [vehicleRows, serviceRows, fuelRows, documentRows] = await Promise.all([
+    db
+      .prepare(
+        `SELECT id, name, make, model, year, vin FROM vehicles
+         WHERE tenant_id = ?
+           AND (name LIKE ? ESCAPE '\\' OR make LIKE ? ESCAPE '\\' OR model LIKE ? ESCAPE '\\' OR vin LIKE ? ESCAPE '\\')`,
+      )
+      .bind(ctx.tenantId, pattern, pattern, pattern, pattern)
+      .all<VehicleMatch>(),
+    db
+      .prepare(
+        `SELECT sr.id AS id, sr.vehicle_id AS vehicleId, v.name AS vehicleName,
+                sr.service_date AS date, sr.description AS title, sr.notes AS notes
+         FROM service_records sr JOIN vehicles v ON v.id = sr.vehicle_id
+         WHERE sr.tenant_id = ?
+           AND (sr.description LIKE ? ESCAPE '\\' OR sr.notes LIKE ? ESCAPE '\\')`,
+      )
+      .bind(ctx.tenantId, pattern, pattern)
+      .all<RecordMatch>(),
+    db
+      .prepare(
+        `SELECT fr.id AS id, fr.vehicle_id AS vehicleId, v.name AS vehicleName,
+                fr.fuel_date AS date, COALESCE(fr.station, '') AS title, fr.notes AS notes
+         FROM fuel_records fr JOIN vehicles v ON v.id = fr.vehicle_id
+         WHERE fr.tenant_id = ?
+           AND (fr.station LIKE ? ESCAPE '\\' OR fr.notes LIKE ? ESCAPE '\\')`,
+      )
+      .bind(ctx.tenantId, pattern, pattern)
+      .all<RecordMatch>(),
+    db
+      .prepare(
+        `SELECT d.id AS id, d.vehicle_id AS vehicleId, v.name AS vehicleName,
+                NULL AS date, d.title AS title, d.notes AS notes
+         FROM documents d JOIN vehicles v ON v.id = d.vehicle_id
+         WHERE d.tenant_id = ?
+           AND (d.title LIKE ? ESCAPE '\\' OR d.notes LIKE ? ESCAPE '\\')`,
+      )
+      .bind(ctx.tenantId, pattern, pattern)
+      .all<RecordMatch>(),
+  ]);
+
+  return {
+    vehicles: vehicleRows.results,
+    serviceRecords: serviceRows.results,
+    fuelRecords: fuelRows.results,
+    documents: documentRows.results,
+  };
+}

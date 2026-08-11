@@ -58,6 +58,7 @@ import { AccountDeletion } from "./components/AccountDeletion";
 import { ApiTokens } from "./components/ApiTokens";
 import { PushNotifications } from "./components/PushNotifications";
 import { Garage } from "./components/Garage";
+import { SearchBar } from "./components/SearchBar";
 import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
 import { FuelRecordPanel } from "./components/FuelRecordPanel";
 import { ReminderRulePanel } from "./components/ReminderRulePanel";
@@ -632,6 +633,8 @@ export function App() {
           <PushNotifications onError={() => setError(t("genericError"))} />
           <AccountDeletion onConfirmDelete={handleDeleteAccount} />
         </div>
+
+        <SearchBar onSelectVehicle={(id) => setSelectedVehicleId(id)} />
 
         <Garage
           vehicles={mergedVehicles}
