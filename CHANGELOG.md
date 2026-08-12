@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.0](https://github.com/maksimyugai/odograph/compare/v1.4.0...v1.5.0) (2026-08-12)
+
+
+### Features
+
+* promote Fuel/Service/Reminders/Planner/Documents to top-level nav ([#126](https://github.com/maksimyugai/odograph/issues/126)) ([#131](https://github.com/maksimyugai/odograph/issues/131)) ([12f51c5](https://github.com/maksimyugai/odograph/commit/12f51c55e23b5ce53fa4ddd4e5c38087c5269851))
+* rewrite Dashboard as a per-vehicle deep-dive ([#125](https://github.com/maksimyugai/odograph/issues/125)) ([#129](https://github.com/maksimyugai/odograph/issues/129)) ([803f925](https://github.com/maksimyugai/odograph/commit/803f9257e7d8be939fbdde9e93dbee6853c18af3))
+
 ## [1.4.0](https://github.com/maksimyugai/odograph/compare/v1.3.0...v1.4.0) (2026-08-12)
 
 
