@@ -1,10 +1,9 @@
 name: release-please
 
 # Maintains one always-up-to-date "release PR" (Conventional Commits -> version bump + CHANGELOG.md
-# entries) as commits land on main, and — when that PR is merged — creates the GitHub Release +
-# v<major>.<minor>.<patch> tag that deploy-production.yml is triggered by (docs/deployment.md).
-# release-please-automerge.yml is what merges the PR automatically once daily, since this action
-# alone only ever prepares a release, it never ships one on its own.
+# entries) as commits land on main. Merging that PR is a manual step (docs/deployment.md) - once
+# merged, this workflow's next run creates the GitHub Release + v<major>.<minor>.<patch> tag, then
+# explicitly dispatches deploy-production.yml (see below) to actually ship it.
 on:
   push:
     branches: [main]
@@ -13,16 +12,25 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  actions: write
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v5
+      - id: release
+        uses: googleapis/release-please-action@v5
         with:
-          # Deliberately not the default GITHUB_TOKEN: GitHub Actions doesn't let a push made with
-          # the default token trigger *other* workflows (loop protection), which would silently
-          # stop the release tag this action pushes from ever triggering deploy-production.yml. A
-          # PAT (repo secret RELEASE_PLEASE_TOKEN) sidesteps that restriction — see docs/deployment.md.
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           release-type: simple
+
+      # A plain `git push` made with the default GITHUB_TOKEN can't trigger another workflow's
+      # `on: push` listener (GitHub Actions' loop protection) - which is what would otherwise
+      # silently stop the tag release-please-action just pushed from ever triggering
+      # deploy-production.yml. That restriction is specific to push-triggered events; an explicit
+      # workflow_dispatch API call (this step) is exempt, so no personal access token is needed -
+      # the default token just needs `actions: write`, granted above.
+      - name: Trigger production deploy
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-production.yml --ref "${{ steps.release.outputs.tag_name }}"
