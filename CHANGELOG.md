@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/maksimyugai/odograph/compare/v1.3.0...v1.4.0) (2026-08-12)
+
+
+### Features
+
+* add currency display setting ([#120](https://github.com/maksimyugai/odograph/issues/120)) ([#121](https://github.com/maksimyugai/odograph/issues/121)) ([1956904](https://github.com/maksimyugai/odograph/commit/19569042c88896eebb281bf875bcfa2988fb08e1))
+* add quick-renew shortcut for expired/coming-up documents ([#123](https://github.com/maksimyugai/odograph/issues/123)) ([#124](https://github.com/maksimyugai/odograph/issues/124)) ([39b7120](https://github.com/maksimyugai/odograph/commit/39b7120ae2725276047d11c3bbbcbeeb711c280f))
+
 ## [1.3.0](https://github.com/maksimyugai/odograph/compare/v1.2.0...v1.3.0) (2026-08-12)
 
 
