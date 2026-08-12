@@ -1,15 +1,31 @@
 # Odograph
 
+[![CI](https://github.com/maksimyugai/odograph/actions/workflows/ci.yml/badge.svg)](https://github.com/maksimyugai/odograph/actions/workflows/ci.yml)
+[![E2E](https://github.com/maksimyugai/odograph/actions/workflows/e2e.yml/badge.svg)](https://github.com/maksimyugai/odograph/actions/workflows/e2e.yml)
+[![Deploy Production](https://github.com/maksimyugai/odograph/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/maksimyugai/odograph/actions/workflows/deploy-production.yml)
+[![License: AGPL v3](https://img.shields.io/github/license/maksimyugai/odograph)](LICENSE)
+[![Open issues](https://img.shields.io/github/issues/maksimyugai/odograph)](https://github.com/maksimyugai/odograph/issues)
+[![Last commit](https://img.shields.io/github/last-commit/maksimyugai/odograph)](https://github.com/maksimyugai/odograph/commits/main)
+
 Odograph is an open-source, self-hostable vehicle maintenance tracker — an alternative to
 [LubeLogger](https://github.com/hargata/lubelogger) built on the Cloudflare stack (Workers, D1, R2,
 KV).
 
+> **E2E badge note:** runs on a daily schedule (03:00 UTC) rather than per-PR/per-merge — see
+> [Status](#status) below. It reflects the last scheduled (or manually dispatched) run, not
+> necessarily the current `main` commit.
+
 ## Status
 
-Early-stage, spec-driven development. See
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) for the non-negotiable project
-rules and locked product decisions, and [`docs/`](docs/) for architecture and deployment docs as
-they land.
+Early-stage, spec-driven development. `CI` (fmt/lint/typecheck/test/build) and `CodeQL` gate every
+pull request; `E2E` (Playwright) is intentionally _not_ PR-blocking — it runs on a daily schedule
+instead, so its own flakiness can't hold up unrelated work. This is a provisional call: if
+regressions that E2E would have caught start landing on `main` with any frequency, it goes back to
+gating PRs.
+
+See [`.specify/memory/constitution.md`](.specify/memory/constitution.md) for the non-negotiable
+project rules and locked product decisions, and [`docs/`](docs/) for architecture and deployment
+docs as they land.
 
 ## Stack
 
