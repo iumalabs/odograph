@@ -6,6 +6,7 @@ import { t } from "../i18n/strings";
 
 type FuelRecordPanelProps = {
   records: WithSyncStatus<FuelRecord>[];
+  currencySymbol: string;
   fuelDate: string;
   onFuelDateChange: (value: string) => void;
   odometerReading: string;
@@ -64,6 +65,7 @@ const numberInputStyle = {
 export function FuelRecordPanel(props: FuelRecordPanelProps) {
   const {
     records,
+    currencySymbol,
     fuelDate,
     onFuelDateChange,
     odometerReading,
@@ -283,6 +285,7 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
                           {record.volume}
                         </span>
                         <span style={{ font: "400 12.5px var(--font-mono)", color: "var(--fg)" }}>
+                          {currencySymbol}
                           {record.cost}
                         </span>
                         {record.duplicateOfId != null

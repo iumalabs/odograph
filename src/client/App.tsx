@@ -52,6 +52,7 @@ import {
 } from "./plan-cards";
 import type { PlanCard, PlanCardStage } from "./plan-cards";
 import { t } from "./i18n/strings";
+import { currencySymbol, useCurrency } from "./currency";
 import type { AppView } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
 import { AuthScreen } from "./components/AuthScreen";
@@ -87,6 +88,8 @@ type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
 
 export function App() {
+  const [currency, setCurrency] = useCurrency();
+  const symbol = currencySymbol(currency);
   const [view, setView] = useState<AppView>("garage");
   const [email, setEmail] = useState("");
   const [linkEmail, setLinkEmail] = useState("");
@@ -563,6 +566,7 @@ export function App() {
             setSelectedVehicleId(id);
             setView("garage");
           }}
+          currencySymbol={symbol}
         />
       </AppShell>
     );
@@ -592,6 +596,8 @@ export function App() {
         <SettingsView
           onError={() => setError(t("genericError"))}
           onConfirmDelete={handleDeleteAccount}
+          currency={currency}
+          onCurrencyChange={setCurrency}
         />
       </AppShell>
     );
@@ -737,6 +743,7 @@ export function App() {
             </h2>
             <ServiceRecordPanel
               records={mergedServiceRecords}
+              currencySymbol={symbol}
               serviceDate={serviceDate}
               onServiceDateChange={setServiceDate}
               serviceDescription={serviceDescription}
@@ -775,6 +782,7 @@ export function App() {
             </h2>
             <FuelRecordPanel
               records={mergedFuelRecords}
+              currencySymbol={symbol}
               fuelDate={fuelDate}
               onFuelDateChange={setFuelDate}
               odometerReading={fuelOdometerReading}
@@ -901,6 +909,7 @@ export function App() {
             </h2>
             <PlanBoard
               cards={mergedPlanCards}
+              currencySymbol={symbol}
               title={planCardTitle}
               onTitleChange={setPlanCardTitle}
               targetDate={planCardTargetDate}
@@ -940,7 +949,7 @@ export function App() {
             >
               {t("expenseBreakdownHeading")}
             </h2>
-            <ExpenseBreakdownPanel vehicleId={selectedVehicleId} />
+            <ExpenseBreakdownPanel vehicleId={selectedVehicleId} currencySymbol={symbol} />
 
             <a
               href={reportDownloadUrl(selectedVehicleId)}

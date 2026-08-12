@@ -5,6 +5,7 @@ import { t } from "../i18n/strings";
 
 type PlanBoardProps = {
   cards: WithSyncStatus<PlanCard>[];
+  currencySymbol: string;
   title: string;
   onTitleChange: (value: string) => void;
   targetDate: string;
@@ -57,6 +58,7 @@ const cardStyle = {
 export function PlanBoard(props: PlanBoardProps) {
   const {
     cards,
+    currencySymbol,
     title,
     onTitleChange,
     targetDate,
@@ -140,7 +142,9 @@ export function PlanBoard(props: PlanBoardProps) {
                           <div style={{ font: "400 10.5px var(--font-mono)", color: "var(--dim)" }}>
                             {card.targetDate}
                             {card.targetDate && card.estimatedCost != null ? " · " : ""}
-                            {card.estimatedCost != null ? card.estimatedCost : ""}
+                            {card.estimatedCost != null
+                              ? `${currencySymbol}${card.estimatedCost}`
+                              : ""}
                           </div>
                         )}
                         <div

@@ -6,6 +6,7 @@ import { t } from "../i18n/strings";
 
 type ServiceRecordPanelProps = {
   records: WithSyncStatus<ServiceRecord>[];
+  currencySymbol: string;
   serviceDate: string;
   onServiceDateChange: (value: string) => void;
   serviceDescription: string;
@@ -70,6 +71,7 @@ function editActionButtonStyle(color: string) {
 export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
   const {
     records,
+    currencySymbol,
     serviceDate,
     onServiceDateChange,
     serviceDescription,
@@ -311,6 +313,7 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
                         )}
                         {record.cost != null && (
                           <span style={{ font: "400 12.5px var(--font-mono)", color: "var(--fg)" }}>
+                            {currencySymbol}
                             {record.cost}
                           </span>
                         )}
