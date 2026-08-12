@@ -104,6 +104,16 @@ export function DocumentPanel(props: DocumentPanelProps) {
     setDraftNotes(document.notes ?? "");
   }
 
+  /** Same as startEdit, except the stale expiry date is never pre-filled — the owner must always
+   * type the real new date (constitution Principle IV: no interpolated data, specs/036). */
+  function startRenew(document: VehicleDocument) {
+    setEditingId(document.id);
+    setDraftTitle(document.title);
+    setDraftCategory(document.category);
+    setDraftExpiryDate("");
+    setDraftNotes(document.notes ?? "");
+  }
+
   function saveEdit(documentId: string) {
     onUpdateDocument(documentId, {
       title: draftTitle,
@@ -314,6 +324,23 @@ export function DocumentPanel(props: DocumentPanelProps) {
                     <div
                       style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}
                     >
+                      {(document.isExpired || document.reminderStatus === "coming_up") && (
+                        <button
+                          type="button"
+                          onClick={() => startRenew(document)}
+                          style={{
+                            background: "transparent",
+                            border: "1px solid var(--line)",
+                            borderRadius: "var(--radius-sm)",
+                            padding: "4px 8px",
+                            color: "var(--dim)",
+                            font: "500 10.5px var(--font-mono)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {t("renewRecord")}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => startEdit(document)}

@@ -70,6 +70,7 @@ const en = {
   dismissDuplicate: "Dismiss",
   editRecord: "Edit",
   deleteRecord: "Delete",
+  renewRecord: "Renew",
   saveEdit: "Save",
   cancelEdit: "Cancel",
   reminderRulesHeading: "Reminders",
