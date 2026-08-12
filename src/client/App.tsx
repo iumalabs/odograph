@@ -561,11 +561,7 @@ export function App() {
         reviewBadgeCount={rejectedActionCount}
       >
         <DashboardView
-          vehicles={mergedVehicles}
-          onSelectVehicle={(id) => {
-            setSelectedVehicleId(id);
-            setView("garage");
-          }}
+          vehicle={mergedVehicles.find((v) => v.id === selectedVehicleId) ?? null}
           currencySymbol={symbol}
         />
       </AppShell>
