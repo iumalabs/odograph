@@ -29,6 +29,11 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
 
+  // Absorbs the dev server's cold-first-request tax before any real test's
+  // fixed assertion window has to pay for it — see the doc comment in
+  // warm-up-dev-server.ts (issue #89).
+  globalSetup: "./support/warm-up-dev-server.ts",
+
   // Coverage aggregation must run exactly once, after every worker
   // (including every retry's fresh worker process) has finished — see
   // support/coverage.ts's module doc comment for why per-worker teardown
