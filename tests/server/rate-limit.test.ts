@@ -73,4 +73,11 @@ describe("rate limiting (User Story 3)", () => {
     const otherRes = await probeWrite(otherCookie);
     expect(otherRes.status).toBe(201);
   });
+
+  it("POST /_dev/session itself is not rate-limited (issue #89/#97 CI investigation)", async () => {
+    for (let i = 0; i < MAX_REQUESTS_PER_WINDOW + 5; i++) {
+      const res = await SELF.fetch("https://example.com/api/v1/_dev/session", { method: "POST" });
+      expect(res.status).toBe(200);
+    }
+  });
 });

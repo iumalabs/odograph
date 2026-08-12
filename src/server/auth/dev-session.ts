@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { createTenant, createUser } from "../db/repository";
 import { invalidateSession, issueSession, serializeExpiredSessionCookie } from "./session";
-import { rateLimitByIp, rateLimitBySession } from "./rate-limit";
+import { rateLimitBySession } from "./rate-limit";
 import { tenantContext } from "../middleware/tenant-context";
 import type { AppEnv } from "../types";
 
@@ -32,7 +32,14 @@ export const notFoundOutsideDev = createMiddleware<AppEnv>(async (c, next) => {
  */
 export const devSession = new Hono<AppEnv>();
 
-devSession.post("/", notFoundOutsideDev, rateLimitByIp, async (c) => {
+// Not rate-limited, unlike the real auth endpoints this stands in for (issue #89/#97 CI
+// investigation): notFoundOutsideDev already fully removes this route's abuse surface in
+// production (404, no counter write, before any other middleware runs) — rate-limiting it too was
+// redundant defense-in-depth, not a real security boundary, and its shared IP-keyed budget with
+// the real endpoints (rateLimitByIp) started producing false 429s once the e2e suite's own
+// session-bootstrap calls got fast enough to bunch into one window. Real endpoints
+// (passkey/magic-link/OIDC) keep their rate limiting completely unchanged.
+devSession.post("/", notFoundOutsideDev, async (c) => {
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const email = typeof body.email === "string"
     ? body.email
