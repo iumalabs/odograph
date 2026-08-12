@@ -6,6 +6,7 @@ import { t } from "../i18n/strings";
 
 type ExpenseBreakdownPanelProps = {
   vehicleId: string;
+  currencySymbol: string;
 };
 
 const mono9 = { font: "400 9.5px var(--font-mono)", color: "var(--dim)", letterSpacing: ".08em" };
@@ -22,15 +23,15 @@ function toggleButtonStyle(active: boolean) {
   };
 }
 
-function formatCost(value: number): string {
-  return value.toFixed(2);
+function formatCost(value: number, symbol: string): string {
+  return `${symbol}${value.toFixed(2)}`;
 }
 
 // Read-only — no writes, so this panel (unlike ServiceRecordPanel/PlanBoard) has no offline-queue
 // interaction at all; a plain fetch on vehicle selection and on groupBy toggle is sufficient
 // (specs/026 plan.md).
 export function ExpenseBreakdownPanel(props: ExpenseBreakdownPanelProps) {
-  const { vehicleId } = props;
+  const { vehicleId, currencySymbol } = props;
   const [groupBy, setGroupBy] = useState<ExpenseGroupBy>("month");
   const [periods, setPeriods] = useState<ExpensePeriod[]>([]);
 
@@ -155,13 +156,13 @@ export function ExpenseBreakdownPanel(props: ExpenseBreakdownPanelProps) {
                   )}
                 </div>
                 <span style={{ font: "400 12px var(--font-mono)", color: "var(--dim)" }}>
-                  {formatCost(period.maintenanceCost)}
+                  {formatCost(period.maintenanceCost, currencySymbol)}
                 </span>
                 <span style={{ font: "400 12px var(--font-mono)", color: "var(--dim)" }}>
-                  {formatCost(period.fuelCost)}
+                  {formatCost(period.fuelCost, currencySymbol)}
                 </span>
                 <span style={{ font: "600 12px var(--font-mono)" }}>
-                  {formatCost(period.totalCost)}
+                  {formatCost(period.totalCost, currencySymbol)}
                 </span>
               </div>
             ))}

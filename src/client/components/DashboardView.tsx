@@ -10,6 +10,7 @@ import { t } from "../i18n/strings";
 type DashboardViewProps = {
   vehicles: Vehicle[];
   onSelectVehicle: (id: string) => void;
+  currencySymbol: string;
 };
 
 type VehicleSummary = {
@@ -30,12 +31,18 @@ function formatFigure(value: number | null): string {
   return value !== null ? value.toFixed(2) : t("fuelEconomyNotEnoughData");
 }
 
+/** Only the two cost figures get a currency symbol — averageFuelEconomy is a consumption figure,
+ * not money (specs/035 research.md). */
+function formatCostFigure(value: number | null, symbol: string): string {
+  return value !== null ? `${symbol}${value.toFixed(2)}` : t("fuelEconomyNotEnoughData");
+}
+
 // Fetches every vehicle's aggregates (spec 013) and reminder rules with status (spec 011) in
 // parallel, per vehicle — no new server route (research.md: no batch endpoint at this scale).
 // needsAttention is derived client-side from the already-computed `status` field, never a new
 // aggregate computation of its own (research.md).
 export function DashboardView(props: DashboardViewProps) {
-  const { vehicles, onSelectVehicle } = props;
+  const { vehicles, onSelectVehicle, currencySymbol } = props;
   const [summaries, setSummaries] = useState<Record<string, VehicleSummary>>({});
 
   useEffect(() => {
@@ -144,10 +151,12 @@ export function DashboardView(props: DashboardViewProps) {
 
             <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
               <span style={chipStyle}>
-                {t("costPerDistanceLabel")}: {formatFigure(aggregates?.costPerDistance ?? null)}
+                {t("costPerDistanceLabel")}:{" "}
+                {formatCostFigure(aggregates?.costPerDistance ?? null, currencySymbol)}
               </span>
               <span style={chipStyle}>
-                {t("costPerTimeLabel")}: {formatFigure(aggregates?.costPerTime ?? null)}
+                {t("costPerTimeLabel")}:{" "}
+                {formatCostFigure(aggregates?.costPerTime ?? null, currencySymbol)}
               </span>
               <span style={chipStyle}>
                 {t("averageFuelEconomyLabel")}:{" "}
