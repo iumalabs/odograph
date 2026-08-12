@@ -1,0 +1,28 @@
+name: release-please
+
+# Maintains one always-up-to-date "release PR" (Conventional Commits -> version bump + CHANGELOG.md
+# entries) as commits land on main, and — when that PR is merged — creates the GitHub Release +
+# v<major>.<minor>.<patch> tag that deploy-production.yml is triggered by (docs/deployment.md).
+# release-please-automerge.yml is what merges the PR automatically once daily, since this action
+# alone only ever prepares a release, it never ships one on its own.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Deliberately not the default GITHUB_TOKEN: GitHub Actions doesn't let a push made with
+          # the default token trigger *other* workflows (loop protection), which would silently
+          # stop the release tag this action pushes from ever triggering deploy-production.yml. A
+          # PAT (repo secret RELEASE_PLEASE_TOKEN) sidesteps that restriction — see docs/deployment.md.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          release-type: simple

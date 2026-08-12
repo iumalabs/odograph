@@ -46,26 +46,35 @@ to `odograph.dev` until a release tag actually gets pushed. This decouples "code
 "code is live," matching the same reasoning that moved e2e off the PR-blocking path (issue #89): a
 bounded, predictable release cadence instead of every single merge being its own production event.
 
-`.github/workflows/release.yml` cuts that tag automatically, once daily (`0 2 * * *` UTC) plus
-on-demand via `workflow_dispatch`:
+Tagging itself is handled by [release-please](https://github.com/googleapis/release-please) (the
+`release-type: simple` mode — there's no `package.json` to bump, just the version tracked in
+`.release-please-manifest.json`), across two workflows:
 
-1. Finds the latest `v*.*.*` tag and diffs `main` against it. No new commits since → no-op that day.
-2. Scans the commit messages since that tag for a version bump signal,
-   [Conventional Commits](https://www.conventionalcommits.org/)-style: a `!` before the colon
-   (`feat!:`) or a `BREAKING CHANGE` footer anywhere → **major**; a `feat:`/`feat(scope):` subject
-   with no breaking marker → **minor**; anything else (`fix:`, `docs:`, `ci:`, unlabeled, ...) →
-   **patch**. This project's actual commit history already follows `feat:`/`fix:`/etc. prefixes
-   consistently (not formally mandated, but the de facto style — see recent `git log`), so this
-   reads real signal, not noise.
-3. Creates a GitHub Release at the bumped version
-   (`gh release create vX.Y.Z --generate-notes
-   --target main`), which both creates and pushes the
-   tag — triggering `deploy-production.yml`.
+1. `.github/workflows/release-please.yml` runs on every push to `main`. It maintains a single,
+   continuously-updated "release PR" (labeled `autorelease: pending`) whose diff is a version bump
+   (`.release-please-manifest.json`) plus generated `CHANGELOG.md` entries — the version bump
+   follows [Conventional Commits](https://www.conventionalcommits.org/): a `!` before the colon
+   (`feat!:`) or a `BREAKING CHANGE` footer → **major**; a `feat:`/`feat(scope):` subject with no
+   breaking marker → **minor**; anything else (`fix:`, `docs:`, `ci:`, unlabeled, ...) → **patch**.
+   This workflow only ever _prepares_ a release; merging that PR is what actually ships one —
+   release-please then creates the GitHub Release and pushes the `vX.Y.Z` tag, triggering
+   `deploy-production.yml`.
+2. `.github/workflows/release-please-automerge.yml` runs once daily (`0 2 * * *` UTC) plus on-demand
+   via `workflow_dispatch`, and squash-merges whatever PR is currently labeled
+   `autorelease: pending` (a no-op if none is open — i.e. no commits landed since the last release).
+   This is the piece that makes releases actually daily/automatic instead of requiring someone to
+   remember to click merge.
 
-`v1.0.0` was cut manually as the first release (nothing to diff against yet); every release since
-follows the automated path above. To force an off-cycle release without waiting for the next
-`02:00 UTC` run, use `workflow_dispatch` on `release.yml` from the Actions tab — there is no
-supported way to push a release tag by hand outside this workflow (same "no local deploy path"
+Both workflows push using a `RELEASE_PLEASE_TOKEN` **personal access token** (repo secret), not the
+default `GITHUB_TOKEN` — GitHub Actions doesn't let a push made with the default token trigger other
+workflows (loop protection), which would silently break the chain (`release-please-automerge.yml`'s
+merge → release-please cutting the tag → `deploy-production.yml` firing) at its first link.
+
+`v1.0.0` was cut manually as the first release (`.release-please-manifest.json` seeds tracking from
+it); every release since follows the automated path above. To force an off-cycle release without
+waiting for the next `02:00 UTC` auto-merge, merge the open `autorelease: pending` PR by hand, or
+run `workflow_dispatch` on `release-please-automerge.yml` from the Actions tab — there is no
+supported way to push a release tag directly outside this pipeline (same "no local deploy path"
 reasoning as everything else in this document).
 
 ## Required GitHub configuration
@@ -74,20 +83,22 @@ Two
 [GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)
 back the workflows: `preview` and `production`, mainly to scope each environment's own
 `CLOUDFLARE_API_TOKEN` secret (see below) — neither currently has a manual-approval protection rule.
-`production` deploys automatically whenever `release.yml` pushes a release tag (see Releases above);
-the `required_reviewers` rule was removed 2026-08-12, once the team's actual practice — self-merging
-PRs once CI is green, plus the bounded daily release cadence replacing per-merge deploys — made a
-second manual click before deploy redundant rather than protective (a `branch_policy` rule
-restricting deployments to `main` is still in place). `preview` has no protection rule either — see
-the fork-PR guard below for why that's still safe.
+`production` deploys automatically whenever release-please pushes a release tag (see Releases
+above); the `required_reviewers` rule was removed 2026-08-12, once the team's actual practice —
+self-merging PRs once CI is green, plus the bounded daily release cadence replacing per-merge
+deploys — made a second manual click before deploy redundant rather than protective (a
+`deployment_branch_policy` rule restricting deployments to tags matching `v*` is still in place, so
+only a real release tag can ever deploy — not just any branch). `preview` has no protection rule
+either — see the fork-PR guard below for why that's still safe.
 
 Repository/environment configuration:
 
-| Name                    | Kind                                             | Used by                                                      | Notes                                                                                |
-| ----------------------- | ------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `CLOUDFLARE_API_TOKEN`  | **environment secret**, `preview` environment    | `deploy-preview.yml` (declares `environment: preview`)       | scoped token, see permissions below — account-level only, no zone access             |
-| `CLOUDFLARE_API_TOKEN`  | **environment secret**, `production` environment | `deploy-production.yml` (declares `environment: production`) | scoped token, see permissions below — account-level + `odograph.dev` zone            |
-| `CLOUDFLARE_ACCOUNT_ID` | repository variable (`gh variable set`)          | both workflows                                               | `8b655d0dde6d223b9ce11116a014973a` — not sensitive, so it's a variable, not a secret |
+| Name                    | Kind                                             | Used by                                                      | Notes                                                                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------ | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | **environment secret**, `preview` environment    | `deploy-preview.yml` (declares `environment: preview`)       | scoped token, see permissions below — account-level only, no zone access                                                                                                                                   |
+| `CLOUDFLARE_API_TOKEN`  | **environment secret**, `production` environment | `deploy-production.yml` (declares `environment: production`) | scoped token, see permissions below — account-level + `odograph.dev` zone                                                                                                                                  |
+| `CLOUDFLARE_ACCOUNT_ID` | repository variable (`gh variable set`)          | both workflows                                               | `8b655d0dde6d223b9ce11116a014973a` — not sensitive, so it's a variable, not a secret                                                                                                                       |
+| `RELEASE_PLEASE_TOKEN`  | **repository secret**                            | `release-please.yml`, `release-please-automerge.yml`         | a GitHub personal access token (not the default `GITHUB_TOKEN`) — needed so the tag/merge each workflow pushes can trigger the next workflow in the chain (see Releases above); `repo` scope is sufficient |
 
 **Same secret name, two different values, scoped per
 [GitHub Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment).**
@@ -151,11 +162,12 @@ external-contributor trust process.
   migrations to `odograph-preview` (idempotent), then uploads the PR head commit as a new Worker
   Version of `odograph-preview` (never promoted) and comments the stable per-PR preview URL on the
   PR. Same-repo PRs only. No separate cleanup workflow — there's no per-PR resource to tear down.
-- `.github/workflows/release.yml` — daily (`0 2 * * *` UTC) plus manual `workflow_dispatch`; cuts an
-  automated semver release tag from `main` if there are new commits since the last one (see Releases
-  above). Pushing that tag is what triggers `deploy-production.yml` — this workflow itself never
-  touches Cloudflare.
-- `.github/workflows/deploy-production.yml` — triggered by a `v*.*.*` tag push (from `release.yml`,
+- `.github/workflows/release-please.yml` — runs on every push to `main`; maintains the
+  always-up-to-date release PR (see Releases above). Never touches Cloudflare directly.
+- `.github/workflows/release-please-automerge.yml` — daily (`0 2 * * *` UTC) plus manual
+  `workflow_dispatch`; squash-merges the open `autorelease: pending` PR, if any, which is what
+  actually causes release-please to cut the tag on its next run.
+- `.github/workflows/deploy-production.yml` — triggered by a `v*.*.*` tag push (from release-please,
   or `v1.0.0`'s one-time manual creation), re-runs `ci.yml`'s checks, applies any pending D1
   migrations to `odograph-production` (idempotent), then deploys the tagged commit to the
   `production` environment. Runs unattended — no manual approval gate (see above).
