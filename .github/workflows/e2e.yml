@@ -1,13 +1,22 @@
 name: E2E
 
-# Runs post-merge only, not on pull_request — the suite takes several
-# minutes even healthy (issue #89's investigation got it from 9-22min/
-# frequently-failing down to ~2.5min/green, but that's still long enough
-# to be worth keeping off the PR-blocking path). A regression that lands
-# on main gets caught here within minutes of the merge, not before it.
+# Scheduled, not on pull_request or push - the suite takes several minutes
+# even healthy (issue #89's investigation got it from 9-22min/frequently-
+# failing down to ~2.5min/green, but that's still long enough to be worth
+# keeping off the PR-blocking path). Deliberately not push-to-main either:
+# with this suite's nonzero residual flake rate (see #89's monitoring
+# note), triggering on every merge would make main's own E2E status red
+# from noise as often as from real regressions, and wouldn't have solved
+# the actual problem it was meant to (a single flaky PR still can't get a
+# clean signal, it'd just merge unblocked and then show up as a red run on
+# main instead). A fixed schedule decouples the signal from any one merge:
+# still catches regressions within a bounded window, without turning every
+# push into a coin flip on whether E2E reports red for unrelated reasons.
+# workflow_dispatch stays available for an on-demand run (e.g. right after
+# a merge someone wants extra confidence on).
 on:
-  push:
-    branches: [main]
+  schedule:
+    - cron: "0 3 * * *" # 03:00 UTC daily
   workflow_dispatch:
 
 permissions:
