@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/maksimyugai/odograph/compare/v1.2.0...v1.3.0) (2026-08-12)
+
+
+### Features
+
+* show current odometer and reminder attention on Garage cards ([#107](https://github.com/maksimyugai/odograph/issues/107)) ([#117](https://github.com/maksimyugai/odograph/issues/117)) ([b3b3d97](https://github.com/maksimyugai/odograph/commit/b3b3d97ecfe6d90c0427740f1379e4cecb0e9a66))
+
 ## [1.2.0](https://github.com/maksimyugai/odograph/compare/v1.1.0...v1.2.0) (2026-08-12)
 
 
