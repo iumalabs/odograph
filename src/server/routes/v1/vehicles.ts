@@ -193,6 +193,7 @@ type ServiceRecordBody = {
   odometerReading?: unknown;
   cost?: unknown;
   notes?: unknown;
+  performedBy?: unknown;
 };
 
 function validateServiceRecordCreate(body: ServiceRecordBody): ServiceRecordInput | null {
@@ -201,6 +202,9 @@ function validateServiceRecordCreate(body: ServiceRecordBody): ServiceRecordInpu
   if (body.odometerReading !== undefined && typeof body.odometerReading !== "number") return null;
   if (body.cost !== undefined && typeof body.cost !== "number") return null;
   if (body.notes !== undefined && typeof body.notes !== "string") return null;
+  if (
+    body.performedBy !== undefined && body.performedBy !== "self" && body.performedBy !== "shop"
+  ) return null;
 
   return {
     serviceDate: body.serviceDate,
@@ -208,6 +212,9 @@ function validateServiceRecordCreate(body: ServiceRecordBody): ServiceRecordInpu
     odometerReading: typeof body.odometerReading === "number" ? body.odometerReading : null,
     cost: typeof body.cost === "number" ? body.cost : null,
     notes: typeof body.notes === "string" ? body.notes : null,
+    performedBy: body.performedBy === "self" || body.performedBy === "shop"
+      ? body.performedBy
+      : null,
   };
 }
 

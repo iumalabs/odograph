@@ -10,6 +10,7 @@ export type ServiceRecord = {
   odometerReading: number | null;
   cost: number | null;
   notes: string | null;
+  performedBy: "self" | "shop" | null;
   duplicateOfId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -77,6 +78,7 @@ export function hydrateOptimisticServiceRecord(action: PendingAction): ServiceRe
     odometerReading?: number;
     cost?: number;
     notes?: string;
+    performedBy?: "self" | "shop";
   };
   return {
     id: body.id,
@@ -87,6 +89,7 @@ export function hydrateOptimisticServiceRecord(action: PendingAction): ServiceRe
     odometerReading: body.odometerReading ?? null,
     cost: body.cost ?? null,
     notes: body.notes ?? null,
+    performedBy: body.performedBy ?? null,
     duplicateOfId: null,
     createdAt: action.createdAt,
     updatedAt: action.createdAt,
@@ -102,6 +105,7 @@ export async function createServiceRecord(
     odometerReading?: number;
     cost?: number;
     notes?: string;
+    performedBy?: "self" | "shop";
   },
 ): Promise<ServiceRecord> {
   const action = await enqueue({

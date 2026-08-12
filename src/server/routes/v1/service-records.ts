@@ -57,6 +57,7 @@ type PatchBody = {
   odometerReading?: unknown;
   cost?: unknown;
   notes?: unknown;
+  performedBy?: unknown;
 };
 
 function validatePatch(body: PatchBody): Partial<ServiceRecordInput> | null {
@@ -81,6 +82,14 @@ function validatePatch(body: PatchBody): Partial<ServiceRecordInput> | null {
   if ("notes" in body) {
     if (body.notes !== null && typeof body.notes !== "string") return null;
     patch.notes = typeof body.notes === "string" ? body.notes : null;
+  }
+  if ("performedBy" in body) {
+    if (
+      body.performedBy !== null && body.performedBy !== "self" && body.performedBy !== "shop"
+    ) return null;
+    patch.performedBy = body.performedBy === "self" || body.performedBy === "shop"
+      ? body.performedBy
+      : null;
   }
 
   return patch;

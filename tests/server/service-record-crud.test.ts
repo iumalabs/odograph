@@ -39,6 +39,7 @@ type ServiceRecordBody = {
   odometerReading?: unknown;
   cost?: unknown;
   notes?: unknown;
+  performedBy?: unknown;
 };
 
 function createServiceRecord(
@@ -167,6 +168,47 @@ describe("service record creation (User Story 1)", () => {
       cost: 250.5,
       notes: "Front pads only",
     });
+  });
+
+  it("stores an explicit performedBy value, self or shop, and defaults to null when omitted", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    const self = await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-02-05",
+      description: "DIY oil change",
+      performedBy: "self",
+    });
+    expect(await self.json()).toMatchObject({ performedBy: "self" });
+
+    const shop = await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-02-06",
+      description: "Dealer service",
+      performedBy: "shop",
+    });
+    expect(await shop.json()).toMatchObject({ performedBy: "shop" });
+
+    const omitted = await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-02-07",
+      description: "No performer noted",
+    });
+    expect(await omitted.json()).toMatchObject({ performedBy: null });
+  });
+
+  it("rejects an invalid performedBy value and creates nothing", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    const res = await createServiceRecord(cookie, vehicleId, {
+      serviceDate: "2026-02-08",
+      description: "Bad performer",
+      performedBy: "dealership",
+    });
+    expect(res.status).toBe(400);
+
+    const listRes = await listServiceRecords(cookie, vehicleId);
+    const { serviceRecords } = (await listRes.json()) as { serviceRecords: unknown[] };
+    expect(serviceRecords.length).toBe(0);
   });
 
   it("rejects a missing serviceDate or description and creates nothing", async () => {
@@ -302,6 +344,36 @@ describe("service record update/delete (User Story 3)", () => {
 
     const after = await getServiceRecord(cookie, id);
     expect(after.status).toBe(200);
+  });
+
+  it("sets, changes, and clears performedBy via PATCH; omitting it leaves the value untouched", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+    const id = await createServiceRecordId(cookie, vehicleId);
+
+    const setToSelf = await patchServiceRecord(cookie, id, { performedBy: "self" });
+    expect(await setToSelf.json()).toMatchObject({ performedBy: "self" });
+
+    const untouched = await patchServiceRecord(cookie, id, { description: "Renamed" });
+    expect(await untouched.json()).toMatchObject({ performedBy: "self", description: "Renamed" });
+
+    const changedToShop = await patchServiceRecord(cookie, id, { performedBy: "shop" });
+    expect(await changedToShop.json()).toMatchObject({ performedBy: "shop" });
+
+    const cleared = await patchServiceRecord(cookie, id, { performedBy: null });
+    expect(await cleared.json()).toMatchObject({ performedBy: null });
+  });
+
+  it("rejects an invalid PATCH performedBy value and applies no change", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+    const id = await createServiceRecordId(cookie, vehicleId, { performedBy: "self" });
+
+    const bad = await patchServiceRecord(cookie, id, { performedBy: "dealership" });
+    expect(bad.status).toBe(400);
+
+    const after = await getServiceRecord(cookie, id);
+    expect(await after.json()).toMatchObject({ performedBy: "self" });
   });
 
   it("a deleted record is unreachable from list/fetch immediately", async () => {

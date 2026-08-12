@@ -854,6 +854,7 @@ export type ServiceRecord = {
   odometerReading: number | null;
   cost: number | null;
   notes: string | null;
+  performedBy: "self" | "shop" | null;
   duplicateOfId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -865,10 +866,11 @@ export type ServiceRecordInput = {
   odometerReading: number | null;
   cost: number | null;
   notes: string | null;
+  performedBy: "self" | "shop" | null;
 };
 
 const SERVICE_RECORD_COLUMNS =
-  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, service_date AS serviceDate, description, odometer_reading AS odometerReading, cost, notes, duplicate_of_id AS duplicateOfId, created_at AS createdAt, updated_at AS updatedAt";
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, service_date AS serviceDate, description, odometer_reading AS odometerReading, cost, notes, performed_by AS performedBy, duplicate_of_id AS duplicateOfId, created_at AS createdAt, updated_at AS updatedAt";
 
 /**
  * Semantic duplicate detection (constitution D-005): only compares against unflagged/original
@@ -903,8 +905,8 @@ async function insertServiceRecordWithDuplicateDetection(
 ): Promise<string | null> {
   const insertStmt = db.prepare(
     `INSERT INTO service_records
-     (id, tenant_id, vehicle_id, service_date, description, odometer_reading, cost, notes, duplicate_of_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+     (id, tenant_id, vehicle_id, service_date, description, odometer_reading, cost, notes, performed_by, duplicate_of_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
   ).bind(
     id,
     ctx.tenantId,
@@ -914,6 +916,7 @@ async function insertServiceRecordWithDuplicateDetection(
     input.odometerReading,
     input.cost,
     input.notes,
+    input.performedBy,
     now,
     now,
   );
@@ -974,6 +977,7 @@ export async function createServiceRecord(
     odometerReading: input.odometerReading,
     cost: input.cost,
     notes: input.notes,
+    performedBy: input.performedBy,
     duplicateOfId,
     createdAt: now,
     updatedAt: now,
@@ -1033,13 +1037,14 @@ export async function updateServiceRecord(
       : existing.odometerReading,
     cost: "cost" in patch ? patch.cost ?? null : existing.cost,
     notes: "notes" in patch ? patch.notes ?? null : existing.notes,
+    performedBy: "performedBy" in patch ? patch.performedBy ?? null : existing.performedBy,
   };
   const updatedAt = new Date().toISOString();
 
   await db
     .prepare(
       `UPDATE service_records
-       SET service_date = ?, description = ?, odometer_reading = ?, cost = ?, notes = ?, updated_at = ?
+       SET service_date = ?, description = ?, odometer_reading = ?, cost = ?, notes = ?, performed_by = ?, updated_at = ?
        WHERE id = ? AND tenant_id = ?`,
     )
     .bind(
@@ -1048,6 +1053,7 @@ export async function updateServiceRecord(
       merged.odometerReading,
       merged.cost,
       merged.notes,
+      merged.performedBy,
       updatedAt,
       id,
       ctx.tenantId,
@@ -2272,6 +2278,7 @@ export async function updatePlanCard(
       odometerReading,
       cost: merged.estimatedCost,
       notes: "Created from the maintenance planner",
+      performedBy: null,
     });
   }
 

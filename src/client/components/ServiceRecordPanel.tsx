@@ -10,6 +10,8 @@ type ServiceRecordPanelProps = {
   onServiceDateChange: (value: string) => void;
   serviceDescription: string;
   onServiceDescriptionChange: (value: string) => void;
+  performedBy: "self" | "shop" | null;
+  onPerformedByChange: (value: "self" | "shop" | null) => void;
   onAddRecord: () => void;
   onUploadAttachment: (recordId: string, file: File) => Promise<void>;
   attachmentsByRecordId: Record<string, Attachment[]>;
@@ -22,10 +24,22 @@ type ServiceRecordPanelProps = {
       odometerReading: number | null;
       cost: number | null;
       notes: string | null;
+      performedBy: "self" | "shop" | null;
     },
   ) => void;
   onDeleteRecord: (recordId: string) => void;
 };
+
+function performedByLabel(performedBy: "self" | "shop" | null): string | null {
+  switch (performedBy) {
+    case "self":
+      return t("performedBySelf");
+    case "shop":
+      return t("performedByShop");
+    case null:
+      return null;
+  }
+}
 
 const mono9 = { font: "400 9.5px var(--font-mono)", color: "var(--dim)", letterSpacing: ".08em" };
 
@@ -52,8 +66,7 @@ function editActionButtonStyle(color: string) {
 }
 
 // Extracted from App.tsx's service-record section (spec 008 T017-T020), styled per the mockups'
-// ТО (service records) screen — adapted to this project's actual ServiceRecord/Attachment fields
-// (no self/shop toggle, since that field doesn't exist in this schema).
+// ТО (service records) screen — adapted to this project's actual ServiceRecord/Attachment fields.
 export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
   const {
     records,
@@ -61,6 +74,8 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
     onServiceDateChange,
     serviceDescription,
     onServiceDescriptionChange,
+    performedBy,
+    onPerformedByChange,
     onAddRecord,
     onUploadAttachment,
     attachmentsByRecordId,
@@ -78,6 +93,7 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
   const [draftOdometerReading, setDraftOdometerReading] = useState("");
   const [draftCost, setDraftCost] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
+  const [draftPerformedBy, setDraftPerformedBy] = useState<"self" | "shop" | null>(null);
 
   function startEdit(record: ServiceRecord) {
     setEditingId(record.id);
@@ -86,6 +102,7 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
     setDraftOdometerReading(record.odometerReading != null ? String(record.odometerReading) : "");
     setDraftCost(record.cost != null ? String(record.cost) : "");
     setDraftNotes(record.notes ?? "");
+    setDraftPerformedBy(record.performedBy);
   }
 
   function saveEdit(recordId: string) {
@@ -95,8 +112,31 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
       odometerReading: draftOdometerReading === "" ? null : Number(draftOdometerReading),
       cost: draftCost === "" ? null : Number(draftCost),
       notes: draftNotes === "" ? null : draftNotes,
+      performedBy: draftPerformedBy,
     });
     setEditingId(null);
+  }
+
+  function performedBySelect(
+    value: "self" | "shop" | null,
+    onChange: (value: "self" | "shop" | null) => void,
+  ) {
+    return (
+      <select
+        value={value ?? ""}
+        onChange={(event) =>
+          onChange(
+            event.target.value === "self" || event.target.value === "shop"
+              ? event.target.value
+              : null,
+          )}
+        style={editInputStyle}
+      >
+        <option value="">—</option>
+        <option value="self">{t("performedBySelf")}</option>
+        <option value="shop">{t("performedByShop")}</option>
+      </select>
+    );
   }
 
   return (
@@ -215,6 +255,10 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
                             style={editInputStyle}
                           />
                         </label>
+                        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <span style={mono9}>{t("performedByLabel")}</span>
+                          {performedBySelect(draftPerformedBy, setDraftPerformedBy)}
+                        </label>
                         <div style={{ display: "flex", gap: 7, alignItems: "flex-end" }}>
                           <button
                             type="button"
@@ -268,6 +312,20 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
                         {record.cost != null && (
                           <span style={{ font: "400 12.5px var(--font-mono)", color: "var(--fg)" }}>
                             {record.cost}
+                          </span>
+                        )}
+                        {record.performedBy != null && (
+                          <span
+                            style={{
+                              font: "500 10.5px var(--font-mono)",
+                              color: "var(--dim)",
+                              border: "1px solid var(--line)",
+                              borderRadius: "var(--radius-sm)",
+                              padding: "4px 8px",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {performedByLabel(record.performedBy)}
                           </span>
                         )}
                         {record.duplicateOfId != null && (
@@ -525,6 +583,10 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
               boxSizing: "border-box",
             }}
           />
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={mono9}>{t("performedByLabel")}</span>
+          {performedBySelect(performedBy, onPerformedByChange)}
         </label>
         <button
           type="button"

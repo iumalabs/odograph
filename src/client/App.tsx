@@ -121,6 +121,7 @@ export function App() {
   const [serviceRecords, setServiceRecords] = useState<ServiceRecord[]>([]);
   const [serviceDate, setServiceDate] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
+  const [servicePerformedBy, setServicePerformedBy] = useState<"self" | "shop" | null>(null);
   const [attachmentsByRecordId, setAttachmentsByRecordId] = useState<Record<string, Attachment[]>>(
     {},
   );
@@ -477,6 +478,7 @@ export function App() {
       odometerReading: number | null;
       cost: number | null;
       notes: string | null;
+      performedBy: "self" | "shop" | null;
     },
   ) {
     if (!selectedVehicleId) return;
@@ -739,16 +741,20 @@ export function App() {
               onServiceDateChange={setServiceDate}
               serviceDescription={serviceDescription}
               onServiceDescriptionChange={setServiceDescription}
+              performedBy={servicePerformedBy}
+              onPerformedByChange={setServicePerformedBy}
               onAddRecord={() =>
                 handle(
                   () =>
                     createServiceRecord(selectedVehicleId, {
                       serviceDate,
                       description: serviceDescription,
+                      performedBy: servicePerformedBy ?? undefined,
                     }),
                   () => {
                     setServiceDate("");
                     setServiceDescription("");
+                    setServicePerformedBy(null);
                   },
                 )}
               onUploadAttachment={handleUploadAttachment}
