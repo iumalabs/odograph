@@ -100,6 +100,7 @@ type Aggregates = {
   costPerDistance: number | null;
   costPerTime: number | null;
   averageFuelEconomy: number | null;
+  currentOdometer: number | null;
 };
 
 describe("vehicle aggregates: costPerDistance / costPerTime (spec 013, US1)", () => {
@@ -147,10 +148,11 @@ describe("vehicle aggregates: costPerDistance / costPerTime (spec 013, US1)", ()
       costPerDistance: null,
       costPerTime: null,
       averageFuelEconomy: null,
+      currentOdometer: null,
     });
   });
 
-  it("returns null costPerDistance/costPerTime/averageFuelEconomy for a single qualifying record (no span)", async () => {
+  it("returns null costPerDistance/costPerTime/averageFuelEconomy, but a real currentOdometer, for a single qualifying record (no span)", async () => {
     const vehicleId = await createVehicleId(sharedCookie);
 
     await createFuelRecord(sharedCookie, vehicleId, {
@@ -166,6 +168,7 @@ describe("vehicle aggregates: costPerDistance / costPerTime (spec 013, US1)", ()
       costPerDistance: null,
       costPerTime: null,
       averageFuelEconomy: null,
+      currentOdometer: 2000,
     });
   });
 
@@ -312,6 +315,65 @@ describe("vehicle aggregates: costPerDistance / costPerTime (spec 013, US1)", ()
     const otherVehicleId = await createVehicleId(otherTenant.cookie);
     const crossTenantRes = await getAggregates(sharedCookie, otherVehicleId);
     expect(crossTenantRes.status).toBe(404);
+  });
+});
+
+describe("vehicle aggregates: currentOdometer (specs/034, US1)", () => {
+  let sharedCookie: string;
+
+  beforeAll(async () => {
+    sharedCookie = (await createSession()).cookie;
+  });
+
+  it("returns the highest odometer reading across service and fuel records combined", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+
+    await createServiceRecord(sharedCookie, vehicleId, {
+      serviceDate: "2026-07-01",
+      description: "Inspection",
+      odometerReading: 15_000,
+    });
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-07-11",
+      odometerReading: 15_500,
+      volume: 40,
+      cost: 60,
+    });
+
+    const aggregates = (await (await getAggregates(sharedCookie, vehicleId)).json()) as Aggregates;
+    expect(aggregates.currentOdometer).toBe(15_500);
+  });
+
+  it("returns null for a vehicle with no service or fuel records", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+
+    const aggregates = (await (await getAggregates(sharedCookie, vehicleId)).json()) as Aggregates;
+    expect(aggregates.currentOdometer).toBeNull();
+  });
+
+  it("excludes a semantic-duplicate-flagged record's odometer reading from the max", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+
+    const first = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-07-20",
+      odometerReading: 16_000,
+      volume: 40,
+      cost: 60,
+    })).json()) as { id: string; duplicateOfId: string | null };
+    expect(first.duplicateOfId).toBeNull();
+
+    // Same date and within the fuel duplicate-detection odometer tolerance (±5) — flags against
+    // `first`. Its slightly-higher odometer reading must not win the max once excluded.
+    const duplicate = (await (await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-07-20",
+      odometerReading: 16_005,
+      volume: 1,
+      cost: 999,
+    })).json()) as { duplicateOfId: string | null };
+    expect(duplicate.duplicateOfId).toBe(first.id);
+
+    const aggregates = (await (await getAggregates(sharedCookie, vehicleId)).json()) as Aggregates;
+    expect(aggregates.currentOdometer).toBe(16_000);
   });
 });
 

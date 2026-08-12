@@ -2,6 +2,7 @@ export type VehicleAggregates = {
   costPerDistance: number | null;
   costPerTime: number | null;
   averageFuelEconomy: number | null;
+  currentOdometer: number | null;
 };
 
 async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {

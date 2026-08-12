@@ -1,5 +1,9 @@
+import { useEffect, useState } from "react";
 import type { Vehicle } from "../vehicles";
 import type { WithSyncStatus } from "../offline/merge";
+import { getVehicleAggregates } from "../vehicle-aggregates";
+import { listReminderRules } from "../reminder-rules";
+import type { ReminderRule } from "../reminder-rules";
 import { AddIcon, CarIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
@@ -33,9 +37,21 @@ const chipStyle = {
   color: "var(--dim)",
 };
 
-// Extracted from App.tsx's vehicle list/form (spec 008 T011-T013). Only real Vehicle fields are
-// shown — no fuel-consumption or next-service stats, since those aren't tracked at the vehicle
-// level yet (constitution Principle IV: no invented data).
+type VehicleSummary = {
+  currentOdometer: number | null;
+  mostUrgentReminder: ReminderRule | null;
+};
+
+/** Overdue outranks coming-up; on_track/not_enough_data never qualify (research.md). */
+function mostUrgentReminder(rules: ReminderRule[]): ReminderRule | null {
+  const overdue = rules.find((rule) => rule.status === "overdue");
+  if (overdue) return overdue;
+  return rules.find((rule) => rule.status === "coming_up") ?? null;
+}
+
+// Extracted from App.tsx's vehicle list/form (spec 008 T011-T013). Per-vehicle odometer/reminder
+// summary reuses DashboardView.tsx's own fetch pattern verbatim (specs/034 research.md) — no new
+// route, no shared hook extracted (out of scope: purely additive to this screen's cards).
 export function Garage(props: GarageProps) {
   const {
     vehicles,
@@ -59,6 +75,29 @@ export function Garage(props: GarageProps) {
     onAddVehicle,
   } = props;
 
+  const [summaries, setSummaries] = useState<Record<string, VehicleSummary>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(
+      vehicles.map(async (vehicle) => {
+        const [aggregates, reminderRules] = await Promise.all([
+          getVehicleAggregates(vehicle.id).catch(() => null),
+          listReminderRules(vehicle.id).catch(() => [] as ReminderRule[]),
+        ]);
+        return [vehicle.id, {
+          currentOdometer: aggregates?.currentOdometer ?? null,
+          mostUrgentReminder: mostUrgentReminder(reminderRules),
+        }] as const;
+      }),
+    ).then((entries) => {
+      if (!cancelled) setSummaries(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [vehicles]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {vehicles.map((vehicle) => {
@@ -66,6 +105,9 @@ export function Garage(props: GarageProps) {
           .filter(Boolean)
           .join(" ");
         const isSelected = selectedVehicleId === vehicle.id;
+        const summary = summaries[vehicle.id];
+        const currentOdometer = summary?.currentOdometer ?? null;
+        const urgentReminder = summary?.mostUrgentReminder ?? null;
         return (
           <button
             key={vehicle.id}
@@ -93,10 +135,31 @@ export function Garage(props: GarageProps) {
                   {spec}
                 </span>
               )}
+              {urgentReminder && (
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    font: "500 10.5px var(--font-mono)",
+                    border: `1px solid ${
+                      urgentReminder.status === "overdue" ? "var(--warn)" : "var(--line)"
+                    }`,
+                    borderRadius: "var(--radius-sm)",
+                    padding: "4px 8px",
+                    color: urgentReminder.status === "overdue" ? "var(--warn)" : "var(--dim)",
+                  }}
+                >
+                  {urgentReminder.label}
+                </span>
+              )}
             </div>
             <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
               {vehicle.vin && <span style={chipStyle}>{vehicle.vin}</span>}
               <span style={chipStyle}>{vehicle.odometerUnit}</span>
+              {currentOdometer != null && (
+                <span style={chipStyle}>
+                  {t("odometerLabel")}: {currentOdometer}
+                </span>
+              )}
               {vehicle.syncStatus === "pending" && (
                 <span style={{ ...chipStyle, color: "var(--dim)" }}>
                   {t("pendingSyncLabel")}
