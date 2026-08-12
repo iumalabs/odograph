@@ -564,6 +564,334 @@ export function App() {
           vehicle={mergedVehicles.find((v) => v.id === selectedVehicleId) ?? null}
           currencySymbol={symbol}
         />
+        {selectedVehicleId && (
+          <div style={{ marginTop: 20 }}>
+            <h2 style={{ font: "600 14px var(--font-ui)", letterSpacing: "-.01em" }}>
+              {t("expenseBreakdownHeading")}
+            </h2>
+            <ExpenseBreakdownPanel vehicleId={selectedVehicleId} currencySymbol={symbol} />
+            <a
+              href={reportDownloadUrl(selectedVehicleId)}
+              style={{
+                display: "inline-flex",
+                alignSelf: "flex-start",
+                marginTop: 14,
+                background: "transparent",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--radius-md)",
+                padding: "10px 14px",
+                color: "var(--fg)",
+                font: "600 11.5px var(--font-ui)",
+                textDecoration: "none",
+              }}
+            >
+              {t("downloadReportLabel")}
+            </a>
+          </div>
+        )}
+      </AppShell>
+    );
+  }
+
+  if (view === "fuel") {
+    return (
+      <AppShell
+        title={t("fuelRecordsHeading")}
+        view={view}
+        onSelectView={setView}
+        reviewBadgeCount={rejectedActionCount}
+      >
+        {!selectedVehicleId
+          ? (
+            <div
+              style={{
+                border: "1px dashed var(--line)",
+                borderRadius: "var(--radius-lg)",
+                padding: 18,
+                color: "var(--dim)",
+              }}
+            >
+              <span style={{ font: "500 12.5px var(--font-ui)" }}>
+                {t("selectVehiclePrompt")}
+              </span>
+            </div>
+          )
+          : (
+            <FuelRecordPanel
+              records={mergedFuelRecords}
+              currencySymbol={symbol}
+              fuelDate={fuelDate}
+              onFuelDateChange={setFuelDate}
+              odometerReading={fuelOdometerReading}
+              onOdometerReadingChange={setFuelOdometerReading}
+              volume={fuelVolume}
+              onVolumeChange={setFuelVolume}
+              cost={fuelCost}
+              onCostChange={setFuelCost}
+              onAddRecord={() =>
+                handle(
+                  () =>
+                    createFuelRecord(selectedVehicleId, {
+                      fuelDate,
+                      odometerReading: Number(fuelOdometerReading),
+                      volume: Number(fuelVolume),
+                      cost: Number(fuelCost),
+                    }),
+                  () => {
+                    setFuelDate("");
+                    setFuelOdometerReading("");
+                    setFuelVolume("");
+                    setFuelCost("");
+                  },
+                )}
+              onUploadAttachment={handleUploadFuelAttachment}
+              attachmentsByRecordId={fuelAttachmentsByRecordId}
+              onDismissDuplicate={handleDismissFuelDuplicate}
+              onUpdateRecord={handleUpdateFuelRecord}
+              onDeleteRecord={handleDeleteFuelRecord}
+            />
+          )}
+      </AppShell>
+    );
+  }
+
+  if (view === "service") {
+    return (
+      <AppShell
+        title={t("serviceRecordsHeading")}
+        view={view}
+        onSelectView={setView}
+        reviewBadgeCount={rejectedActionCount}
+      >
+        {!selectedVehicleId
+          ? (
+            <div
+              style={{
+                border: "1px dashed var(--line)",
+                borderRadius: "var(--radius-lg)",
+                padding: 18,
+                color: "var(--dim)",
+              }}
+            >
+              <span style={{ font: "500 12.5px var(--font-ui)" }}>
+                {t("selectVehiclePrompt")}
+              </span>
+            </div>
+          )
+          : (
+            <ServiceRecordPanel
+              records={mergedServiceRecords}
+              currencySymbol={symbol}
+              serviceDate={serviceDate}
+              onServiceDateChange={setServiceDate}
+              serviceDescription={serviceDescription}
+              onServiceDescriptionChange={setServiceDescription}
+              performedBy={servicePerformedBy}
+              onPerformedByChange={setServicePerformedBy}
+              onAddRecord={() =>
+                handle(
+                  () =>
+                    createServiceRecord(selectedVehicleId, {
+                      serviceDate,
+                      description: serviceDescription,
+                      performedBy: servicePerformedBy ?? undefined,
+                    }),
+                  () => {
+                    setServiceDate("");
+                    setServiceDescription("");
+                    setServicePerformedBy(null);
+                  },
+                )}
+              onUploadAttachment={handleUploadAttachment}
+              attachmentsByRecordId={attachmentsByRecordId}
+              onDismissDuplicate={handleDismissServiceDuplicate}
+              onUpdateRecord={handleUpdateServiceRecord}
+              onDeleteRecord={handleDeleteServiceRecord}
+            />
+          )}
+      </AppShell>
+    );
+  }
+
+  if (view === "reminders") {
+    return (
+      <AppShell
+        title={t("reminderRulesHeading")}
+        view={view}
+        onSelectView={setView}
+        reviewBadgeCount={rejectedActionCount}
+      >
+        {!selectedVehicleId
+          ? (
+            <div
+              style={{
+                border: "1px dashed var(--line)",
+                borderRadius: "var(--radius-lg)",
+                padding: 18,
+                color: "var(--dim)",
+              }}
+            >
+              <span style={{ font: "500 12.5px var(--font-ui)" }}>
+                {t("selectVehiclePrompt")}
+              </span>
+            </div>
+          )
+          : (
+            <ReminderRulePanel
+              rules={mergedReminderRules}
+              label={reminderLabel}
+              onLabelChange={setReminderLabel}
+              intervalDays={reminderIntervalDays}
+              onIntervalDaysChange={setReminderIntervalDays}
+              intervalDistance={reminderIntervalDistance}
+              onIntervalDistanceChange={setReminderIntervalDistance}
+              lastDoneDate={reminderLastDoneDate}
+              onLastDoneDateChange={setReminderLastDoneDate}
+              lastDoneOdometer={reminderLastDoneOdometer}
+              onLastDoneOdometerChange={setReminderLastDoneOdometer}
+              onAddRule={() =>
+                handle(
+                  () =>
+                    createReminderRule(selectedVehicleId, {
+                      label: reminderLabel,
+                      ...(reminderIntervalDays !== ""
+                        ? { intervalDays: Number(reminderIntervalDays) }
+                        : {}),
+                      ...(reminderIntervalDistance !== ""
+                        ? { intervalDistance: Number(reminderIntervalDistance) }
+                        : {}),
+                      ...(reminderLastDoneDate !== ""
+                        ? { lastDoneDate: reminderLastDoneDate }
+                        : {}),
+                      ...(reminderLastDoneOdometer !== ""
+                        ? { lastDoneOdometer: Number(reminderLastDoneOdometer) }
+                        : {}),
+                    }),
+                  () => {
+                    setReminderLabel("");
+                    setReminderIntervalDays("");
+                    setReminderIntervalDistance("");
+                    setReminderLastDoneDate("");
+                    setReminderLastDoneOdometer("");
+                  },
+                )}
+              onMarkDone={handleMarkReminderDone}
+              onDeleteRule={handleDeleteReminderRule}
+            />
+          )}
+      </AppShell>
+    );
+  }
+
+  if (view === "planner") {
+    return (
+      <AppShell
+        title={t("planBoardHeading")}
+        view={view}
+        onSelectView={setView}
+        reviewBadgeCount={rejectedActionCount}
+      >
+        {!selectedVehicleId
+          ? (
+            <div
+              style={{
+                border: "1px dashed var(--line)",
+                borderRadius: "var(--radius-lg)",
+                padding: 18,
+                color: "var(--dim)",
+              }}
+            >
+              <span style={{ font: "500 12.5px var(--font-ui)" }}>
+                {t("selectVehiclePrompt")}
+              </span>
+            </div>
+          )
+          : (
+            <PlanBoard
+              cards={mergedPlanCards}
+              currencySymbol={symbol}
+              title={planCardTitle}
+              onTitleChange={setPlanCardTitle}
+              targetDate={planCardTargetDate}
+              onTargetDateChange={setPlanCardTargetDate}
+              estimatedCost={planCardEstimatedCost}
+              onEstimatedCostChange={setPlanCardEstimatedCost}
+              urgent={planCardUrgent}
+              onUrgentChange={setPlanCardUrgent}
+              onAddCard={() =>
+                handle(
+                  () =>
+                    createPlanCard(selectedVehicleId, {
+                      title: planCardTitle,
+                      ...(planCardTargetDate !== "" ? { targetDate: planCardTargetDate } : {}),
+                      ...(planCardEstimatedCost !== ""
+                        ? { estimatedCost: Number(planCardEstimatedCost) }
+                        : {}),
+                      ...(planCardUrgent ? { urgent: true } : {}),
+                    }),
+                  () => {
+                    setPlanCardTitle("");
+                    setPlanCardTargetDate("");
+                    setPlanCardEstimatedCost("");
+                    setPlanCardUrgent(false);
+                  },
+                )}
+              onAdvanceCard={handleAdvancePlanCard}
+              onDeleteCard={handleDeletePlanCard}
+            />
+          )}
+      </AppShell>
+    );
+  }
+
+  if (view === "documents") {
+    return (
+      <AppShell
+        title={t("documentsHeading")}
+        view={view}
+        onSelectView={setView}
+        reviewBadgeCount={rejectedActionCount}
+      >
+        {!selectedVehicleId
+          ? (
+            <div
+              style={{
+                border: "1px dashed var(--line)",
+                borderRadius: "var(--radius-lg)",
+                padding: 18,
+                color: "var(--dim)",
+              }}
+            >
+              <span style={{ font: "500 12.5px var(--font-ui)" }}>
+                {t("selectVehiclePrompt")}
+              </span>
+            </div>
+          )
+          : (
+            <DocumentPanel
+              documents={documents}
+              title={documentTitle}
+              onTitleChange={setDocumentTitle}
+              category={documentCategory}
+              onCategoryChange={setDocumentCategory}
+              onAddDocument={() =>
+                handle(
+                  () =>
+                    createDocument(selectedVehicleId, {
+                      title: documentTitle,
+                      category: documentCategory,
+                    }),
+                  (created) => {
+                    setDocuments((current) => [...current, created]);
+                    setDocumentTitle("");
+                  },
+                )}
+              onUploadAttachment={handleUploadDocumentAttachment}
+              attachmentsByDocumentId={documentAttachmentsByDocumentId}
+              onUpdateDocument={handleUpdateDocument}
+              onDeleteDocument={handleDeleteDocument}
+            />
+          )}
       </AppShell>
     );
   }
@@ -685,12 +1013,20 @@ export function App() {
           )}
         </div>
 
-        <SearchBar onSelectVehicle={(id) => setSelectedVehicleId(id)} />
+        <SearchBar
+          onSelectVehicle={(id) => {
+            setSelectedVehicleId(id);
+            setView("dashboard");
+          }}
+        />
 
         <Garage
           vehicles={mergedVehicles}
           selectedVehicleId={selectedVehicleId}
-          onSelectVehicle={(id) => setSelectedVehicleId(selectedVehicleId === id ? null : id)}
+          onSelectVehicle={(id) => {
+            setSelectedVehicleId(id);
+            setView("dashboard");
+          }}
           vehicleName={vehicleName}
           onVehicleNameChange={setVehicleName}
           vehicleOdometerUnit={vehicleOdometerUnit}
@@ -731,241 +1067,6 @@ export function App() {
               },
             )}
         />
-
-        {selectedVehicleId && (
-          <div>
-            <h2 style={{ font: "600 14px var(--font-ui)", letterSpacing: "-.01em" }}>
-              {t("serviceRecordsHeading")}
-            </h2>
-            <ServiceRecordPanel
-              records={mergedServiceRecords}
-              currencySymbol={symbol}
-              serviceDate={serviceDate}
-              onServiceDateChange={setServiceDate}
-              serviceDescription={serviceDescription}
-              onServiceDescriptionChange={setServiceDescription}
-              performedBy={servicePerformedBy}
-              onPerformedByChange={setServicePerformedBy}
-              onAddRecord={() =>
-                handle(
-                  () =>
-                    createServiceRecord(selectedVehicleId, {
-                      serviceDate,
-                      description: serviceDescription,
-                      performedBy: servicePerformedBy ?? undefined,
-                    }),
-                  () => {
-                    setServiceDate("");
-                    setServiceDescription("");
-                    setServicePerformedBy(null);
-                  },
-                )}
-              onUploadAttachment={handleUploadAttachment}
-              attachmentsByRecordId={attachmentsByRecordId}
-              onDismissDuplicate={handleDismissServiceDuplicate}
-              onUpdateRecord={handleUpdateServiceRecord}
-              onDeleteRecord={handleDeleteServiceRecord}
-            />
-
-            <h2
-              style={{
-                font: "600 14px var(--font-ui)",
-                letterSpacing: "-.01em",
-                marginTop: 20,
-              }}
-            >
-              {t("fuelRecordsHeading")}
-            </h2>
-            <FuelRecordPanel
-              records={mergedFuelRecords}
-              currencySymbol={symbol}
-              fuelDate={fuelDate}
-              onFuelDateChange={setFuelDate}
-              odometerReading={fuelOdometerReading}
-              onOdometerReadingChange={setFuelOdometerReading}
-              volume={fuelVolume}
-              onVolumeChange={setFuelVolume}
-              cost={fuelCost}
-              onCostChange={setFuelCost}
-              onAddRecord={() =>
-                handle(
-                  () =>
-                    createFuelRecord(selectedVehicleId, {
-                      fuelDate,
-                      odometerReading: Number(fuelOdometerReading),
-                      volume: Number(fuelVolume),
-                      cost: Number(fuelCost),
-                    }),
-                  () => {
-                    setFuelDate("");
-                    setFuelOdometerReading("");
-                    setFuelVolume("");
-                    setFuelCost("");
-                  },
-                )}
-              onUploadAttachment={handleUploadFuelAttachment}
-              attachmentsByRecordId={fuelAttachmentsByRecordId}
-              onDismissDuplicate={handleDismissFuelDuplicate}
-              onUpdateRecord={handleUpdateFuelRecord}
-              onDeleteRecord={handleDeleteFuelRecord}
-            />
-
-            <h2
-              style={{
-                font: "600 14px var(--font-ui)",
-                letterSpacing: "-.01em",
-                marginTop: 20,
-              }}
-            >
-              {t("reminderRulesHeading")}
-            </h2>
-            <ReminderRulePanel
-              rules={mergedReminderRules}
-              label={reminderLabel}
-              onLabelChange={setReminderLabel}
-              intervalDays={reminderIntervalDays}
-              onIntervalDaysChange={setReminderIntervalDays}
-              intervalDistance={reminderIntervalDistance}
-              onIntervalDistanceChange={setReminderIntervalDistance}
-              lastDoneDate={reminderLastDoneDate}
-              onLastDoneDateChange={setReminderLastDoneDate}
-              lastDoneOdometer={reminderLastDoneOdometer}
-              onLastDoneOdometerChange={setReminderLastDoneOdometer}
-              onAddRule={() =>
-                handle(
-                  () =>
-                    createReminderRule(selectedVehicleId, {
-                      label: reminderLabel,
-                      ...(reminderIntervalDays !== ""
-                        ? { intervalDays: Number(reminderIntervalDays) }
-                        : {}),
-                      ...(reminderIntervalDistance !== ""
-                        ? { intervalDistance: Number(reminderIntervalDistance) }
-                        : {}),
-                      ...(reminderLastDoneDate !== ""
-                        ? { lastDoneDate: reminderLastDoneDate }
-                        : {}),
-                      ...(reminderLastDoneOdometer !== ""
-                        ? { lastDoneOdometer: Number(reminderLastDoneOdometer) }
-                        : {}),
-                    }),
-                  () => {
-                    setReminderLabel("");
-                    setReminderIntervalDays("");
-                    setReminderIntervalDistance("");
-                    setReminderLastDoneDate("");
-                    setReminderLastDoneOdometer("");
-                  },
-                )}
-              onMarkDone={handleMarkReminderDone}
-              onDeleteRule={handleDeleteReminderRule}
-            />
-
-            <h2
-              style={{
-                font: "600 14px var(--font-ui)",
-                letterSpacing: "-.01em",
-                marginTop: 20,
-              }}
-            >
-              {t("documentsHeading")}
-            </h2>
-            <DocumentPanel
-              documents={documents}
-              title={documentTitle}
-              onTitleChange={setDocumentTitle}
-              category={documentCategory}
-              onCategoryChange={setDocumentCategory}
-              onAddDocument={() =>
-                handle(
-                  () =>
-                    createDocument(selectedVehicleId, {
-                      title: documentTitle,
-                      category: documentCategory,
-                    }),
-                  (created) => {
-                    setDocuments((current) => [...current, created]);
-                    setDocumentTitle("");
-                  },
-                )}
-              onUploadAttachment={handleUploadDocumentAttachment}
-              attachmentsByDocumentId={documentAttachmentsByDocumentId}
-              onUpdateDocument={handleUpdateDocument}
-              onDeleteDocument={handleDeleteDocument}
-            />
-
-            <h2
-              style={{
-                font: "600 14px var(--font-ui)",
-                letterSpacing: "-.01em",
-                marginTop: 20,
-              }}
-            >
-              {t("planBoardHeading")}
-            </h2>
-            <PlanBoard
-              cards={mergedPlanCards}
-              currencySymbol={symbol}
-              title={planCardTitle}
-              onTitleChange={setPlanCardTitle}
-              targetDate={planCardTargetDate}
-              onTargetDateChange={setPlanCardTargetDate}
-              estimatedCost={planCardEstimatedCost}
-              onEstimatedCostChange={setPlanCardEstimatedCost}
-              urgent={planCardUrgent}
-              onUrgentChange={setPlanCardUrgent}
-              onAddCard={() =>
-                handle(
-                  () =>
-                    createPlanCard(selectedVehicleId, {
-                      title: planCardTitle,
-                      ...(planCardTargetDate !== "" ? { targetDate: planCardTargetDate } : {}),
-                      ...(planCardEstimatedCost !== ""
-                        ? { estimatedCost: Number(planCardEstimatedCost) }
-                        : {}),
-                      ...(planCardUrgent ? { urgent: true } : {}),
-                    }),
-                  () => {
-                    setPlanCardTitle("");
-                    setPlanCardTargetDate("");
-                    setPlanCardEstimatedCost("");
-                    setPlanCardUrgent(false);
-                  },
-                )}
-              onAdvanceCard={handleAdvancePlanCard}
-              onDeleteCard={handleDeletePlanCard}
-            />
-
-            <h2
-              style={{
-                font: "600 14px var(--font-ui)",
-                letterSpacing: "-.01em",
-                marginTop: 20,
-              }}
-            >
-              {t("expenseBreakdownHeading")}
-            </h2>
-            <ExpenseBreakdownPanel vehicleId={selectedVehicleId} currencySymbol={symbol} />
-
-            <a
-              href={reportDownloadUrl(selectedVehicleId)}
-              style={{
-                display: "inline-flex",
-                alignSelf: "flex-start",
-                marginTop: 14,
-                background: "transparent",
-                border: "1px solid var(--line)",
-                borderRadius: "var(--radius-md)",
-                padding: "10px 14px",
-                color: "var(--fg)",
-                font: "600 11.5px var(--font-ui)",
-                textDecoration: "none",
-              }}
-            >
-              {t("downloadReportLabel")}
-            </a>
-          </div>
-        )}
 
         {error && (
           <p role="alert" style={{ color: "var(--warn)", font: "400 12.5px var(--font-ui)" }}>

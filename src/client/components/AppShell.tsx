@@ -1,11 +1,30 @@
 import type { ReactNode } from "react";
 import { Logo } from "./Logo";
-import { AlertIcon, DashboardIcon, GarageIcon, SettingsIcon } from "../design/icons";
+import {
+  AlertIcon,
+  BellIcon,
+  DashboardIcon,
+  DocumentIcon,
+  FuelIcon,
+  GarageIcon,
+  PlannerIcon,
+  ServiceIcon,
+  SettingsIcon,
+} from "../design/icons";
 import { useTheme } from "../theme";
 import { t } from "../i18n/strings";
 import { APP_VERSION } from "../version";
 
-export type AppView = "garage" | "dashboard" | "review" | "settings";
+export type AppView =
+  | "garage"
+  | "dashboard"
+  | "fuel"
+  | "service"
+  | "reminders"
+  | "planner"
+  | "documents"
+  | "review"
+  | "settings";
 
 type AppShellProps = {
   title: string;
@@ -19,10 +38,24 @@ type AppShellProps = {
 const NAV_ITEMS: {
   view: AppView;
   icon: typeof GarageIcon;
-  labelKey: "garageNavLabel" | "dashboardNavLabel" | "syncReviewNavLabel" | "settingsNavLabel";
+  labelKey:
+    | "garageNavLabel"
+    | "dashboardNavLabel"
+    | "fuelNavLabel"
+    | "serviceNavLabel"
+    | "remindersNavLabel"
+    | "plannerNavLabel"
+    | "documentsNavLabel"
+    | "syncReviewNavLabel"
+    | "settingsNavLabel";
 }[] = [
   { view: "garage", icon: GarageIcon, labelKey: "garageNavLabel" },
   { view: "dashboard", icon: DashboardIcon, labelKey: "dashboardNavLabel" },
+  { view: "fuel", icon: FuelIcon, labelKey: "fuelNavLabel" },
+  { view: "service", icon: ServiceIcon, labelKey: "serviceNavLabel" },
+  { view: "reminders", icon: BellIcon, labelKey: "remindersNavLabel" },
+  { view: "planner", icon: PlannerIcon, labelKey: "plannerNavLabel" },
+  { view: "documents", icon: DocumentIcon, labelKey: "documentsNavLabel" },
   { view: "review", icon: AlertIcon, labelKey: "syncReviewNavLabel" },
   { view: "settings", icon: SettingsIcon, labelKey: "settingsNavLabel" },
 ];

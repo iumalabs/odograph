@@ -137,6 +137,25 @@ export function AlertIcon({ size = 20 }: IconProps) {
   );
 }
 
+export function PlannerIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <rect x="4" y="5" width="4.5" height="14" rx="1.4" />
+      <rect x="10" y="5" width="4.5" height="9" rx="1.4" />
+      <rect x="16" y="5" width="4" height="11.5" rx="1.4" />
+    </svg>
+  );
+}
+
+export function DocumentIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <path d="M6.5 3h7l4.5 4.5V21h-11.5z" />
+      <path d="M13.5 3v4.5H18" />
+    </svg>
+  );
+}
+
 export function SettingsIcon({ size = 20 }: IconProps) {
   return (
     <svg width={size} height={size} {...commonProps}>
