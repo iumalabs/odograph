@@ -16,10 +16,13 @@ function windowKey(clientKey: string, windowStart: number): string {
  * not a correctness guarantee (see research.md).
  *
  * `getClientKey` is pluggable because not every write route has a resolved
- * session to key by: session *creation* (`POST /_dev/session`) is
- * necessarily unauthenticated, so it's keyed by connecting IP instead of a
- * session token hash. Routes that already ran `tenantContext` should key by
- * `sessionTokenHash` (see `rateLimitBySession` below).
+ * session to key by: real sign-in entry points (passkey registration/login,
+ * magic-link `/request`, Google OIDC `/start`) are necessarily unauthenticated,
+ * so they're keyed by connecting IP instead of a session token hash. Routes
+ * that already ran `tenantContext` should key by `sessionTokenHash` (see
+ * `rateLimitBySession` below). Dev-only session bootstrap (`POST
+ * /_dev/session`) deliberately does NOT use this — see its own comment in
+ * dev-session.ts (issue #89/#97 CI investigation).
  */
 function createRateLimiter(getClientKey: (c: Context<AppEnv>) => string) {
   return createMiddleware<AppEnv>(async (c, next) => {

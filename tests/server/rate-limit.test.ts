@@ -36,9 +36,12 @@ function probeWrite(cookie: string): Promise<Response> {
 }
 
 describe("rate limiting (User Story 3)", () => {
+  // Explicit timeout: waitForFreshWindow's worst case (marginMs + 50ms) sits right at vitest's
+  // default 10s hookTimeout, close enough to flake under CI resource contention (observed on
+  // PR #99's own "deploy" run) — give it real headroom instead of racing the default.
   beforeEach(async () => {
     await waitForFreshWindow();
-  });
+  }, 15_000);
 
   it("allows requests under the limit and rejects the one that exceeds it", async () => {
     const cookie = await createSession();
@@ -72,5 +75,12 @@ describe("rate limiting (User Story 3)", () => {
     const otherCookie = await createSession();
     const otherRes = await probeWrite(otherCookie);
     expect(otherRes.status).toBe(201);
+  });
+
+  it("POST /_dev/session itself is not rate-limited (issue #89/#97 CI investigation)", async () => {
+    for (let i = 0; i < MAX_REQUESTS_PER_WINDOW + 5; i++) {
+      const res = await SELF.fetch("https://example.com/api/v1/_dev/session", { method: "POST" });
+      expect(res.status).toBe(200);
+    }
   });
 });

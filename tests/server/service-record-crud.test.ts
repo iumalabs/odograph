@@ -447,10 +447,11 @@ describe("vehicle deletion cleans up R2 attachments (retrofit, research.md)", ()
 });
 
 describe("service record semantic duplicate detection & resolution (constitution D-005)", () => {
-  // Rate-limited session creation (30/window/IP — src/server/auth/rate-limit.ts) is shared across
-  // every request in this file's single execution window (see spec 010's fuel-record test file
-  // for the same pattern), so these tests share one session wherever tenant isolation isn't the
-  // thing being tested, and use a fresh vehicle per test to avoid cross-test duplicate-detection
+  // Session creation itself is no longer rate-limited (issue #89/#97 CI investigation — dev-only
+  // routes have no production abuse surface to protect), but the write paths these tests exercise
+  // still are (rateLimitBySession — src/server/auth/rate-limit.ts). These tests share one session
+  // wherever tenant isolation isn't the thing being tested (see spec 010's fuel-record test file
+  // for the same pattern), and use a fresh vehicle per test to avoid cross-test duplicate-detection
   // pollution.
   let sharedCookie: string;
 
