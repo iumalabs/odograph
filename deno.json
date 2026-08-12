@@ -29,7 +29,14 @@
   },
   "fmt": {
     "include": ["src/", "tests/", "*.md", "docs/", "*.json"],
-    "exclude": [".specify/", "dist/", ".wrangler/", "node_modules/", "worker-configuration.d.ts"],
+    "exclude": [
+      ".specify/",
+      "dist/",
+      ".wrangler/",
+      "node_modules/",
+      "worker-configuration.d.ts",
+      "CHANGELOG.md"
+    ],
     "lineWidth": 100
   },
   "lint": {

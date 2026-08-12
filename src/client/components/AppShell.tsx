@@ -3,6 +3,7 @@ import { Logo } from "./Logo";
 import { AlertIcon, DashboardIcon, GarageIcon, SettingsIcon } from "../design/icons";
 import { useTheme } from "../theme";
 import { t } from "../i18n/strings";
+import { APP_VERSION } from "../version";
 
 export type AppView = "garage" | "dashboard" | "review" | "settings";
 
@@ -51,6 +52,16 @@ export function AppShell(
         }}
       >
         <Logo size={34} />
+        <span
+          style={{
+            font: "500 7.5px var(--font-mono)",
+            color: "var(--dim)",
+            letterSpacing: ".04em",
+            marginTop: -12,
+          }}
+        >
+          v{APP_VERSION}
+        </span>
         {NAV_ITEMS.map(({ view: itemView, icon: Icon, labelKey }) => {
           const isActive = view === itemView;
           return (
