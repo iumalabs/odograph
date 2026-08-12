@@ -91,6 +91,7 @@ function serviceRow(overrides: Partial<ServiceRecord> = {}): ServiceRecord {
     odometerReading: 1000,
     cost: 60,
     notes: null,
+    performedBy: null,
     duplicateOfId: null,
     createdAt: "2026-01-05T00:00:00.000Z",
     updatedAt: "2026-01-05T00:00:00.000Z",
