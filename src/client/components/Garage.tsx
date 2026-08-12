@@ -11,6 +11,17 @@ type GarageProps = {
   onVehicleNameChange: (value: string) => void;
   vehicleOdometerUnit: "km" | "mi";
   onVehicleOdometerUnitChange: (value: "km" | "mi") => void;
+  vehicleVin: string;
+  onVehicleVinChange: (value: string) => void;
+  vehicleMake: string;
+  onVehicleMakeChange: (value: string) => void;
+  vehicleModel: string;
+  onVehicleModelChange: (value: string) => void;
+  vehicleYear: string;
+  onVehicleYearChange: (value: string) => void;
+  vinLookupPending: boolean;
+  onLookupVin: () => void;
+  vinLookupNotFound: boolean;
   onAddVehicle: () => void;
 };
 
@@ -34,6 +45,17 @@ export function Garage(props: GarageProps) {
     onVehicleNameChange,
     vehicleOdometerUnit,
     onVehicleOdometerUnitChange,
+    vehicleVin,
+    onVehicleVinChange,
+    vehicleMake,
+    onVehicleMakeChange,
+    vehicleModel,
+    onVehicleModelChange,
+    vehicleYear,
+    onVehicleYearChange,
+    vinLookupPending,
+    onLookupVin,
+    vinLookupNotFound,
     onAddVehicle,
   } = props;
 
@@ -188,6 +210,143 @@ export function Garage(props: GarageProps) {
             <option value="mi">mi</option>
           </select>
         </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "1 1 160px" }}>
+          <span
+            style={{
+              font: "400 9.5px var(--font-mono)",
+              color: "var(--dim)",
+              letterSpacing: ".08em",
+            }}
+          >
+            {t("vehicleVinLabel")}
+          </span>
+          <input
+            type="text"
+            value={vehicleVin}
+            disabled={vinLookupPending}
+            maxLength={25}
+            onChange={(event) => onVehicleVinChange(event.target.value)}
+            style={{
+              background: "var(--panel2)",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-md)",
+              padding: "11px 12px",
+              color: "var(--fg)",
+              font: "500 14px var(--font-ui)",
+              outline: "none",
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={onLookupVin}
+          disabled={vinLookupPending || vehicleVin.trim().length === 0}
+          style={{
+            background: "transparent",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--radius-md)",
+            padding: "11px 14px",
+            color: "var(--dim)",
+            font: "600 11.5px var(--font-ui)",
+            cursor: vinLookupPending || vehicleVin.trim().length === 0 ? "not-allowed" : "pointer",
+          }}
+        >
+          {vinLookupPending ? t("vinLookupInProgress") : t("lookupVinButton")}
+        </button>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "1 1 140px" }}>
+          <span
+            style={{
+              font: "400 9.5px var(--font-mono)",
+              color: "var(--dim)",
+              letterSpacing: ".08em",
+            }}
+          >
+            {t("vehicleMakeLabel")}
+          </span>
+          <input
+            type="text"
+            value={vehicleMake}
+            disabled={vinLookupPending}
+            onChange={(event) => onVehicleMakeChange(event.target.value)}
+            style={{
+              background: "var(--panel2)",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-md)",
+              padding: "11px 12px",
+              color: "var(--fg)",
+              font: "500 14px var(--font-ui)",
+              outline: "none",
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          />
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "1 1 140px" }}>
+          <span
+            style={{
+              font: "400 9.5px var(--font-mono)",
+              color: "var(--dim)",
+              letterSpacing: ".08em",
+            }}
+          >
+            {t("vehicleModelLabel")}
+          </span>
+          <input
+            type="text"
+            value={vehicleModel}
+            disabled={vinLookupPending}
+            onChange={(event) => onVehicleModelChange(event.target.value)}
+            style={{
+              background: "var(--panel2)",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-md)",
+              padding: "11px 12px",
+              color: "var(--fg)",
+              font: "500 14px var(--font-ui)",
+              outline: "none",
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          />
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 1 90px" }}>
+          <span
+            style={{
+              font: "400 9.5px var(--font-mono)",
+              color: "var(--dim)",
+              letterSpacing: ".08em",
+            }}
+          >
+            {t("vehicleYearLabel")}
+          </span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={vehicleYear}
+            disabled={vinLookupPending}
+            onChange={(event) => onVehicleYearChange(event.target.value)}
+            style={{
+              background: "var(--panel2)",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-md)",
+              padding: "11px 12px",
+              color: "var(--fg)",
+              font: "500 14px var(--font-ui)",
+              outline: "none",
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          />
+        </label>
+        {vinLookupNotFound && (
+          <span
+            style={{ font: "400 11px var(--font-mono)", color: "var(--dim)", flex: "1 1 100%" }}
+          >
+            {t("vinLookupNotFound")}
+          </span>
+        )}
         <button
           type="button"
           onClick={onAddVehicle}
