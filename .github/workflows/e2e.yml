@@ -1,0 +1,103 @@
+name: E2E
+
+# Runs post-merge only, not on pull_request — the suite takes several
+# minutes even healthy (issue #89's investigation got it from 9-22min/
+# frequently-failing down to ~2.5min/green, but that's still long enough
+# to be worth keeping off the PR-blocking path). A regression that lands
+# on main gets caught here within minutes of the merge, not before it.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: e2e (Playwright) + client coverage gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Job-level permissions replace (not merge with) the workflow-level block above, so
+    # contents:read has to be repeated here alongside the code-quality:write this job additionally
+    # needs to upload Cobertura coverage for GitHub's native ruleset coverage rules.
+    permissions:
+      contents: read
+      code-quality: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - run: deno install
+
+      - name: Generate Cloudflare runtime types
+        run: deno task cf-typegen
+
+      # `deno task dev` (this job's target — see e2e/playwright.config.ts's webServer) reuses
+      # wrangler's local D1 persistence, same as a real local `wrangler dev`/`vite dev` session —
+      # but that persistence only exists once migrated. A dev machine accumulates it once and
+      # forgets this step exists; a fresh CI runner has none, which surfaced as every single
+      # `POST /api/v1/_dev/session` (and therefore every e2e test) failing with a 500.
+      - name: Apply D1 migrations (local)
+        run: deno task migrate:local
+
+      - name: Install e2e deps
+        working-directory: e2e
+        run: deno install
+
+      - name: Install Playwright browsers
+        working-directory: e2e
+        run: deno task install-browsers
+
+      - name: Run e2e suite with coverage
+        working-directory: e2e
+        run: deno task test:coverage
+
+      # Feeds GitHub's native ruleset coverage rules ("Require code quality results" /
+      # "Restrict code coverage") — those need a Cobertura XML report on the repo's Code Quality
+      # feature, uploaded via this action, before they have anything to enforce against. Enabling
+      # the actual ruleset rule is a repo-settings change (Settings > Rules > Rulesets), done once
+      # by the repo owner, not by CI. Until GitHub Code Quality itself is turned on for this repo
+      # (a separate, more basic prerequisite than the ruleset rule), the upload endpoint 404s —
+      # fail-on-error:false keeps that from failing this job in the meantime; drop it once Code
+      # Quality is confirmed enabled.
+      - name: Upload code coverage report
+        if: always()
+        uses: actions/upload-code-coverage@v1
+        with:
+          file: e2e/coverage/cobertura.xml
+          language: TypeScript
+          label: e2e-client-coverage
+          fail-on-error: false
+
+      # Gate on the client function-coverage floor — see
+      # support/check-coverage-threshold.ts for why this isn't 100% yet
+      # (dead code behind issue #49, Google OIDC, magic-link verify all
+      # need work outside this suite before it can be). Raise the threshold
+      # there as real coverage improves; never lower it to unblock CI.
+      - name: Check coverage threshold
+        working-directory: e2e
+        run: deno task coverage:check
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-coverage
+          path: e2e/coverage/
+          retention-days: 14
