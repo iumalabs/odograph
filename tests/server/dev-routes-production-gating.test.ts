@@ -38,4 +38,18 @@ describe("dev session routes are unreachable in production (FR-009)", () => {
     );
     expect(withEmail.status).toBe(404);
   });
+
+  it("GET /_dev/oidc-google returns 404, with or without an email query param", async () => {
+    const withoutEmail = await app.fetch(
+      new Request("https://example.com/api/v1/_dev/oidc-google"),
+      prodEnv,
+    );
+    expect(withoutEmail.status).toBe(404);
+
+    const withEmail = await app.fetch(
+      new Request("https://example.com/api/v1/_dev/oidc-google?email=owner@example.com"),
+      prodEnv,
+    );
+    expect(withEmail.status).toBe(404);
+  });
 });
