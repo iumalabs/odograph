@@ -2302,6 +2302,7 @@ export type VehicleAggregates = {
   costPerDistance: number | null;
   costPerTime: number | null;
   averageFuelEconomy: number | null;
+  currentOdometer: number | null;
 };
 
 /**
@@ -2340,6 +2341,8 @@ export async function computeVehicleAggregates(
     datePoints.push(record.fuelDate);
   }
 
+  const currentOdometer = odometerPoints.length > 0 ? Math.max(...odometerPoints) : null;
+
   const distanceSpan = odometerPoints.length >= 2
     ? Math.max(...odometerPoints) - Math.min(...odometerPoints)
     : 0;
@@ -2358,7 +2361,7 @@ export async function computeVehicleAggregates(
     ? economies.reduce((sum, value) => sum + value, 0) / economies.length
     : null;
 
-  return { costPerDistance, costPerTime, averageFuelEconomy };
+  return { costPerDistance, costPerTime, averageFuelEconomy, currentOdometer };
 }
 
 export type ExpenseGroupBy = "month" | "year";
