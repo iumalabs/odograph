@@ -42,9 +42,13 @@ configured in `wrangler.toml` under `[env.production]`.
 
 Two
 [GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)
-back the workflows: `preview` and `production`. `production` requires a manual reviewer approval
-(the repo owner) before the job runs, restricted to deployments from `main`; `preview` has no
-protection rule — see the fork-PR guard below for why that's still safe.
+back the workflows: `preview` and `production`, mainly to scope each environment's own
+`CLOUDFLARE_API_TOKEN` secret (see below) — neither currently has a manual-approval protection rule.
+`production` deploys automatically on every push to `main` once `ci.yml`'s checks are green (the
+`required_reviewers` rule was removed 2026-08-12, once the team's actual practice — self-merging PRs
+once CI is green — made a second manual click before deploy redundant rather than protective; a
+`branch_policy` rule restricting deployments to `main` is still in place). `preview` has no
+protection rule either — see the fork-PR guard below for why that's still safe.
 
 Repository/environment configuration:
 
@@ -56,12 +60,12 @@ Repository/environment configuration:
 
 **Same secret name, two different values, scoped per
 [GitHub Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment).**
-Every same-repo PR triggers `deploy-preview.yml` with no manual approval gate;
-`deploy-production.yml` only runs after the `production` environment's required-reviewer approval.
-Giving the unattended preview path a credential that can also edit the production zone's DNS/routes
-would be a needless blast-radius increase — a bug in the preview deploy step, or a compromised
-dependency in that job, would otherwise be able to reach production infrastructure it has no
-legitimate reason to touch. A job only sees the secret for the environment it declares
+Both `deploy-preview.yml` (every same-repo PR) and `deploy-production.yml` (every push to `main`)
+run fully unattended now — neither has a manual approval gate. The environment split still matters
+for secret scoping: giving the preview path a credential that can also edit the production zone's
+DNS/routes would be a needless blast-radius increase — a bug in the preview deploy step, or a
+compromised dependency in that job, would otherwise be able to reach production infrastructure it
+has no legitimate reason to touch. A job only sees the secret for the environment it declares
 (`environment: preview` / `environment: production`).
 
 ### `preview` environment `CLOUDFLARE_API_TOKEN` permissions
@@ -105,14 +109,20 @@ external-contributor trust process.
 ## Workflows
 
 - `.github/workflows/ci.yml` — format/lint/typecheck/test/build on every push and PR. Required check
-  before merge.
-- `.github/workflows/deploy-preview.yml` — re-runs the same checks, applies any pending D1
+  before merge. Deliberately does **not** run the e2e suite (see `e2e.yml` below) — issue #89's
+  investigation found the suite's own healthy runtime (~2-3 min) plus its nonzero residual flake
+  rate made it a worse PR-blocking gate than a scheduled one.
+- `.github/workflows/e2e.yml` — the Playwright + client-coverage-gate suite, on a daily schedule
+  (`0 3 * * *` UTC) plus manual `workflow_dispatch`, not on `pull_request` or `push`. Decoupled from
+  any single PR/merge on purpose (see the workflow file's own comment) — catches regressions within
+  a bounded window without making every push a coin flip on an unrelated flake.
+- `.github/workflows/deploy-preview.yml` — re-runs `ci.yml`'s checks, applies any pending D1
   migrations to `odograph-preview` (idempotent), then uploads the PR head commit as a new Worker
   Version of `odograph-preview` (never promoted) and comments the stable per-PR preview URL on the
   PR. Same-repo PRs only. No separate cleanup workflow — there's no per-PR resource to tear down.
-- `.github/workflows/deploy-production.yml` — re-runs the same checks, applies any pending D1
+- `.github/workflows/deploy-production.yml` — re-runs `ci.yml`'s checks, applies any pending D1
   migrations to `odograph-production` (idempotent), then deploys `main` to the `production`
-  environment. Pauses for the required reviewer approval before it runs.
+  environment. Runs unattended — no manual approval gate (see above).
 
 Migrations only ever apply through these two workflows — never run
 `wrangler d1 migrations apply --remote` from a local machine, for the same reason there's no local

@@ -5,24 +5,20 @@ Pre-GA checklist for Odograph, tracked against
 
 ## Milestones
 
-| Milestone                     | Status                                                                                                                                                                                                               |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M1: Auth & Tenancy foundation | Shipped. `#6`/`#8` (magic link, account linking) were merged but never closed on GitHub — see the housekeeping note below.                                                                                           |
-| M2: Vehicles                  | Shipped. `#9` (Vehicle CRUD) was merged but never closed — see below.                                                                                                                                                |
-| M3: Service records           | Shipped, closed.                                                                                                                                                                                                     |
-| M4: Fuel records              | Shipped, closed.                                                                                                                                                                                                     |
-| M5: Reminders                 | Email delivery shipped, closed (`#14`). Web push delivery (`#15`) intentionally not built — it depends on a service worker/push subscription, which is M7 (PWA) scope, not shipped this cycle. Correctly stays open. |
-| M6: Dashboard & aggregates    | Shipped, closed.                                                                                                                                                                                                     |
-| M7: PWA & offline sync        | **Not started** — deliberately deprioritized in favor of M8 (launch hardening) this cycle. All 4 issues (`#18`–`#21`) remain open. Out of scope for v1.0 GA; revisit for a post-GA release.                          |
-| M8: v1.0 launch hardening     | Shipped: CSP (`#24`), GDPR erasure (`#22`), API tokens (`#23`), i18n audit (`#25`, zero violations found). This checklist (`#26`) is the last item.                                                                  |
+| Milestone                     | Status                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1: Auth & Tenancy foundation | Shipped, closed.                                                                                                                                                                                                                                                                         |
+| M2: Vehicles                  | Shipped, closed.                                                                                                                                                                                                                                                                         |
+| M3: Service records           | Shipped, closed.                                                                                                                                                                                                                                                                         |
+| M4: Fuel records              | Shipped, closed.                                                                                                                                                                                                                                                                         |
+| M5: Reminders                 | Shipped, closed — email delivery (`#14`) and, once M7's service worker/push subscription infrastructure landed, web push delivery too (`#15`).                                                                                                                                           |
+| M6: Dashboard & aggregates    | Shipped, closed.                                                                                                                                                                                                                                                                         |
+| M7: PWA & offline sync        | Shipped, closed — all 4 issues (`#18`–`#21`: PWA installability, camera capture, offline write queue, sync rejection review). Originally deprioritized past v1.0 GA, built in a later cycle; see the updated Principle III readiness below and the "Beyond original v1.0 scope" section. |
+| M8: v1.0 launch hardening     | Shipped: CSP (`#24`), GDPR erasure (`#22`), API tokens (`#23`), i18n audit (`#25`, zero violations found). This checklist (`#26`) is the last item.                                                                                                                                      |
 
-**Housekeeping finding**: issues `#6`, `#8`, and `#9` represent work that was fully merged (`#33`,
-`#35`, `#36` respectively) early in this project's development but were never closed on GitHub — an
-oversight from before this project consistently closed issues via PR-linked comments. They're not
-open work; someone with repo write access should close them (referencing the PRs above) as part of
-finishing this checklist. This audit did not close them itself — confirming and closing stale issues
-from outside the current unit of work needs an explicit human decision, not an inference this
-checklist makes on its own.
+**Housekeeping**: issues `#6`, `#8`, and `#9` (early M1/M2 work merged before this project
+consistently closed issues via PR-linked comments) are confirmed closed as of this update — no
+action needed.
 
 ## Docs
 
@@ -45,9 +41,15 @@ Cross-checked against `.specify/memory/constitution.md`:
 - [x] **I. Tenant Isolation via Repository Layer** — enforced throughout; every query in
       `src/server/db/repository.ts` is `TenantContext`-scoped.
 - [x] **II. Server-Computed, Division-Safe Aggregates** — shipped (spec 013).
-- [ ] **III. Idempotent, Ordered Offline Sync** — not applicable yet; there's no offline write queue
-      to be idempotent about (M7, not started). Not a v1.0 GA blocker since the app has no offline
-      mode to make a promise about yet — the principle has nothing to violate until M7 exists.
+- [x] **III. Idempotent, Ordered Offline Sync** — shipped and verified against the actual
+      implementation (M7, spec 020): `src/client/offline/queue.ts`'s `enqueue()` generates a
+      `crypto.randomUUID()` per action, used as both the resource id (for creates) and the
+      `Idempotency-Key` request header; `drain()` processes exactly one `pending` action at a time
+      in array (creation) order, never concurrently. Server-side,
+      `src/server/middleware/
+      idempotency.ts`'s `idempotent` middleware checks that key
+      against a `findWriteOperation` lookup before applying a write. Rejected operations surface via
+      the sync review screen (spec 021, `#21`) rather than failing silently.
 - [x] **IV. No Interpolated Data** — no feature in this codebase invents/interpolates data.
 - [x] **V. Private Object Storage with Validated Uploads** — shipped (R2 attachments, tenant-scoped
       keys, spec 007).
@@ -66,17 +68,24 @@ Cross-checked against `.specify/memory/constitution.md`:
       which is a deliberately different, supported path for a different audience, not a violation of
       this principle as it applies to _this project's own_ deployment.
 
-## Not in scope for v1.0 GA
+## Beyond original v1.0 scope
 
-- M7 (PWA installability, camera capture, offline write queue, sync rejection review) — explicitly
-  deferred this cycle. The app works fully online-only; nothing in v1.0's feature set depends on
-  offline support existing.
-- Web push reminder delivery (`#15`) — depends on M7's service worker infrastructure.
+M7 was originally deferred past v1.0 GA in this checklist's earlier drafts but was in fact built in
+a later cycle before this checklist was ever signed off or tagged — so the "not in scope" framing
+this section used to carry no longer applies to anything. Since then, milestones M9–M12 (documents &
+renewal reminders, maintenance planner, quality-of-life extensions — expense analytics/PDF
+export/search/settings screen, and VIN lookup) also shipped, all beyond this checklist's original
+M1–M8 scope. This document intentionally stays scoped to the original v1.0 (M1–M8, tracked by `#26`)
+rather than being rewritten to chase the moving target of "everything shipped so far" — later
+milestones don't need a retroactive v1.0 checklist entry, they're already each individually spec'd
+and shipped on their own terms (see `specs/`).
 
 ## Sign-off
 
-Once the housekeeping issue closures above are done (human action, not automated by this checklist),
-M8 is fully closed and v1.0 is ready to tag — every constitution principle that applies to a
-fully-online v1.0 (all except III, which has nothing to apply to yet) is shipped and verified, docs
-cover both this project's own deployment and third-party self-hosting, and backup/restore is
-documented for anyone running their own instance.
+All housekeeping is done, M8 is fully closed, and every constitution principle is shipped and
+verified — including III, now that M7 gives it something real to apply to. Docs cover both this
+project's own deployment and third-party self-hosting, and backup/restore is documented for anyone
+running their own instance. **v1.0 is ready to tag.** No `v1.0` (or any) git tag exists yet as of
+this update — tagging is a visible, external-facing action this checklist deliberately leaves to an
+explicit human decision rather than performing itself, same as the (now-resolved) housekeeping issue
+closures above.
