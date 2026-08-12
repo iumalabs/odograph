@@ -1,8 +1,12 @@
 name: Deploy Production
 
+# Tag-triggered, not push-to-main — a semver tag (v1.2.3) is the actual release; main advancing on
+# its own no longer deploys anything (docs/deployment.md). release.yml cuts these tags automatically.
 on:
   push:
-    branches: [main]
+    # GitHub Actions tag filters are glob, not regex — [0-9]* means "one digit then anything",
+    # which correctly absorbs multi-digit version components (v10.25.3 still matches).
+    tags: ["v[0-9]*.[0-9]*.[0-9]*"]
 
 permissions:
   contents: read
