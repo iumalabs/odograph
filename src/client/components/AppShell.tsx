@@ -54,7 +54,7 @@ export function AppShell(
         <Logo size={34} />
         <span
           style={{
-            font: "500 7.5px var(--font-mono)",
+            font: "500 8.5px var(--font-mono)",
             color: "var(--dim)",
             letterSpacing: ".04em",
             marginTop: -12,
