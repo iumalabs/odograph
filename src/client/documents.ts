@@ -1,3 +1,5 @@
+import { compressImageIfNeeded } from "./compress-image";
+
 export type DocumentCategory = "registration" | "insurance" | "warranty" | "inspection" | "other";
 
 export type DocumentReminderStatus = "on_track" | "coming_up" | "overdue";
@@ -110,10 +112,11 @@ export async function uploadDocumentAttachment(
   documentId: string,
   file: File,
 ): Promise<Attachment> {
+  const upload = await compressImageIfNeeded(file);
   const res = await fetch(`/api/v1/documents/${documentId}/attachments`, {
     method: "POST",
-    headers: { "Content-Type": file.type || "application/octet-stream" },
-    body: file,
+    headers: { "Content-Type": upload.type || "application/octet-stream" },
+    body: upload,
   });
   if (!res.ok) {
     throw new AttachmentUploadError(await attachmentErrorCode(res));
