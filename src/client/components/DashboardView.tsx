@@ -270,6 +270,9 @@ export function DashboardView({ vehicle, currencySymbol }: DashboardViewProps) {
                 justifyContent: "flex-end",
               }}
             >
+              <span style={{ font: "400 9.5px var(--font-mono)", color: "var(--dim)" }}>
+                {formatCostFigure(total, currencySymbol)}
+              </span>
               <div
                 style={{
                   width: "100%",
