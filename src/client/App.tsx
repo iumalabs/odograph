@@ -585,6 +585,9 @@ export function App() {
           vehicle={mergedVehicles.find((v) => v.id === selectedVehicleId) ?? null}
           currencySymbol={symbol}
           distanceUnit={distanceUnit}
+          serviceRecords={mergedServiceRecords}
+          fuelRecords={mergedFuelRecords}
+          reminderRules={mergedReminderRules}
         />
         {selectedVehicleId && (
           <div style={{ marginTop: 20 }}>
