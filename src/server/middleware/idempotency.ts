@@ -7,11 +7,14 @@ import type { AppEnv } from "../types";
  * Principle III). Absent header = today's exact behavior, no dedup, no change — existing
  * API-token callers (spec 017) that don't know about this header are unaffected.
  *
- * A matching key for this tenant short-circuits *before* the route handler runs, returning the
- * originally-stored response verbatim rather than re-executing — required because some handlers
- * have side effects beyond a single row (e.g. spec 010's duplicate-detection classification),
- * which could observably differ on a second run even though the row itself would be deduped
- * (research.md).
+ * A matching key for this tenant *and this exact method+path* short-circuits *before* the route
+ * handler runs, returning the originally-stored response verbatim rather than re-executing —
+ * required because some handlers have side effects beyond a single row (e.g. spec 010's
+ * duplicate-detection classification), which could observably differ on a second run even though
+ * the row itself would be deduped (research.md). Scoping by method+path (not just tenant+key) is
+ * deliberate: a key reused across two different routes must never short-circuit the second,
+ * unrelated request with the first request's cached response — that would be a silent wrong
+ * success, exactly what Principle III forbids.
  *
  * Only 2xx and "real" 4xx outcomes are stored. 401 (session expired) and 429 (rate limited) are
  * deliberately never stored — those are exactly the failure classes spec 020's client-side drain
@@ -26,7 +29,13 @@ export const idempotent = createMiddleware<AppEnv>(async (c, next) => {
   }
 
   const tenant = c.get("tenant");
-  const existing = await findWriteOperation(c.env.DB, tenant, idempotencyKey);
+  const existing = await findWriteOperation(
+    c.env.DB,
+    tenant,
+    c.req.method,
+    c.req.path,
+    idempotencyKey,
+  );
   if (existing) {
     // A raw Response, not c.body()/c.json() — the stored status code is a plain runtime number,
     // not one of Hono's literal status-code unions, and a 204 must carry a null body regardless

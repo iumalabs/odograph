@@ -81,6 +81,26 @@ function patchServiceRecordReq(
   });
 }
 
+function deleteServiceRecordReq(
+  cookie: string,
+  id: string,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/service-records/${id}`, {
+    method: "DELETE",
+    headers: {
+      Cookie: cookie,
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+  });
+}
+
+function getServiceRecordReq(cookie: string, id: string): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/service-records/${id}`, {
+    headers: { Cookie: cookie },
+  });
+}
+
 describe("idempotency — replay returns the stored response without re-executing", () => {
   it("a repeated Idempotency-Key on create-vehicle returns the same response and creates only one row", async () => {
     const { cookie } = await createSession();
@@ -174,6 +194,50 @@ describe("idempotency — replay returns the stored response without re-executin
     expect(second.status).toBe(200);
     const secondBody = (await second.json()) as ServiceRecord;
     expect(secondBody.description).toBe("Renamed Once");
+  });
+
+  it("a key reused across two different routes does not short-circuit the second with the first's response (test-coverage audit finding)", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const record = await createServiceRecord(cookie, vehicle.id);
+    const key = crypto.randomUUID();
+
+    // First use: create-vehicle. Stores a 201 vehicle response under (tenant, POST /vehicles, key).
+    const first = await createVehicleReq(cookie, { name: "Reused Key", odometerUnit: "km" }, key);
+    expect(first.status).toBe(201);
+
+    // Second use: the SAME key on a completely different route (PATCH a service record). Before
+    // scoping the ledger by method+path, this incorrectly returned the first call's cached 201
+    // vehicle body instead of ever running the PATCH.
+    const second = await patchServiceRecordReq(
+      cookie,
+      record.id,
+      { description: "Actually Renamed" },
+      key,
+    );
+    expect(second.status).toBe(200);
+    const secondBody = (await second.json()) as ServiceRecord;
+    expect(secondBody.description).toBe("Actually Renamed");
+
+    // The PATCH genuinely ran and persisted — not just a coincidentally-shaped cached response.
+    const refetched =
+      (await (await getServiceRecordReq(cookie, record.id)).json()) as ServiceRecord;
+    expect(refetched.description).toBe("Actually Renamed");
+  });
+
+  it("a repeated Idempotency-Key on delete-service-record returns the cached 204 without a second deletion attempt", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const record = await createServiceRecord(cookie, vehicle.id);
+    const key = crypto.randomUUID();
+
+    const first = await deleteServiceRecordReq(cookie, record.id, key);
+    expect(first.status).toBe(204);
+
+    // Without idempotency short-circuiting this, the handler would run again, find the row
+    // already gone, and return 404 instead of the expected replayed 204.
+    const second = await deleteServiceRecordReq(cookie, record.id, key);
+    expect(second.status).toBe(204);
   });
 
   it("a 400 (invalid request) is stored and replayed, not silently re-validated", async () => {
