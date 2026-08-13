@@ -16,7 +16,7 @@ name: E2E
 # a merge someone wants extra confidence on).
 on:
   schedule:
-    - cron: "0 3 * * *" # 03:00 UTC daily
+    - cron: "0 15 * * *" # 21:00 (9PM) Asia/Bishkek (UTC+6, no DST) daily = 15:00 UTC
   workflow_dispatch:
 
 permissions:
