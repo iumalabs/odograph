@@ -19,6 +19,7 @@ export type ReminderRule = {
   byMileage: ReminderStatus | null;
   dueDate: string | null;
   dueOdometer: number | null;
+  remainingFraction: number | null;
 };
 
 async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -68,6 +69,7 @@ export function hydrateOptimisticReminderRule(action: PendingAction): ReminderRu
     byMileage: null,
     dueDate: null,
     dueOdometer: null,
+    remainingFraction: null,
   };
 }
 

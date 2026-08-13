@@ -2527,6 +2527,11 @@ export type ReminderStatusResult = {
   byMileage: ReminderStatus | null;
   dueDate: string | null;
   dueOdometer: number | null;
+  /** The remaining-interval fraction (specs/041) belonging to whichever side determined `status` —
+   * same selection as `status` itself. Negative once overdue. `null` iff `status ===
+   * "not_enough_data"`. Never a new computation: this is the exact value
+   * `classifyRemainingFraction` already classified, just no longer discarded. */
+  remainingFraction: number | null;
 };
 
 export type ReminderRuleWithStatus = ReminderRule & ReminderStatusResult;
@@ -2563,41 +2568,48 @@ export function computeReminderStatus(
 ): ReminderStatusResult {
   let byDate: ReminderStatus | null = null;
   let dueDate: string | null = null;
+  let fractionByDate: number | null = null;
   if (rule.intervalDays !== null && rule.lastDoneDate !== null) {
     const lastDoneMs = Date.parse(rule.lastDoneDate);
     const dueMs = lastDoneMs + rule.intervalDays * 86_400_000;
     dueDate = new Date(dueMs).toISOString().slice(0, 10);
     const remainingDays = (dueMs - now.getTime()) / 86_400_000;
-    byDate = classifyRemainingFraction(remainingDays / rule.intervalDays);
+    fractionByDate = remainingDays / rule.intervalDays;
+    byDate = classifyRemainingFraction(fractionByDate);
   }
 
   let byMileage: ReminderStatus | null = null;
   let dueOdometer: number | null = null;
+  let fractionByMileage: number | null = null;
   if (rule.intervalDistance !== null) {
     if (rule.lastDoneOdometer !== null && currentOdometer !== null) {
       dueOdometer = rule.lastDoneOdometer + rule.intervalDistance;
       const remainingDistance = dueOdometer - currentOdometer;
-      byMileage = classifyRemainingFraction(remainingDistance / rule.intervalDistance);
+      fractionByMileage = remainingDistance / rule.intervalDistance;
+      byMileage = classifyRemainingFraction(fractionByMileage);
     } else {
       byMileage = "not_enough_data";
     }
   }
 
   let status: ReminderStatus;
+  let remainingFraction: number | null;
   if (byDate !== null && byMileage !== null && byMileage !== "not_enough_data") {
     // Both sides computable — the more urgent one wins ("whichever comes first", FR-006).
-    status = REMINDER_URGENCY[byDate as "on_track" | "coming_up" | "overdue"] >=
-        REMINDER_URGENCY[byMileage as "on_track" | "coming_up" | "overdue"]
-      ? byDate
-      : byMileage;
+    const dateWins = REMINDER_URGENCY[byDate as "on_track" | "coming_up" | "overdue"] >=
+      REMINDER_URGENCY[byMileage as "on_track" | "coming_up" | "overdue"];
+    status = dateWins ? byDate : byMileage;
+    remainingFraction = dateWins ? fractionByDate : fractionByMileage;
   } else if (byDate !== null) {
     // Either mileage-side data is missing (ignored per FR-007) or there's no mileage interval.
     status = byDate;
+    remainingFraction = fractionByDate;
   } else {
     status = byMileage ?? "not_enough_data";
+    remainingFraction = fractionByMileage;
   }
 
-  return { status, byDate, byMileage, dueDate, dueOdometer };
+  return { status, byDate, byMileage, dueDate, dueOdometer, remainingFraction };
 }
 
 /**
