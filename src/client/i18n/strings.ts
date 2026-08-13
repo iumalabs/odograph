@@ -229,6 +229,9 @@ const en = {
   pushUnsupportedLabel: "Push notifications aren't available on this device",
   pushPermissionDeniedLabel:
     "Notification permission was denied — enable it in your browser settings to turn this on.",
+  viewLoadingLabel: "Loading…",
+  viewLoadErrorLabel: "This screen couldn't load. Check your connection and try again.",
+  viewLoadRetryLabel: "Retry",
 } as const;
 
 export type StringKey = keyof typeof en;

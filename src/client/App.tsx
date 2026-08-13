@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { lazy, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { addPasskey, loginWithPasskey, registerWithPasskey } from "./auth/passkey";
 import type { PasskeyIdentity } from "./auth/passkey";
 import { requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
@@ -57,19 +57,11 @@ import { useDistanceUnit } from "./distance";
 import type { AppView } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
 import { AuthScreen } from "./components/AuthScreen";
-import { SettingsView } from "./components/SettingsView";
 import { Garage } from "./components/Garage";
 import { SearchBar } from "./components/SearchBar";
-import { ServiceRecordPanel } from "./components/ServiceRecordPanel";
-import { FuelRecordPanel } from "./components/FuelRecordPanel";
-import { ReminderRulePanel } from "./components/ReminderRulePanel";
-import { DocumentPanel } from "./components/DocumentPanel";
-import { PlanBoard } from "./components/PlanBoard";
-import { ExpenseBreakdownPanel } from "./components/ExpenseBreakdownPanel";
+import { LazyViewBoundary } from "./components/LazyViewBoundary";
 import { reportDownloadUrl } from "./vehicle-aggregates";
-import { DashboardView } from "./components/DashboardView";
 import { SyncStatusIndicator } from "./components/SyncStatusIndicator";
-import { SyncReviewScreen } from "./components/SyncReviewScreen";
 import {
   mergeFuelRecords,
   mergePlanCards,
@@ -84,6 +76,40 @@ import {
   subscribe as subscribeQueue,
 } from "./offline/queue";
 import type { PendingActionType } from "./offline/types";
+
+// Lazily loaded: none of these render on the initial screen (specs/051) — Garage/SearchBar
+// (post-login) and AuthScreen (pre-login) are the only "first paint" content and stay statically
+// imported above. Adapts each named export to React.lazy's { default } contract (research.md)
+// rather than adding an `export default` to 9 files just for this.
+const SettingsView = lazy(() =>
+  import("./components/SettingsView").then((m) => ({ default: m.SettingsView }))
+);
+const ServiceRecordPanel = lazy(() =>
+  import("./components/ServiceRecordPanel").then((m) => ({ default: m.ServiceRecordPanel }))
+);
+const FuelRecordPanel = lazy(() =>
+  import("./components/FuelRecordPanel").then((m) => ({ default: m.FuelRecordPanel }))
+);
+const ReminderRulePanel = lazy(() =>
+  import("./components/ReminderRulePanel").then((m) => ({ default: m.ReminderRulePanel }))
+);
+const DocumentPanel = lazy(() =>
+  import("./components/DocumentPanel").then((m) => ({ default: m.DocumentPanel }))
+);
+const PlanBoard = lazy(() =>
+  import("./components/PlanBoard").then((m) => ({ default: m.PlanBoard }))
+);
+const ExpenseBreakdownPanel = lazy(() =>
+  import("./components/ExpenseBreakdownPanel").then((m) => ({
+    default: m.ExpenseBreakdownPanel,
+  }))
+);
+const DashboardView = lazy(() =>
+  import("./components/DashboardView").then((m) => ({ default: m.DashboardView }))
+);
+const SyncReviewScreen = lazy(() =>
+  import("./components/SyncReviewScreen").then((m) => ({ default: m.SyncReviewScreen }))
+);
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
@@ -581,39 +607,41 @@ export function App() {
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
       >
-        <DashboardView
-          vehicle={mergedVehicles.find((v) => v.id === selectedVehicleId) ?? null}
-          currencySymbol={symbol}
-          distanceUnit={distanceUnit}
-          serviceRecords={mergedServiceRecords}
-          fuelRecords={mergedFuelRecords}
-          reminderRules={mergedReminderRules}
-        />
-        {selectedVehicleId && (
-          <div style={{ marginTop: 20 }}>
-            <h2 style={{ font: "600 14px var(--font-ui)", letterSpacing: "-.01em" }}>
-              {t("expenseBreakdownHeading")}
-            </h2>
-            <ExpenseBreakdownPanel vehicleId={selectedVehicleId} currencySymbol={symbol} />
-            <a
-              href={reportDownloadUrl(selectedVehicleId)}
-              style={{
-                display: "inline-flex",
-                alignSelf: "flex-start",
-                marginTop: 14,
-                background: "transparent",
-                border: "1px solid var(--line)",
-                borderRadius: "var(--radius-md)",
-                padding: "10px 14px",
-                color: "var(--fg)",
-                font: "600 11.5px var(--font-ui)",
-                textDecoration: "none",
-              }}
-            >
-              {t("downloadReportLabel")}
-            </a>
-          </div>
-        )}
+        <LazyViewBoundary>
+          <DashboardView
+            vehicle={mergedVehicles.find((v) => v.id === selectedVehicleId) ?? null}
+            currencySymbol={symbol}
+            distanceUnit={distanceUnit}
+            serviceRecords={mergedServiceRecords}
+            fuelRecords={mergedFuelRecords}
+            reminderRules={mergedReminderRules}
+          />
+          {selectedVehicleId && (
+            <div style={{ marginTop: 20 }}>
+              <h2 style={{ font: "600 14px var(--font-ui)", letterSpacing: "-.01em" }}>
+                {t("expenseBreakdownHeading")}
+              </h2>
+              <ExpenseBreakdownPanel vehicleId={selectedVehicleId} currencySymbol={symbol} />
+              <a
+                href={reportDownloadUrl(selectedVehicleId)}
+                style={{
+                  display: "inline-flex",
+                  alignSelf: "flex-start",
+                  marginTop: 14,
+                  background: "transparent",
+                  border: "1px solid var(--line)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "10px 14px",
+                  color: "var(--fg)",
+                  font: "600 11.5px var(--font-ui)",
+                  textDecoration: "none",
+                }}
+              >
+                {t("downloadReportLabel")}
+              </a>
+            </div>
+          )}
+        </LazyViewBoundary>
       </AppShell>
     );
   }
@@ -650,44 +678,46 @@ export function App() {
             </div>
           )
           : (
-            <FuelRecordPanel
-              vehicleId={selectedVehicleId}
-              records={mergedFuelRecords}
-              currencySymbol={symbol}
-              distanceUnit={distanceUnit}
-              vehicleOdometerUnit={mergedVehicles.find((v) => v.id === selectedVehicleId)
-                ?.odometerUnit ?? "km"}
-              fuelDate={fuelDate}
-              onFuelDateChange={setFuelDate}
-              odometerReading={fuelOdometerReading}
-              onOdometerReadingChange={setFuelOdometerReading}
-              volume={fuelVolume}
-              onVolumeChange={setFuelVolume}
-              cost={fuelCost}
-              onCostChange={setFuelCost}
-              onAddRecord={() =>
-                handle(
-                  () =>
-                    createFuelRecord(selectedVehicleId, {
-                      fuelDate,
-                      odometerReading: Number(fuelOdometerReading),
-                      volume: Number(fuelVolume),
-                      cost: Number(fuelCost),
-                    }),
-                  () => {
-                    setFuelDate("");
-                    setFuelOdometerReading("");
-                    setFuelVolume("");
-                    setFuelCost("");
-                  },
-                  t("fuelRecordAddedToast"),
-                )}
-              onUploadAttachment={handleUploadFuelAttachment}
-              attachmentsByRecordId={fuelAttachmentsByRecordId}
-              onDismissDuplicate={handleDismissFuelDuplicate}
-              onUpdateRecord={handleUpdateFuelRecord}
-              onDeleteRecord={handleDeleteFuelRecord}
-            />
+            <LazyViewBoundary>
+              <FuelRecordPanel
+                vehicleId={selectedVehicleId}
+                records={mergedFuelRecords}
+                currencySymbol={symbol}
+                distanceUnit={distanceUnit}
+                vehicleOdometerUnit={mergedVehicles.find((v) => v.id === selectedVehicleId)
+                  ?.odometerUnit ?? "km"}
+                fuelDate={fuelDate}
+                onFuelDateChange={setFuelDate}
+                odometerReading={fuelOdometerReading}
+                onOdometerReadingChange={setFuelOdometerReading}
+                volume={fuelVolume}
+                onVolumeChange={setFuelVolume}
+                cost={fuelCost}
+                onCostChange={setFuelCost}
+                onAddRecord={() =>
+                  handle(
+                    () =>
+                      createFuelRecord(selectedVehicleId, {
+                        fuelDate,
+                        odometerReading: Number(fuelOdometerReading),
+                        volume: Number(fuelVolume),
+                        cost: Number(fuelCost),
+                      }),
+                    () => {
+                      setFuelDate("");
+                      setFuelOdometerReading("");
+                      setFuelVolume("");
+                      setFuelCost("");
+                    },
+                    t("fuelRecordAddedToast"),
+                  )}
+                onUploadAttachment={handleUploadFuelAttachment}
+                attachmentsByRecordId={fuelAttachmentsByRecordId}
+                onDismissDuplicate={handleDismissFuelDuplicate}
+                onUpdateRecord={handleUpdateFuelRecord}
+                onDeleteRecord={handleDeleteFuelRecord}
+              />
+            </LazyViewBoundary>
           )}
       </AppShell>
     );
@@ -725,39 +755,41 @@ export function App() {
             </div>
           )
           : (
-            <ServiceRecordPanel
-              records={mergedServiceRecords}
-              currencySymbol={symbol}
-              distanceUnit={distanceUnit}
-              vehicleOdometerUnit={mergedVehicles.find((v) => v.id === selectedVehicleId)
-                ?.odometerUnit ?? "km"}
-              serviceDate={serviceDate}
-              onServiceDateChange={setServiceDate}
-              serviceDescription={serviceDescription}
-              onServiceDescriptionChange={setServiceDescription}
-              performedBy={servicePerformedBy}
-              onPerformedByChange={setServicePerformedBy}
-              onAddRecord={() =>
-                handle(
-                  () =>
-                    createServiceRecord(selectedVehicleId, {
-                      serviceDate,
-                      description: serviceDescription,
-                      performedBy: servicePerformedBy ?? undefined,
-                    }),
-                  () => {
-                    setServiceDate("");
-                    setServiceDescription("");
-                    setServicePerformedBy(null);
-                  },
-                  t("serviceRecordAddedToast"),
-                )}
-              onUploadAttachment={handleUploadAttachment}
-              attachmentsByRecordId={attachmentsByRecordId}
-              onDismissDuplicate={handleDismissServiceDuplicate}
-              onUpdateRecord={handleUpdateServiceRecord}
-              onDeleteRecord={handleDeleteServiceRecord}
-            />
+            <LazyViewBoundary>
+              <ServiceRecordPanel
+                records={mergedServiceRecords}
+                currencySymbol={symbol}
+                distanceUnit={distanceUnit}
+                vehicleOdometerUnit={mergedVehicles.find((v) => v.id === selectedVehicleId)
+                  ?.odometerUnit ?? "km"}
+                serviceDate={serviceDate}
+                onServiceDateChange={setServiceDate}
+                serviceDescription={serviceDescription}
+                onServiceDescriptionChange={setServiceDescription}
+                performedBy={servicePerformedBy}
+                onPerformedByChange={setServicePerformedBy}
+                onAddRecord={() =>
+                  handle(
+                    () =>
+                      createServiceRecord(selectedVehicleId, {
+                        serviceDate,
+                        description: serviceDescription,
+                        performedBy: servicePerformedBy ?? undefined,
+                      }),
+                    () => {
+                      setServiceDate("");
+                      setServiceDescription("");
+                      setServicePerformedBy(null);
+                    },
+                    t("serviceRecordAddedToast"),
+                  )}
+                onUploadAttachment={handleUploadAttachment}
+                attachmentsByRecordId={attachmentsByRecordId}
+                onDismissDuplicate={handleDismissServiceDuplicate}
+                onUpdateRecord={handleUpdateServiceRecord}
+                onDeleteRecord={handleDeleteServiceRecord}
+              />
+            </LazyViewBoundary>
           )}
       </AppShell>
     );
@@ -795,51 +827,53 @@ export function App() {
             </div>
           )
           : (
-            <ReminderRulePanel
-              rules={mergedReminderRules}
-              distanceUnit={distanceUnit}
-              vehicleOdometerUnit={mergedVehicles.find((v) => v.id === selectedVehicleId)
-                ?.odometerUnit ?? "km"}
-              label={reminderLabel}
-              onLabelChange={setReminderLabel}
-              intervalDays={reminderIntervalDays}
-              onIntervalDaysChange={setReminderIntervalDays}
-              intervalDistance={reminderIntervalDistance}
-              onIntervalDistanceChange={setReminderIntervalDistance}
-              lastDoneDate={reminderLastDoneDate}
-              onLastDoneDateChange={setReminderLastDoneDate}
-              lastDoneOdometer={reminderLastDoneOdometer}
-              onLastDoneOdometerChange={setReminderLastDoneOdometer}
-              onAddRule={() =>
-                handle(
-                  () =>
-                    createReminderRule(selectedVehicleId, {
-                      label: reminderLabel,
-                      ...(reminderIntervalDays !== ""
-                        ? { intervalDays: Number(reminderIntervalDays) }
-                        : {}),
-                      ...(reminderIntervalDistance !== ""
-                        ? { intervalDistance: Number(reminderIntervalDistance) }
-                        : {}),
-                      ...(reminderLastDoneDate !== ""
-                        ? { lastDoneDate: reminderLastDoneDate }
-                        : {}),
-                      ...(reminderLastDoneOdometer !== ""
-                        ? { lastDoneOdometer: Number(reminderLastDoneOdometer) }
-                        : {}),
-                    }),
-                  () => {
-                    setReminderLabel("");
-                    setReminderIntervalDays("");
-                    setReminderIntervalDistance("");
-                    setReminderLastDoneDate("");
-                    setReminderLastDoneOdometer("");
-                  },
-                  t("reminderAddedToast"),
-                )}
-              onMarkDone={handleMarkReminderDone}
-              onDeleteRule={handleDeleteReminderRule}
-            />
+            <LazyViewBoundary>
+              <ReminderRulePanel
+                rules={mergedReminderRules}
+                distanceUnit={distanceUnit}
+                vehicleOdometerUnit={mergedVehicles.find((v) => v.id === selectedVehicleId)
+                  ?.odometerUnit ?? "km"}
+                label={reminderLabel}
+                onLabelChange={setReminderLabel}
+                intervalDays={reminderIntervalDays}
+                onIntervalDaysChange={setReminderIntervalDays}
+                intervalDistance={reminderIntervalDistance}
+                onIntervalDistanceChange={setReminderIntervalDistance}
+                lastDoneDate={reminderLastDoneDate}
+                onLastDoneDateChange={setReminderLastDoneDate}
+                lastDoneOdometer={reminderLastDoneOdometer}
+                onLastDoneOdometerChange={setReminderLastDoneOdometer}
+                onAddRule={() =>
+                  handle(
+                    () =>
+                      createReminderRule(selectedVehicleId, {
+                        label: reminderLabel,
+                        ...(reminderIntervalDays !== ""
+                          ? { intervalDays: Number(reminderIntervalDays) }
+                          : {}),
+                        ...(reminderIntervalDistance !== ""
+                          ? { intervalDistance: Number(reminderIntervalDistance) }
+                          : {}),
+                        ...(reminderLastDoneDate !== ""
+                          ? { lastDoneDate: reminderLastDoneDate }
+                          : {}),
+                        ...(reminderLastDoneOdometer !== ""
+                          ? { lastDoneOdometer: Number(reminderLastDoneOdometer) }
+                          : {}),
+                      }),
+                    () => {
+                      setReminderLabel("");
+                      setReminderIntervalDays("");
+                      setReminderIntervalDistance("");
+                      setReminderLastDoneDate("");
+                      setReminderLastDoneOdometer("");
+                    },
+                    t("reminderAddedToast"),
+                  )}
+                onMarkDone={handleMarkReminderDone}
+                onDeleteRule={handleDeleteReminderRule}
+              />
+            </LazyViewBoundary>
           )}
       </AppShell>
     );
@@ -877,39 +911,41 @@ export function App() {
             </div>
           )
           : (
-            <PlanBoard
-              cards={mergedPlanCards}
-              currencySymbol={symbol}
-              title={planCardTitle}
-              onTitleChange={setPlanCardTitle}
-              targetDate={planCardTargetDate}
-              onTargetDateChange={setPlanCardTargetDate}
-              estimatedCost={planCardEstimatedCost}
-              onEstimatedCostChange={setPlanCardEstimatedCost}
-              urgent={planCardUrgent}
-              onUrgentChange={setPlanCardUrgent}
-              onAddCard={() =>
-                handle(
-                  () =>
-                    createPlanCard(selectedVehicleId, {
-                      title: planCardTitle,
-                      ...(planCardTargetDate !== "" ? { targetDate: planCardTargetDate } : {}),
-                      ...(planCardEstimatedCost !== ""
-                        ? { estimatedCost: Number(planCardEstimatedCost) }
-                        : {}),
-                      ...(planCardUrgent ? { urgent: true } : {}),
-                    }),
-                  () => {
-                    setPlanCardTitle("");
-                    setPlanCardTargetDate("");
-                    setPlanCardEstimatedCost("");
-                    setPlanCardUrgent(false);
-                  },
-                  t("planCardAddedToast"),
-                )}
-              onAdvanceCard={handleAdvancePlanCard}
-              onDeleteCard={handleDeletePlanCard}
-            />
+            <LazyViewBoundary>
+              <PlanBoard
+                cards={mergedPlanCards}
+                currencySymbol={symbol}
+                title={planCardTitle}
+                onTitleChange={setPlanCardTitle}
+                targetDate={planCardTargetDate}
+                onTargetDateChange={setPlanCardTargetDate}
+                estimatedCost={planCardEstimatedCost}
+                onEstimatedCostChange={setPlanCardEstimatedCost}
+                urgent={planCardUrgent}
+                onUrgentChange={setPlanCardUrgent}
+                onAddCard={() =>
+                  handle(
+                    () =>
+                      createPlanCard(selectedVehicleId, {
+                        title: planCardTitle,
+                        ...(planCardTargetDate !== "" ? { targetDate: planCardTargetDate } : {}),
+                        ...(planCardEstimatedCost !== ""
+                          ? { estimatedCost: Number(planCardEstimatedCost) }
+                          : {}),
+                        ...(planCardUrgent ? { urgent: true } : {}),
+                      }),
+                    () => {
+                      setPlanCardTitle("");
+                      setPlanCardTargetDate("");
+                      setPlanCardEstimatedCost("");
+                      setPlanCardUrgent(false);
+                    },
+                    t("planCardAddedToast"),
+                  )}
+                onAdvanceCard={handleAdvancePlanCard}
+                onDeleteCard={handleDeletePlanCard}
+              />
+            </LazyViewBoundary>
           )}
       </AppShell>
     );
@@ -947,30 +983,32 @@ export function App() {
             </div>
           )
           : (
-            <DocumentPanel
-              documents={documents}
-              title={documentTitle}
-              onTitleChange={setDocumentTitle}
-              category={documentCategory}
-              onCategoryChange={setDocumentCategory}
-              onAddDocument={() =>
-                handle(
-                  () =>
-                    createDocument(selectedVehicleId, {
-                      title: documentTitle,
-                      category: documentCategory,
-                    }),
-                  (created) => {
-                    setDocuments((current) => [...current, created]);
-                    setDocumentTitle("");
-                  },
-                  t("documentAddedToast"),
-                )}
-              onUploadAttachment={handleUploadDocumentAttachment}
-              attachmentsByDocumentId={documentAttachmentsByDocumentId}
-              onUpdateDocument={handleUpdateDocument}
-              onDeleteDocument={handleDeleteDocument}
-            />
+            <LazyViewBoundary>
+              <DocumentPanel
+                documents={documents}
+                title={documentTitle}
+                onTitleChange={setDocumentTitle}
+                category={documentCategory}
+                onCategoryChange={setDocumentCategory}
+                onAddDocument={() =>
+                  handle(
+                    () =>
+                      createDocument(selectedVehicleId, {
+                        title: documentTitle,
+                        category: documentCategory,
+                      }),
+                    (created) => {
+                      setDocuments((current) => [...current, created]);
+                      setDocumentTitle("");
+                    },
+                    t("documentAddedToast"),
+                  )}
+                onUploadAttachment={handleUploadDocumentAttachment}
+                attachmentsByDocumentId={documentAttachmentsByDocumentId}
+                onUpdateDocument={handleUpdateDocument}
+                onDeleteDocument={handleDeleteDocument}
+              />
+            </LazyViewBoundary>
           )}
       </AppShell>
     );
@@ -992,7 +1030,9 @@ export function App() {
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
       >
-        <SyncReviewScreen actions={queueSnapshot.actions} />
+        <LazyViewBoundary>
+          <SyncReviewScreen actions={queueSnapshot.actions} />
+        </LazyViewBoundary>
       </AppShell>
     );
   }
@@ -1013,12 +1053,14 @@ export function App() {
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
       >
-        <SettingsView
-          onError={() => setError(t("genericError"))}
-          onConfirmDelete={handleDeleteAccount}
-          currency={currency}
-          onCurrencyChange={setCurrency}
-        />
+        <LazyViewBoundary>
+          <SettingsView
+            onError={() => setError(t("genericError"))}
+            onConfirmDelete={handleDeleteAccount}
+            currency={currency}
+            onCurrencyChange={setCurrency}
+          />
+        </LazyViewBoundary>
       </AppShell>
     );
   }
