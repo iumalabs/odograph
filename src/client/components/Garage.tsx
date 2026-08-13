@@ -37,8 +37,29 @@ const chipStyle = {
   color: "var(--dim)",
 };
 
+const statLabelStyle = {
+  font: "400 9.5px var(--font-mono)",
+  color: "var(--dim)",
+  letterSpacing: ".08em",
+};
+
+const statValueStyle = {
+  font: "500 25px var(--font-mono)",
+  letterSpacing: "-.03em",
+  marginTop: 4,
+};
+
+/** Status → color, matching ReminderRulePanel.tsx's existing badge convention (specs/041
+ * research.md) rather than a new gradient. */
+const REMINDER_STATUS_COLOR: Record<string, string> = {
+  overdue: "var(--warn)",
+  coming_up: "var(--acc)",
+  on_track: "var(--dim)",
+};
+
 type VehicleSummary = {
   currentOdometer: number | null;
+  averageFuelEconomy: number | null;
   mostUrgentReminder: ReminderRule | null;
 };
 
@@ -87,6 +108,7 @@ export function Garage(props: GarageProps) {
         ]);
         return [vehicle.id, {
           currentOdometer: aggregates?.currentOdometer ?? null,
+          averageFuelEconomy: aggregates?.averageFuelEconomy ?? null,
           mostUrgentReminder: mostUrgentReminder(reminderRules),
         }] as const;
       }),
@@ -107,7 +129,12 @@ export function Garage(props: GarageProps) {
         const isSelected = selectedVehicleId === vehicle.id;
         const summary = summaries[vehicle.id];
         const currentOdometer = summary?.currentOdometer ?? null;
+        const averageFuelEconomy = summary?.averageFuelEconomy ?? null;
         const urgentReminder = summary?.mostUrgentReminder ?? null;
+        const remainingFraction = urgentReminder?.remainingFraction ?? null;
+        const barFillPercent = remainingFraction !== null
+          ? Math.min(1, Math.max(0, 1 - remainingFraction)) * 100
+          : null;
         return (
           <button
             key={vehicle.id}
@@ -152,14 +179,46 @@ export function Garage(props: GarageProps) {
                 </span>
               )}
             </div>
+
+            <div style={{ display: "flex", gap: 26, flexWrap: "wrap" }}>
+              <div>
+                <div style={statLabelStyle}>{t("odometerLabel")}</div>
+                <div style={statValueStyle}>
+                  {currentOdometer != null ? currentOdometer : t("fuelEconomyNotEnoughData")}
+                </div>
+              </div>
+              <div>
+                <div style={statLabelStyle}>{t("averageFuelEconomyLabel")}</div>
+                <div style={{ ...statValueStyle, color: "var(--acc)" }}>
+                  {averageFuelEconomy != null
+                    ? averageFuelEconomy.toFixed(1)
+                    : t("fuelEconomyNotEnoughData")}
+                </div>
+              </div>
+            </div>
+
+            {urgentReminder && barFillPercent != null && (
+              <div
+                style={{
+                  height: 5,
+                  background: "var(--panel2)",
+                  borderRadius: 3,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${barFillPercent}%`,
+                    height: "100%",
+                    background: REMINDER_STATUS_COLOR[urgentReminder.status] ?? "var(--dim)",
+                  }}
+                />
+              </div>
+            )}
+
             <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
               {vehicle.vin && <span style={chipStyle}>{vehicle.vin}</span>}
               <span style={chipStyle}>{vehicle.odometerUnit}</span>
-              {currentOdometer != null && (
-                <span style={chipStyle}>
-                  {t("odometerLabel")}: {currentOdometer}
-                </span>
-              )}
               {vehicle.syncStatus === "pending" && (
                 <span style={{ ...chipStyle, color: "var(--dim)" }}>
                   {t("pendingSyncLabel")}

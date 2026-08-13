@@ -239,22 +239,27 @@ describe("reminder rule status computation (User Story 2)", () => {
       label: "On track",
       intervalDays: 100,
       lastDoneDate: isoDateDaysFromNow(0),
-    })).json()) as { status: string };
+    })).json()) as { status: string; remainingFraction: number | null };
     expect(onTrack.status).toBe("on_track");
+    expect(onTrack.remainingFraction).not.toBeNull();
+    expect(onTrack.remainingFraction as number).toBeGreaterThan(0.9);
 
     const comingUp = (await (await createReminderRule(sharedCookie, vehicleId, {
       label: "Coming up",
       intervalDays: 100,
       lastDoneDate: isoDateDaysFromNow(-95),
-    })).json()) as { status: string };
+    })).json()) as { status: string; remainingFraction: number | null };
     expect(comingUp.status).toBe("coming_up");
+    expect(comingUp.remainingFraction as number).toBeGreaterThan(0);
+    expect(comingUp.remainingFraction as number).toBeLessThanOrEqual(0.1);
 
     const overdue = (await (await createReminderRule(sharedCookie, vehicleId, {
       label: "Overdue",
       intervalDays: 100,
       lastDoneDate: isoDateDaysFromNow(-110),
-    })).json()) as { status: string };
+    })).json()) as { status: string; remainingFraction: number | null };
     expect(overdue.status).toBe("overdue");
+    expect(overdue.remainingFraction as number).toBeLessThan(0);
   });
 
   it("computes on_track, coming_up, and overdue for a mileage-based rule using the vehicle's logged odometer history", async () => {
@@ -271,22 +276,26 @@ describe("reminder rule status computation (User Story 2)", () => {
       label: "On track",
       intervalDistance: 1000,
       lastDoneOdometer: 2500, // due 3500, remaining 500/1000 = 0.5
-    })).json()) as { status: string };
+    })).json()) as { status: string; remainingFraction: number | null };
     expect(onTrack.status).toBe("on_track");
+    expect(onTrack.remainingFraction).toBeCloseTo(0.5, 5);
 
     const comingUp = (await (await createReminderRule(sharedCookie, vehicleId, {
       label: "Coming up",
       intervalDistance: 1000,
       lastDoneOdometer: 2050, // due 3050, remaining 50/1000 = 0.05
-    })).json()) as { status: string };
+    })).json()) as { status: string; remainingFraction: number | null };
     expect(comingUp.status).toBe("coming_up");
+    expect(comingUp.remainingFraction).toBeCloseTo(0.05, 5);
 
     const overdue = (await (await createReminderRule(sharedCookie, vehicleId, {
       label: "Overdue",
       intervalDistance: 1000,
       lastDoneOdometer: 1800, // due 2800, already passed by the current 3000
-    })).json()) as { status: string };
+    })).json()) as { status: string; remainingFraction: number | null };
     expect(overdue.status).toBe("overdue");
+    // due 2800, current 3000: (2800-3000)/1000 = -0.2
+    expect(overdue.remainingFraction).toBeCloseTo(-0.2, 5);
   });
 
   it("shows not_enough_data for a mileage-only rule on a vehicle with no fuel/service records", async () => {
@@ -298,9 +307,14 @@ describe("reminder rule status computation (User Story 2)", () => {
       lastDoneOdometer: 0,
     });
     expect(res.status).toBe(201);
-    const created = (await res.json()) as { status: string; byMileage: string };
+    const created = (await res.json()) as {
+      status: string;
+      byMileage: string;
+      remainingFraction: number | null;
+    };
     expect(created.status).toBe("not_enough_data");
     expect(created.byMileage).toBe("not_enough_data");
+    expect(created.remainingFraction).toBeNull();
   });
 
   it("reports the more urgent side when both intervals disagree", async () => {
@@ -319,10 +333,19 @@ describe("reminder rule status computation (User Story 2)", () => {
       intervalDistance: 1000,
       lastDoneOdometer: 1800, // due 2800, overdue against current 3000
     });
-    const created = (await res.json()) as { status: string; byDate: string; byMileage: string };
+    const created = (await res.json()) as {
+      status: string;
+      byDate: string;
+      byMileage: string;
+      remainingFraction: number | null;
+    };
     expect(created.byDate).toBe("on_track");
     expect(created.byMileage).toBe("overdue");
     expect(created.status).toBe("overdue");
+    // remainingFraction must belong to the winning (mileage) side, not the on_track date side —
+    // due 2800, current 3000: (2800-3000)/1000 = -0.2. The date side would be positive (~1.0), so
+    // this also proves the fraction wasn't accidentally taken from the losing side.
+    expect(created.remainingFraction).toBeCloseTo(-0.2, 5);
   });
 
   it("lists only each tenant's own vehicle's reminder rules", async () => {
