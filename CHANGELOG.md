@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.0](https://github.com/maksimyugai/odograph/compare/v1.5.0...v1.6.0) (2026-08-13)
+
+
+### Features
+
+* document expiry progress bar (spec 045, issue [#142](https://github.com/maksimyugai/odograph/issues/142)) ([#147](https://github.com/maksimyugai/odograph/issues/147)) ([72bbabd](https://github.com/maksimyugai/odograph/commit/72bbabd3ec4c08daae98be0b73eb43b57cbfe56d))
+* due-in text for Dashboard upcoming reminders (spec 043, issue [#139](https://github.com/maksimyugai/odograph/issues/139)) ([#145](https://github.com/maksimyugai/odograph/issues/145)) ([a30a340](https://github.com/maksimyugai/odograph/commit/a30a340181a50d65d907e141c94f085173f9f338))
+* header currency and units toggles (spec 047, issue [#136](https://github.com/maksimyugai/odograph/issues/136)) ([#149](https://github.com/maksimyugai/odograph/issues/149)) ([7c74ef8](https://github.com/maksimyugai/odograph/commit/7c74ef8a5918d50b2952eb89b47ccad6ebba91ac))
+* header vehicle switcher and quick-fuel shortcut (spec 039, issue [#127](https://github.com/maksimyugai/odograph/issues/127)) ([#132](https://github.com/maksimyugai/odograph/issues/132)) ([6e411e8](https://github.com/maksimyugai/odograph/commit/6e411e82ee5d9f79852d42041bb6d59b192fdcb0))
+* label Dashboard chart bars with their monthly total (spec 042, issue [#140](https://github.com/maksimyugai/odograph/issues/140)) ([#144](https://github.com/maksimyugai/odograph/issues/144)) ([dc34bdd](https://github.com/maksimyugai/odograph/commit/dc34bdddebfe88e68578f54824dca6e3336d366b))
+* live fuel economy/cost-per-distance preview (spec 040, issue [#128](https://github.com/maksimyugai/odograph/issues/128)) ([#134](https://github.com/maksimyugai/odograph/issues/134)) ([f579902](https://github.com/maksimyugai/odograph/commit/f57990247e673053e5be1445ef3072747b7174e1))
+* reminders screen info panel with legend and recently-completed list (spec 044, issue [#141](https://github.com/maksimyugai/odograph/issues/141)) ([#146](https://github.com/maksimyugai/odograph/issues/146)) ([cf28242](https://github.com/maksimyugai/odograph/commit/cf282424fe449c8a32ff71f141d2928172e08cce))
+* richer Garage cards - large stats and reminder progress bar (spec 041, issue [#138](https://github.com/maksimyugai/odograph/issues/138)) ([#143](https://github.com/maksimyugai/odograph/issues/143)) ([bca09bf](https://github.com/maksimyugai/odograph/commit/bca09bf099f6aaea41d7b99ce32721b4470b5bdf))
+* toast save confirmations for the six create actions (spec 046, issue [#137](https://github.com/maksimyugai/odograph/issues/137)) ([#148](https://github.com/maksimyugai/odograph/issues/148)) ([6c8da10](https://github.com/maksimyugai/odograph/commit/6c8da106ffb76723ea81ee5613d8589c687e252d))
+
 ## [1.5.0](https://github.com/maksimyugai/odograph/compare/v1.4.0...v1.5.0) (2026-08-12)
 
 
