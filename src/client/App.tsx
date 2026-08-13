@@ -559,6 +559,9 @@ export function App() {
         view={view}
         onSelectView={setView}
         reviewBadgeCount={rejectedActionCount}
+        vehicles={mergedVehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={setSelectedVehicleId}
       >
         <DashboardView
           vehicle={mergedVehicles.find((v) => v.id === selectedVehicleId) ?? null}
@@ -600,6 +603,9 @@ export function App() {
         view={view}
         onSelectView={setView}
         reviewBadgeCount={rejectedActionCount}
+        vehicles={mergedVehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={setSelectedVehicleId}
       >
         {!selectedVehicleId
           ? (
@@ -662,6 +668,9 @@ export function App() {
         view={view}
         onSelectView={setView}
         reviewBadgeCount={rejectedActionCount}
+        vehicles={mergedVehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={setSelectedVehicleId}
       >
         {!selectedVehicleId
           ? (
@@ -720,6 +729,9 @@ export function App() {
         view={view}
         onSelectView={setView}
         reviewBadgeCount={rejectedActionCount}
+        vehicles={mergedVehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={setSelectedVehicleId}
       >
         {!selectedVehicleId
           ? (
@@ -790,6 +802,9 @@ export function App() {
         view={view}
         onSelectView={setView}
         reviewBadgeCount={rejectedActionCount}
+        vehicles={mergedVehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={setSelectedVehicleId}
       >
         {!selectedVehicleId
           ? (
@@ -851,6 +866,9 @@ export function App() {
         view={view}
         onSelectView={setView}
         reviewBadgeCount={rejectedActionCount}
+        vehicles={mergedVehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={setSelectedVehicleId}
       >
         {!selectedVehicleId
           ? (
@@ -903,6 +921,9 @@ export function App() {
         view={view}
         onSelectView={setView}
         reviewBadgeCount={rejectedActionCount}
+        vehicles={mergedVehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={setSelectedVehicleId}
       >
         <SyncReviewScreen actions={queueSnapshot.actions} />
       </AppShell>
@@ -916,6 +937,9 @@ export function App() {
         view={view}
         onSelectView={setView}
         reviewBadgeCount={rejectedActionCount}
+        vehicles={mergedVehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={setSelectedVehicleId}
       >
         <SettingsView
           onError={() => setError(t("genericError"))}
@@ -933,6 +957,9 @@ export function App() {
       view={view}
       onSelectView={setView}
       reviewBadgeCount={rejectedActionCount}
+      vehicles={mergedVehicles}
+      selectedVehicleId={selectedVehicleId}
+      onSelectVehicle={setSelectedVehicleId}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
