@@ -48,10 +48,15 @@ function createServiceRecordReq(
   cookie: string,
   vehicleId: string,
   body: Record<string, unknown>,
+  idempotencyKey?: string,
 ): Promise<Response> {
   return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/service-records`, {
     method: "POST",
-    headers: { Cookie: cookie, "Content-Type": "application/json" },
+    headers: {
+      Cookie: cookie,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
     body: JSON.stringify(body),
   });
 }
@@ -98,6 +103,246 @@ function deleteServiceRecordReq(
 function getServiceRecordReq(cookie: string, id: string): Promise<Response> {
   return SELF.fetch(`https://example.com/api/v1/service-records/${id}`, {
     headers: { Cookie: cookie },
+  });
+}
+
+function dismissServiceDuplicateReq(
+  cookie: string,
+  id: string,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/service-records/${id}/dismiss-duplicate`, {
+    method: "POST",
+    headers: {
+      Cookie: cookie,
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+  });
+}
+
+type FuelRecord = { id: string; volume: number; duplicateOfId: string | null };
+
+function createFuelRecordReq(
+  cookie: string,
+  vehicleId: string,
+  body: Record<string, unknown>,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/fuel-records`, {
+    method: "POST",
+    headers: {
+      Cookie: cookie,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function createFuelRecord(
+  cookie: string,
+  vehicleId: string,
+  body: Record<string, unknown> = {},
+): Promise<FuelRecord> {
+  const res = await createFuelRecordReq(cookie, vehicleId, {
+    fuelDate: "2026-01-01",
+    odometerReading: 1000,
+    volume: 40,
+    cost: 60,
+    ...body,
+  });
+  return (await res.json()) as FuelRecord;
+}
+
+function patchFuelRecordReq(
+  cookie: string,
+  id: string,
+  body: Record<string, unknown>,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/fuel-records/${id}`, {
+    method: "PATCH",
+    headers: {
+      Cookie: cookie,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function deleteFuelRecordReq(
+  cookie: string,
+  id: string,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/fuel-records/${id}`, {
+    method: "DELETE",
+    headers: {
+      Cookie: cookie,
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+  });
+}
+
+function dismissFuelDuplicateReq(
+  cookie: string,
+  id: string,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/fuel-records/${id}/dismiss-duplicate`, {
+    method: "POST",
+    headers: {
+      Cookie: cookie,
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+  });
+}
+
+type VehicleDocument = { id: string; title: string };
+
+function createDocumentReq(
+  cookie: string,
+  vehicleId: string,
+  body: Record<string, unknown>,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/documents`, {
+    method: "POST",
+    headers: {
+      Cookie: cookie,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function createDocument(cookie: string, vehicleId: string): Promise<VehicleDocument> {
+  const res = await createDocumentReq(cookie, vehicleId, {
+    title: "Registration",
+    category: "registration",
+  });
+  return (await res.json()) as VehicleDocument;
+}
+
+function patchDocumentReq(
+  cookie: string,
+  id: string,
+  body: Record<string, unknown>,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/documents/${id}`, {
+    method: "PATCH",
+    headers: {
+      Cookie: cookie,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function deleteDocumentReq(cookie: string, id: string, idempotencyKey?: string): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/documents/${id}`, {
+    method: "DELETE",
+    headers: {
+      Cookie: cookie,
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+  });
+}
+
+type PlanCard = { id: string; title: string };
+
+function createPlanCardReq(
+  cookie: string,
+  vehicleId: string,
+  body: Record<string, unknown>,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/plan-cards`, {
+    method: "POST",
+    headers: {
+      Cookie: cookie,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function createPlanCard(cookie: string, vehicleId: string): Promise<PlanCard> {
+  const res = await createPlanCardReq(cookie, vehicleId, { title: "Replace brakes" });
+  return (await res.json()) as PlanCard;
+}
+
+function patchPlanCardReq(
+  cookie: string,
+  id: string,
+  body: Record<string, unknown>,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/plan-cards/${id}`, {
+    method: "PATCH",
+    headers: {
+      Cookie: cookie,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function deletePlanCardReq(cookie: string, id: string, idempotencyKey?: string): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/plan-cards/${id}`, {
+    method: "DELETE",
+    headers: {
+      Cookie: cookie,
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+  });
+}
+
+type ReminderRule = { id: string; label: string };
+
+function createReminderRuleReq(
+  cookie: string,
+  vehicleId: string,
+  body: Record<string, unknown>,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/reminder-rules`, {
+    method: "POST",
+    headers: {
+      Cookie: cookie,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function createReminderRule(cookie: string, vehicleId: string): Promise<ReminderRule> {
+  const res = await createReminderRuleReq(cookie, vehicleId, {
+    label: "Oil change",
+    intervalDays: 180,
+    lastDoneDate: "2026-01-01",
+  });
+  return (await res.json()) as ReminderRule;
+}
+
+function deleteReminderRuleReq(
+  cookie: string,
+  id: string,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/reminder-rules/${id}`, {
+    method: "DELETE",
+    headers: {
+      Cookie: cookie,
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
   });
 }
 
@@ -254,6 +499,254 @@ describe("idempotency — replay returns the stored response without re-executin
     const list = await listVehiclesReq(cookie);
     const { vehicles } = (await list.json()) as { vehicles: Vehicle[] };
     expect(vehicles.length).toBe(0);
+  });
+});
+
+// Replay coverage for every remaining route wearing the `idempotent` middleware
+// (test-coverage audit follow-up) — the describe block above only covered create-vehicle and
+// service-record PATCH/DELETE/dismiss-duplicate. `reminder-rules.test.ts` already covers
+// POST /:id/mark-done's idempotent retry (spec 049) — not duplicated here.
+describe("idempotency — replay coverage for the remaining create routes", () => {
+  it("POST /vehicles/:id/service-records: a repeated key creates only one record", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const key = crypto.randomUUID();
+
+    const first = await createServiceRecordReq(cookie, vehicle.id, {
+      serviceDate: "2026-01-01",
+      description: "Oil change",
+    }, key);
+    const firstBody = await first.json();
+
+    const second = await createServiceRecordReq(cookie, vehicle.id, {
+      serviceDate: "2026-02-01",
+      description: "Brake pads",
+    }, key);
+    expect(await second.json()).toEqual(firstBody);
+  });
+
+  it("POST /vehicles/:id/fuel-records: a repeated key creates only one record", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const key = crypto.randomUUID();
+
+    const first = await createFuelRecordReq(cookie, vehicle.id, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    }, key);
+    const firstBody = await first.json();
+
+    const second = await createFuelRecordReq(cookie, vehicle.id, {
+      fuelDate: "2026-02-01",
+      odometerReading: 2000,
+      volume: 50,
+      cost: 70,
+    }, key);
+    expect(await second.json()).toEqual(firstBody);
+  });
+
+  it("POST /vehicles/:id/documents: a repeated key creates only one record", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const key = crypto.randomUUID();
+
+    const first = await createDocumentReq(cookie, vehicle.id, {
+      title: "Registration",
+      category: "registration",
+    }, key);
+    const firstBody = await first.json();
+
+    const second = await createDocumentReq(cookie, vehicle.id, {
+      title: "Insurance",
+      category: "insurance",
+    }, key);
+    expect(await second.json()).toEqual(firstBody);
+  });
+
+  it("POST /vehicles/:id/plan-cards: a repeated key creates only one record", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const key = crypto.randomUUID();
+
+    const first = await createPlanCardReq(cookie, vehicle.id, { title: "Replace brakes" }, key);
+    const firstBody = await first.json();
+
+    const second = await createPlanCardReq(cookie, vehicle.id, { title: "Replace tires" }, key);
+    expect(await second.json()).toEqual(firstBody);
+  });
+
+  it("POST /vehicles/:id/reminder-rules: a repeated key creates only one record", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const key = crypto.randomUUID();
+
+    const first = await createReminderRuleReq(cookie, vehicle.id, {
+      label: "Oil change",
+      intervalDays: 180,
+      lastDoneDate: "2026-01-01",
+    }, key);
+    const firstBody = await first.json();
+
+    const second = await createReminderRuleReq(cookie, vehicle.id, {
+      label: "Tire rotation",
+      intervalDays: 90,
+      lastDoneDate: "2026-01-01",
+    }, key);
+    expect(await second.json()).toEqual(firstBody);
+  });
+});
+
+describe("idempotency — replay coverage for the remaining PATCH routes", () => {
+  it("PATCH /fuel-records/:id: a repeated key does not re-apply the second call's body", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const record = await createFuelRecord(cookie, vehicle.id);
+    const key = crypto.randomUUID();
+
+    const first = await patchFuelRecordReq(cookie, record.id, { station: "Shell" }, key);
+    expect(first.status).toBe(200);
+
+    const second = await patchFuelRecordReq(cookie, record.id, { station: "Chevron" }, key);
+    expect(second.status).toBe(200);
+    const secondBody = (await second.json()) as { station: string | null };
+    expect(secondBody.station).toBe("Shell");
+  });
+
+  it("PATCH /documents/:id: a repeated key does not re-apply the second call's body", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const document = await createDocument(cookie, vehicle.id);
+    const key = crypto.randomUUID();
+
+    const first = await patchDocumentReq(cookie, document.id, { title: "Renamed Once" }, key);
+    expect(first.status).toBe(200);
+
+    const second = await patchDocumentReq(cookie, document.id, { title: "Renamed Twice" }, key);
+    expect(second.status).toBe(200);
+    const secondBody = (await second.json()) as VehicleDocument;
+    expect(secondBody.title).toBe("Renamed Once");
+  });
+
+  it("PATCH /plan-cards/:id: a repeated key does not re-apply the second call's body", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const card = await createPlanCard(cookie, vehicle.id);
+    const key = crypto.randomUUID();
+
+    const first = await patchPlanCardReq(cookie, card.id, { title: "Renamed Once" }, key);
+    expect(first.status).toBe(200);
+
+    const second = await patchPlanCardReq(cookie, card.id, { title: "Renamed Twice" }, key);
+    expect(second.status).toBe(200);
+    const secondBody = (await second.json()) as PlanCard;
+    expect(secondBody.title).toBe("Renamed Once");
+  });
+});
+
+describe("idempotency — replay coverage for the remaining DELETE routes", () => {
+  it("DELETE /fuel-records/:id: a repeated key returns the cached 204, not a second-delete 404", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const record = await createFuelRecord(cookie, vehicle.id);
+    const key = crypto.randomUUID();
+
+    const first = await deleteFuelRecordReq(cookie, record.id, key);
+    expect(first.status).toBe(204);
+
+    const second = await deleteFuelRecordReq(cookie, record.id, key);
+    expect(second.status).toBe(204);
+  });
+
+  it("DELETE /documents/:id: a repeated key returns the cached 204, not a second-delete 404", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const document = await createDocument(cookie, vehicle.id);
+    const key = crypto.randomUUID();
+
+    const first = await deleteDocumentReq(cookie, document.id, key);
+    expect(first.status).toBe(204);
+
+    const second = await deleteDocumentReq(cookie, document.id, key);
+    expect(second.status).toBe(204);
+  });
+
+  it("DELETE /plan-cards/:id: a repeated key returns the cached 204, not a second-delete 404", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const card = await createPlanCard(cookie, vehicle.id);
+    const key = crypto.randomUUID();
+
+    const first = await deletePlanCardReq(cookie, card.id, key);
+    expect(first.status).toBe(204);
+
+    const second = await deletePlanCardReq(cookie, card.id, key);
+    expect(second.status).toBe(204);
+  });
+
+  it("DELETE /reminder-rules/:id: a repeated key returns the cached 204, not a second-delete 404", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const rule = await createReminderRule(cookie, vehicle.id);
+    const key = crypto.randomUUID();
+
+    const first = await deleteReminderRuleReq(cookie, rule.id, key);
+    expect(first.status).toBe(204);
+
+    const second = await deleteReminderRuleReq(cookie, rule.id, key);
+    expect(second.status).toBe(204);
+  });
+});
+
+describe("idempotency — replay coverage for dismiss-duplicate routes", () => {
+  it("POST /service-records/:id/dismiss-duplicate: a repeated key returns the cached 200, not a second-dismiss 404", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const original = await createServiceRecord(cookie, vehicle.id);
+    // Same date + same description (case-insensitive) flags this one as a duplicate of `original`
+    // (constitution D-005).
+    const duplicate = (await (await createServiceRecordReq(cookie, vehicle.id, {
+      serviceDate: "2026-01-01",
+      description: "Oil change",
+    })).json()) as { id: string; duplicateOfId: string | null };
+    expect(duplicate.duplicateOfId).toBe(original.id);
+
+    const key = crypto.randomUUID();
+    const first = await dismissServiceDuplicateReq(cookie, duplicate.id, key);
+    expect(first.status).toBe(200);
+
+    // Without the idempotent short-circuit, a second real execution would find duplicateOfId
+    // already NULL and 404 instead of replaying the cached 200.
+    const second = await dismissServiceDuplicateReq(cookie, duplicate.id, key);
+    expect(second.status).toBe(200);
+  });
+
+  it("POST /fuel-records/:id/dismiss-duplicate: a repeated key returns the cached 200, not a second-dismiss 404", async () => {
+    const { cookie } = await createSession();
+    const vehicle = await createVehicle(cookie, "Owner");
+    const original = await createFuelRecord(cookie, vehicle.id, {
+      fuelDate: "2026-01-01",
+      odometerReading: 5000,
+      volume: 40,
+      cost: 60,
+    });
+    // Same date + odometer within the fuel duplicate-detection tolerance (5) flags this one
+    // against `original` (constitution D-005).
+    const duplicate = await createFuelRecord(cookie, vehicle.id, {
+      fuelDate: "2026-01-01",
+      odometerReading: 5002,
+      volume: 1,
+      cost: 999,
+    });
+    expect(duplicate.duplicateOfId).toBe(original.id);
+
+    const key = crypto.randomUUID();
+    const first = await dismissFuelDuplicateReq(cookie, duplicate.id, key);
+    expect(first.status).toBe(200);
+
+    const second = await dismissFuelDuplicateReq(cookie, duplicate.id, key);
+    expect(second.status).toBe(200);
   });
 });
 
