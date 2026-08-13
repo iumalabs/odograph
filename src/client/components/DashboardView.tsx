@@ -6,12 +6,17 @@ import { listReminderRules } from "../reminder-rules";
 import type { ReminderRule } from "../reminder-rules";
 import { listServiceRecords } from "../service-records";
 import { listFuelRecords } from "../fuel-records";
+import { convertDistance } from "../distance";
+import type { DistanceUnit } from "../distance";
 import { CarIcon, DashboardIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
 type DashboardViewProps = {
   vehicle: Vehicle | null;
   currencySymbol: string;
+  /** Header display preference (specs/047) — independent of vehicle.odometerUnit, which stays the
+   * unit the underlying remainingValue is actually expressed in until converted below. */
+  distanceUnit: DistanceUnit;
 };
 
 type RecentEntry = { date: string; title: string; cost: number | null };
@@ -44,18 +49,24 @@ function formatCostFigure(value: number | null, symbol: string): string {
 /** Formats a reminder's server-computed remaining value/unit (specs/043) into due-in text — all
  * wording lives here in strings.ts templates, never a server-formatted sentence (constitution
  * Principle IX). `Math.abs` because the sign is already conveyed by which template is chosen. */
-function dueInText(rule: ReminderRule, odometerUnit: string): string | null {
+function dueInText(
+  rule: ReminderRule,
+  vehicleOdometerUnit: DistanceUnit,
+  distanceUnit: DistanceUnit,
+): string | null {
   if (rule.remainingValue === null || rule.remainingUnit === null) return null;
-  const value = String(Math.round(Math.abs(rule.remainingValue)));
   const overdue = rule.status === "overdue";
   if (rule.remainingUnit === "days") {
+    const value = String(Math.round(Math.abs(rule.remainingValue)));
     return overdue
       ? t("reminderOverdueDaysLabel", { value })
       : t("reminderDueInDaysLabel", { value });
   }
+  const converted = convertDistance(rule.remainingValue, vehicleOdometerUnit, distanceUnit);
+  const value = String(Math.round(Math.abs(converted)));
   return overdue
-    ? t("reminderOverdueDistanceLabel", { value, unit: odometerUnit })
-    : t("reminderDueInDistanceLabel", { value, unit: odometerUnit });
+    ? t("reminderOverdueDistanceLabel", { value, unit: distanceUnit })
+    : t("reminderDueInDistanceLabel", { value, unit: distanceUnit });
 }
 
 /** The last 6 calendar months ending at the current one, as "YYYY-MM" keys — display-only, never
@@ -85,7 +96,7 @@ function upcomingReminders(rules: ReminderRule[]): ReminderRule[] {
 // prototype's actual "Дашборд" screen. Deliberately replaces, not duplicates, the previous
 // all-vehicles-overview behavior: Garage's own cards (specs/034) already show each vehicle's
 // current odometer and most-urgent-reminder at a glance.
-export function DashboardView({ vehicle, currencySymbol }: DashboardViewProps) {
+export function DashboardView({ vehicle, currencySymbol, distanceUnit }: DashboardViewProps) {
   const [data, setData] = useState<DashboardData | null>(null);
 
   useEffect(() => {
@@ -364,7 +375,7 @@ export function DashboardView({ vehicle, currencySymbol }: DashboardViewProps) {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {dueInText(rule, vehicle.odometerUnit)}
+                      {dueInText(rule, vehicle.odometerUnit, distanceUnit)}
                     </span>
                   </div>
                 ))}

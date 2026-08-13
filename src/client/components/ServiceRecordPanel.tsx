@@ -1,12 +1,18 @@
 import { useState } from "react";
 import type { Attachment, ServiceRecord } from "../service-records";
 import type { WithSyncStatus } from "../offline/merge";
+import { convertDistance } from "../distance";
+import type { DistanceUnit } from "../distance";
 import { AddIcon, CameraIcon, ReceiptIcon, ServiceIcon, UploadIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
 type ServiceRecordPanelProps = {
   records: WithSyncStatus<ServiceRecord>[];
   currencySymbol: string;
+  /** Header display preference (specs/047) — applies only to the read-only table column below;
+   * the create/edit form's odometer field always stays in vehicleOdometerUnit (research.md). */
+  distanceUnit: DistanceUnit;
+  vehicleOdometerUnit: DistanceUnit;
   serviceDate: string;
   onServiceDateChange: (value: string) => void;
   serviceDescription: string;
@@ -72,6 +78,8 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
   const {
     records,
     currencySymbol,
+    distanceUnit,
+    vehicleOdometerUnit,
     serviceDate,
     onServiceDateChange,
     serviceDescription,
@@ -308,7 +316,13 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
                         </div>
                         {record.odometerReading != null && (
                           <span style={{ font: "400 12.5px var(--font-mono)", color: "var(--fg)" }}>
-                            {record.odometerReading}
+                            {Math.round(
+                              convertDistance(
+                                record.odometerReading,
+                                vehicleOdometerUnit,
+                                distanceUnit,
+                              ),
+                            )}
                           </span>
                         )}
                         {record.cost != null && (
