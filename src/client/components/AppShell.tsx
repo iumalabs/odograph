@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
+import type { Vehicle } from "../vehicles";
 import { Logo } from "./Logo";
 import {
+  AddIcon,
   AlertIcon,
   BellIcon,
   DashboardIcon,
@@ -32,6 +34,11 @@ type AppShellProps = {
   onSelectView: (view: AppView) => void;
   /** Shown as a small badge on the "review" nav entry (spec 021 FR-007/FR-008) — omit or 0 for none. */
   reviewBadgeCount?: number;
+  /** Header vehicle switcher (specs/039) — selecting a pill never navigates, distinct from
+   * Garage's/SearchBar's select-and-jump-to-Dashboard behavior (specs/038). */
+  vehicles: Vehicle[];
+  selectedVehicleId: string | null;
+  onSelectVehicle: (id: string) => void;
   children: ReactNode;
 };
 
@@ -65,7 +72,16 @@ const NAV_ITEMS: {
 // spec 014 is the first feature to make the nav rail an actual view switch rather than a single
 // decorative entry.
 export function AppShell(
-  { title, view, onSelectView, reviewBadgeCount = 0, children }: AppShellProps,
+  {
+    title,
+    view,
+    onSelectView,
+    reviewBadgeCount = 0,
+    vehicles,
+    selectedVehicleId,
+    onSelectVehicle,
+    children,
+  }: AppShellProps,
 ) {
   const [, toggleTheme] = useTheme();
 
@@ -161,25 +177,93 @@ export function AppShell(
           }}
         >
           <div style={{ font: "600 14px var(--font-ui)", letterSpacing: "-.01em" }}>{title}</div>
-          <button
-            type="button"
-            onClick={toggleTheme}
+
+          {vehicles.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                overflowX: "auto",
+                maxWidth: 320,
+              }}
+            >
+              {vehicles.map((vehicle) => {
+                const isSelected = vehicle.id === selectedVehicleId;
+                return (
+                  <button
+                    key={vehicle.id}
+                    type="button"
+                    onClick={() => onSelectVehicle(vehicle.id)}
+                    style={{
+                      flex: "none",
+                      maxWidth: 110,
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      textOverflow: "ellipsis",
+                      font: "500 10.5px var(--font-mono)",
+                      border: `1px solid ${isSelected ? "var(--acc)" : "var(--line)"}`,
+                      color: isSelected ? "var(--on-acc)" : "var(--dim)",
+                      background: isSelected ? "var(--acc)" : "transparent",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {vehicle.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div
             style={{
               marginLeft: "auto",
-              width: 32,
-              height: 32,
-              display: "grid",
-              placeItems: "center",
-              border: "1px solid var(--line)",
-              borderRadius: "var(--radius-md)",
-              background: "transparent",
-              cursor: "pointer",
-              fontSize: 14,
-              color: "var(--dim)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flex: "none",
             }}
           >
-            ◐
-          </button>
+            <button
+              type="button"
+              onClick={() => onSelectView("fuel")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                background: "var(--acc)",
+                color: "var(--on-acc)",
+                border: "1px solid var(--acc)",
+                borderRadius: "var(--radius-md)",
+                padding: "8px 12px",
+                font: "600 11px var(--font-ui)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <AddIcon size={14} />
+              {t("quickFuelLabel")}
+            </button>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              style={{
+                width: 32,
+                height: 32,
+                display: "grid",
+                placeItems: "center",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--radius-md)",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 14,
+                color: "var(--dim)",
+              }}
+            >
+              ◐
+            </button>
+          </div>
         </header>
 
         <main style={{ flex: 1, overflow: "auto", padding: "20px 22px 26px" }}>{children}</main>
