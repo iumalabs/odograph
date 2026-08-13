@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/maksimyugai/odograph/compare/v1.6.0...v1.7.0) (2026-08-13)
+
+
+### Features
+
+* replace Russian Ruble with Kyrgyzstani Som in currency list (spec 048) ([#150](https://github.com/maksimyugai/odograph/issues/150)) ([b15fc31](https://github.com/maksimyugai/odograph/commit/b15fc3175e5fde03a5c12cab440cc45adb7e3441))
+
 ## [1.6.0](https://github.com/maksimyugai/odograph/compare/v1.5.0...v1.6.0) (2026-08-13)
 
 
