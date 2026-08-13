@@ -262,22 +262,55 @@ describe("document read (User Story 2)", () => {
     });
     const noExpiryId = await createDocumentId(cookie, vehicleId, { title: "No expiry" });
 
-    const expired = (await (await getDocument(cookie, expiredId)).json()) as {
+    type DocStatus = {
       isExpired: boolean;
+      reminderStatus: string | null;
+      windowFraction: number | null;
     };
-    const future = (await (await getDocument(cookie, futureId)).json()) as { isExpired: boolean };
-    const noExpiry = (await (await getDocument(cookie, noExpiryId)).json()) as {
-      isExpired: boolean;
-    };
+
+    const expired = (await (await getDocument(cookie, expiredId)).json()) as DocStatus;
+    const future = (await (await getDocument(cookie, futureId)).json()) as DocStatus;
+    const noExpiry = (await (await getDocument(cookie, noExpiryId)).json()) as DocStatus;
     expect(expired.isExpired).toBe(true);
     expect(future.isExpired).toBe(false);
     expect(noExpiry.isExpired).toBe(false);
+
+    // windowFraction (specs/045): 1 once overdue, null for on_track/no-expiry-date — never a
+    // guessed percentage for a document with no fixed window to measure against.
+    expect(expired.reminderStatus).toBe("overdue");
+    expect(expired.windowFraction).toBe(1);
+    expect(future.reminderStatus).toBe("on_track");
+    expect(future.windowFraction).toBeNull();
+    expect(noExpiry.reminderStatus).toBeNull();
+    expect(noExpiry.windowFraction).toBeNull();
 
     // Still returned in full via the list too — never hidden for being expired.
     const list = (await (await listDocuments(cookie, vehicleId)).json()) as {
       documents: { id: string; isExpired: boolean }[];
     };
     expect(list.documents.find((d) => d.id === expiredId)?.isExpired).toBe(true);
+  });
+
+  it("computes a windowFraction between 0 and 1 for a document inside the coming-up window (specs/045)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    // 10 days out, well inside the 30-day coming-up window.
+    const soon = new Date();
+    soon.setUTCDate(soon.getUTCDate() + 10);
+    const comingUpId = await createDocumentId(cookie, vehicleId, {
+      title: "Coming up",
+      expiryDate: soon.toISOString().slice(0, 10),
+    });
+
+    const comingUp = (await (await getDocument(cookie, comingUpId)).json()) as {
+      reminderStatus: string | null;
+      windowFraction: number | null;
+    };
+    expect(comingUp.reminderStatus).toBe("coming_up");
+    expect(comingUp.windowFraction).not.toBeNull();
+    expect(comingUp.windowFraction as number).toBeGreaterThan(0);
+    expect(comingUp.windowFraction as number).toBeLessThan(1);
   });
 
   it("refuses to list or fetch a different tenant's vehicle/document, identically to a made-up id", async () => {
