@@ -165,7 +165,7 @@ const en = {
   currencySettingLabel: "Currency",
   currencyUsdLabel: "US Dollar",
   currencyEurLabel: "Euro",
-  currencyRubLabel: "Russian Ruble",
+  currencyKgsLabel: "Kyrgyzstani Som",
   currencyGbpLabel: "British Pound",
   selectVehicleForDashboard: "Select a vehicle from the Garage to see its dashboard.",
   upcomingRemindersHeading: "Upcoming",
