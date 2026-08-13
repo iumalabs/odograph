@@ -2786,6 +2786,12 @@ export async function findReminderRuleById(
  * doesn't get a date reset and vice versa (spec.md Edge Cases). Same not-found-or-not-yours
  * contract as findReminderRuleById.
  */
+/**
+ * Also logs a real service record documenting the work (specs/049), mirroring updatePlanCard's own
+ * done-transition side effect exactly — never a fabricated cost/performer (constitution Principle
+ * IV), and safe under retry because the /mark-done route's existing `idempotent` middleware already
+ * short-circuits a replayed request before this function ever runs a second time (Principle III).
+ */
 export async function markReminderRuleDone(
   db: D1Database,
   ctx: TenantContext,
@@ -2800,8 +2806,9 @@ export async function markReminderRuleDone(
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const lastDoneDate = existing.intervalDays !== null ? today : existing.lastDoneDate;
+  const currentOdometer = await currentOdometerQuery(db, ctx.tenantId, existing.vehicleId);
   const lastDoneOdometer = existing.intervalDistance !== null
-    ? await currentOdometerQuery(db, ctx.tenantId, existing.vehicleId)
+    ? currentOdometer
     : existing.lastDoneOdometer;
 
   await db
@@ -2811,6 +2818,15 @@ export async function markReminderRuleDone(
     )
     .bind(lastDoneDate, lastDoneOdometer, now.toISOString(), id, ctx.tenantId)
     .run();
+
+  await createServiceRecord(db, ctx, existing.vehicleId, {
+    serviceDate: todayDateOnly(),
+    description: existing.label,
+    odometerReading: currentOdometer,
+    cost: null,
+    notes: "Created from marking a reminder done — fill in the real details.",
+    performedBy: null,
+  });
 
   return findReminderRuleById(db, ctx, id);
 }

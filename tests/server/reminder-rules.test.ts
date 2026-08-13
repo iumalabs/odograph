@@ -111,11 +111,33 @@ function deleteReminderRuleReq(cookie: string, id: string): Promise<Response> {
   });
 }
 
-function markDone(cookie: string, id: string): Promise<Response> {
+function markDone(cookie: string, id: string, idempotencyKey?: string): Promise<Response> {
   return SELF.fetch(`https://example.com/api/v1/reminder-rules/${id}/mark-done`, {
     method: "POST",
+    headers: idempotencyKey
+      ? { Cookie: cookie, "Idempotency-Key": idempotencyKey }
+      : { Cookie: cookie },
+  });
+}
+
+type ServiceRecordSummary = {
+  description: string;
+  serviceDate: string;
+  odometerReading: number | null;
+  cost: number | null;
+  performedBy: string | null;
+  notes: string | null;
+};
+
+async function listServiceRecords(
+  cookie: string,
+  vehicleId: string,
+): Promise<ServiceRecordSummary[]> {
+  const res = await SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/service-records`, {
     headers: { Cookie: cookie },
   });
+  const body = (await res.json()) as { serviceRecords: ServiceRecordSummary[] };
+  return body.serviceRecords;
 }
 
 async function lastNotifiedSeverityOf(id: string): Promise<string | null> {
@@ -502,6 +524,66 @@ describe("mark reminder rule done (User Story 3)", () => {
       lastDoneDate: string;
     };
     expect(stillOwned.lastDoneDate).toBe(isoDateDaysFromNow(-20));
+  });
+
+  it("logs a real service record documenting the work, using the vehicle's current odometer (specs/049)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    await createFuelRecordReq(sharedCookie, vehicleId, {
+      fuelDate: isoDateDaysFromNow(0),
+      odometerReading: 7000,
+      volume: 40,
+      cost: 60,
+    });
+    const created = (await (await createReminderRule(sharedCookie, vehicleId, {
+      label: "Rotate tires",
+      intervalDays: 30,
+      lastDoneDate: isoDateDaysFromNow(-40),
+    })).json()) as { id: string };
+
+    await markDone(sharedCookie, created.id);
+
+    const after = await listServiceRecords(sharedCookie, vehicleId);
+    const logged = after.find((r) => r.description === "Rotate tires");
+    expect(logged).toBeDefined();
+    expect(logged?.serviceDate).toBe(isoDateDaysFromNow(0));
+    expect(logged?.odometerReading).toBe(7000);
+    expect(logged?.cost).toBeNull();
+    expect(logged?.performedBy).toBeNull();
+    expect(logged?.notes).toContain("reminder");
+  });
+
+  it("leaves the auto-created service record's odometer null when the vehicle has no known odometer yet", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    const created = (await (await createReminderRule(sharedCookie, vehicleId, {
+      label: "No odometer history",
+      intervalDays: 30,
+      lastDoneDate: isoDateDaysFromNow(-40),
+    })).json()) as { id: string };
+
+    await markDone(sharedCookie, created.id);
+
+    const after = await listServiceRecords(sharedCookie, vehicleId);
+    const logged = after.find((r) => r.description === "No odometer history");
+    expect(logged?.odometerReading).toBeNull();
+  });
+
+  it("never creates more than one service record when the same mark-done request is retried (Principle III)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    const created = (await (await createReminderRule(sharedCookie, vehicleId, {
+      label: "Retry-safe reminder",
+      intervalDays: 30,
+      lastDoneDate: isoDateDaysFromNow(-40),
+    })).json()) as { id: string };
+
+    const key = crypto.randomUUID();
+    const first = await markDone(sharedCookie, created.id, key);
+    const second = await markDone(sharedCookie, created.id, key);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(await first.text()).toBe(await second.text());
+
+    const after = await listServiceRecords(sharedCookie, vehicleId);
+    expect(after.filter((r) => r.description === "Retry-safe reminder")).toHaveLength(1);
   });
 });
 
