@@ -308,6 +308,33 @@ describe("fuel record read + economy calculation (User Story 2)", () => {
     expect(converted?.fuelEconomy).toBeCloseTo(expectedMi, 5);
   });
 
+  it("?unit=km converts a mi-native vehicle's list fuelEconomy correctly (reverse direction — code-quality retrospective follow-up)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie, { odometerUnit: "mi" });
+
+    await createFuelRecord(cookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 10000,
+      volume: 10,
+      cost: 40,
+    });
+    await createFuelRecord(cookie, vehicleId, {
+      fuelDate: "2026-01-15",
+      odometerReading: 10300,
+      volume: 10,
+      cost: 40,
+    });
+
+    const { fuelRecords } = (await (await listFuelRecords(cookie, vehicleId, "km")).json()) as {
+      fuelRecords: { fuelEconomy: number | null }[];
+    };
+    const MI_TO_KM = 1.609344;
+    const L_TO_GAL = 0.264172;
+    const expectedKm = (10 / L_TO_GAL) / ((300 * MI_TO_KM) / 100);
+    const converted = fuelRecords.find((r) => r.fuelEconomy !== null);
+    expect(converted?.fuelEconomy).toBeCloseTo(expectedKm, 5);
+  });
+
   it("?unit= omitted matches the vehicle's native unit (FR-003) and an invalid value 400s", async () => {
     const { cookie } = await createSession();
     const vehicleId = await createVehicleId(cookie, { odometerUnit: "km" });

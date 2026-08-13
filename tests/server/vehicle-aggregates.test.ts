@@ -494,6 +494,41 @@ describe("vehicle aggregates: averageFuelEconomy (spec 013, US2)", () => {
     expect(aggregates.averageFuelEconomy).not.toBeCloseTo(naiveReciprocalMpg, 1);
   });
 
+  it("?unit=km averages a mi-native vehicle's already-km-converted per-record economies (reverse direction — code-quality retrospective follow-up)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie, { odometerUnit: "mi" });
+
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-08-01",
+      odometerReading: 20_000,
+      volume: 10,
+      cost: 40,
+    });
+    // delta 300mi, 10gal -> 30 MPG native
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-08-11",
+      odometerReading: 20_300,
+      volume: 10,
+      cost: 40,
+    });
+    // delta 300mi, 12gal -> 25 MPG native
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-08-21",
+      odometerReading: 20_600,
+      volume: 12,
+      cost: 45,
+    });
+
+    const aggregates =
+      (await (await getAggregates(sharedCookie, vehicleId, "km")).json()) as Aggregates;
+
+    const MI_TO_KM = 1.609344;
+    const L_TO_GAL = 0.264172;
+    const economyKm = (deltaMi: number, gallons: number) =>
+      (gallons / L_TO_GAL) / ((deltaMi * MI_TO_KM) / 100);
+    const expectedKm = (economyKm(300, 10) + economyKm(300, 12)) / 2;
+    expect(aggregates.averageFuelEconomy).toBeCloseTo(expectedKm, 5);
+  });
+
   it("returns 400 for an unrecognized ?unit= value", async () => {
     const vehicleId = await createVehicleId(sharedCookie);
     const res = await getAggregates(sharedCookie, vehicleId, "furlong");
