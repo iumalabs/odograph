@@ -1,5 +1,6 @@
 import { enqueue } from "./offline/queue";
 import type { PendingAction } from "./offline/types";
+import { compressImageIfNeeded } from "./compress-image";
 
 export type FuelRecord = {
   id: string;
@@ -187,10 +188,11 @@ export async function deleteFuelRecord(id: string, vehicleId: string): Promise<v
 }
 
 export async function uploadAttachment(fuelRecordId: string, file: File): Promise<Attachment> {
+  const upload = await compressImageIfNeeded(file);
   const res = await fetch(`/api/v1/fuel-records/${fuelRecordId}/attachments`, {
     method: "POST",
-    headers: { "Content-Type": file.type || "application/octet-stream" },
-    body: file,
+    headers: { "Content-Type": upload.type || "application/octet-stream" },
+    body: upload,
   });
   if (!res.ok) {
     throw new AttachmentUploadError(await attachmentErrorCode(res));
