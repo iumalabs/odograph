@@ -95,6 +95,8 @@ export function App() {
   const [linkEmail, setLinkEmail] = useState("");
   const [identity, setIdentity] = useState<PasskeyIdentity | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Guards the three AuthScreen actions (passkey sign-up/sign-in, magic link) against a
   // double-click firing two concurrent ceremonies — a slow WebAuthn prompt (Touch ID/Windows
   // Hello) left the buttons clickable the whole time, and a second navigator.credentials.create()
@@ -318,10 +320,19 @@ export function App() {
     });
   }, [selectedVehicleId]);
 
-  async function handle<T>(action: () => Promise<T>, onSuccess: (result: T) => void) {
+  async function handle<T>(
+    action: () => Promise<T>,
+    onSuccess: (result: T) => void,
+    successMessage?: string,
+  ) {
     setError(null);
     try {
       onSuccess(await action());
+      if (successMessage) {
+        if (toastTimer.current) clearTimeout(toastTimer.current);
+        setToast(successMessage);
+        toastTimer.current = setTimeout(() => setToast(null), 3000);
+      }
     } catch {
       setError(t("genericError"));
     }
@@ -562,6 +573,7 @@ export function App() {
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
+        toast={toast}
       >
         <DashboardView
           vehicle={mergedVehicles.find((v) => v.id === selectedVehicleId) ?? null}
@@ -606,6 +618,7 @@ export function App() {
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
+        toast={toast}
       >
         {!selectedVehicleId
           ? (
@@ -650,6 +663,7 @@ export function App() {
                     setFuelVolume("");
                     setFuelCost("");
                   },
+                  t("fuelRecordAddedToast"),
                 )}
               onUploadAttachment={handleUploadFuelAttachment}
               attachmentsByRecordId={fuelAttachmentsByRecordId}
@@ -672,6 +686,7 @@ export function App() {
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
+        toast={toast}
       >
         {!selectedVehicleId
           ? (
@@ -711,6 +726,7 @@ export function App() {
                     setServiceDescription("");
                     setServicePerformedBy(null);
                   },
+                  t("serviceRecordAddedToast"),
                 )}
               onUploadAttachment={handleUploadAttachment}
               attachmentsByRecordId={attachmentsByRecordId}
@@ -733,6 +749,7 @@ export function App() {
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
+        toast={toast}
       >
         {!selectedVehicleId
           ? (
@@ -787,6 +804,7 @@ export function App() {
                     setReminderLastDoneDate("");
                     setReminderLastDoneOdometer("");
                   },
+                  t("reminderAddedToast"),
                 )}
               onMarkDone={handleMarkReminderDone}
               onDeleteRule={handleDeleteReminderRule}
@@ -806,6 +824,7 @@ export function App() {
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
+        toast={toast}
       >
         {!selectedVehicleId
           ? (
@@ -851,6 +870,7 @@ export function App() {
                     setPlanCardEstimatedCost("");
                     setPlanCardUrgent(false);
                   },
+                  t("planCardAddedToast"),
                 )}
               onAdvanceCard={handleAdvancePlanCard}
               onDeleteCard={handleDeletePlanCard}
@@ -870,6 +890,7 @@ export function App() {
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
+        toast={toast}
       >
         {!selectedVehicleId
           ? (
@@ -904,6 +925,7 @@ export function App() {
                     setDocuments((current) => [...current, created]);
                     setDocumentTitle("");
                   },
+                  t("documentAddedToast"),
                 )}
               onUploadAttachment={handleUploadDocumentAttachment}
               attachmentsByDocumentId={documentAttachmentsByDocumentId}
@@ -925,6 +947,7 @@ export function App() {
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
+        toast={toast}
       >
         <SyncReviewScreen actions={queueSnapshot.actions} />
       </AppShell>
@@ -941,6 +964,7 @@ export function App() {
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
+        toast={toast}
       >
         <SettingsView
           onError={() => setError(t("genericError"))}
@@ -961,6 +985,7 @@ export function App() {
       vehicles={mergedVehicles}
       selectedVehicleId={selectedVehicleId}
       onSelectVehicle={setSelectedVehicleId}
+      toast={toast}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -1093,6 +1118,7 @@ export function App() {
                 setVehicleYear("");
                 setVinLookupNotFound(false);
               },
+              t("vehicleAddedToast"),
             )}
         />
 
