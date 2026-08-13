@@ -1734,6 +1734,10 @@ export type Document = {
   notes: string | null;
   isExpired: boolean;
   reminderStatus: DocumentReminderStatus | null;
+  /** Fraction of the fixed DOCUMENT_COMING_UP_WINDOW_DAYS window elapsed (specs/045), clamped to 1
+   * once expired. Present only when reminderStatus is coming_up/overdue — never a guessed
+   * "percent of validity elapsed," since documents have no issued/valid-from date (research.md). */
+  windowFraction: number | null;
   cachedStatus: DocumentReminderStatus | null;
   lastEvaluatedAt: string | null;
   lastNotifiedSeverity: "coming_up" | "overdue" | null;
@@ -1751,7 +1755,7 @@ export type DocumentInput = {
 const DOCUMENT_COLUMNS =
   "id, tenant_id AS tenantId, vehicle_id AS vehicleId, title, category, expiry_date AS expiryDate, notes, cached_status AS cachedStatus, last_evaluated_at AS lastEvaluatedAt, last_notified_severity AS lastNotifiedSeverity, created_at AS createdAt, updated_at AS updatedAt";
 
-type DocumentRow = Omit<Document, "isExpired" | "reminderStatus">;
+type DocumentRow = Omit<Document, "isExpired" | "reminderStatus" | "windowFraction">;
 
 /**
  * "Today" as a date-only string, so it compares correctly against expiry_date's own date-only
@@ -1769,17 +1773,31 @@ function todayDateOnly(): string {
  */
 const DOCUMENT_COMING_UP_WINDOW_DAYS = 30;
 
+export type DocumentReminderStatusResult = {
+  status: DocumentReminderStatus;
+  windowFraction: number | null;
+};
+
 /**
  * Pure function, no D1 access — directly unit-testable, same posture as computeReminderStatus.
+ * windowFraction (specs/045) is only meaningful once coming_up/overdue — a document has no
+ * "issued"/valid-from date, so there's no honest denominator for an on_track document's progress.
  */
 export function computeDocumentReminderStatus(
   expiryDate: string,
   now: Date,
-): DocumentReminderStatus {
+): DocumentReminderStatusResult {
   const remainingDays = (Date.parse(expiryDate) - now.getTime()) / 86_400_000;
-  if (remainingDays < 0) return "overdue";
-  if (remainingDays <= DOCUMENT_COMING_UP_WINDOW_DAYS) return "coming_up";
-  return "on_track";
+  if (remainingDays < 0) {
+    return { status: "overdue", windowFraction: 1 };
+  }
+  if (remainingDays <= DOCUMENT_COMING_UP_WINDOW_DAYS) {
+    return {
+      status: "coming_up",
+      windowFraction: Math.min(1, 1 - remainingDays / DOCUMENT_COMING_UP_WINDOW_DAYS),
+    };
+  }
+  return { status: "on_track", windowFraction: null };
 }
 
 /**
@@ -1789,10 +1807,15 @@ export function computeDocumentReminderStatus(
 function withDocumentStatus(row: DocumentRow): Document {
   const today = todayDateOnly();
   const isExpired = row.expiryDate !== null && row.expiryDate <= today;
-  const reminderStatus = row.expiryDate !== null
+  const computed = row.expiryDate !== null
     ? computeDocumentReminderStatus(row.expiryDate, new Date())
     : null;
-  return { ...row, isExpired, reminderStatus };
+  return {
+    ...row,
+    isExpired,
+    reminderStatus: computed?.status ?? null,
+    windowFraction: computed?.windowFraction ?? null,
+  };
 }
 
 export async function createDocument(
@@ -2092,7 +2115,7 @@ export async function evaluateAllDocumentReminders(
       // expiry_date is non-null by the WHERE clause above, but the column type is nullable —
       // narrow it explicitly rather than assert.
       if (document.expiryDate === null) continue;
-      const status = computeDocumentReminderStatus(document.expiryDate, now);
+      const { status } = computeDocumentReminderStatus(document.expiryDate, now);
       await db
         .prepare(
           "UPDATE documents SET cached_status = ?, last_evaluated_at = ? WHERE id = ?",

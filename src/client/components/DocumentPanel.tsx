@@ -320,6 +320,25 @@ export function DocumentPanel(props: DocumentPanelProps) {
                       </div>
                     )}
 
+                  {!isEditing && document.windowFraction !== null && (
+                    <div
+                      style={{
+                        height: 5,
+                        background: "var(--panel2)",
+                        borderRadius: 3,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${document.windowFraction * 100}%`,
+                          height: "100%",
+                          background: document.isExpired ? "var(--warn)" : "var(--acc)",
+                        }}
+                      />
+                    </div>
+                  )}
+
                   {!isEditing && (
                     <div
                       style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}

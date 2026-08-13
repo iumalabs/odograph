@@ -12,6 +12,7 @@ export type VehicleDocument = {
   notes: string | null;
   isExpired: boolean;
   reminderStatus: DocumentReminderStatus | null;
+  windowFraction: number | null;
   createdAt: string;
   updatedAt: string;
 };
