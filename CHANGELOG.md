@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.8.0](https://github.com/maksimyugai/odograph/compare/v1.7.0...v1.8.0) (2026-08-13)
+
+
+### Features
+
+* marking a reminder done logs a service record (spec 049, issue [#154](https://github.com/maksimyugai/odograph/issues/154)) ([#157](https://github.com/maksimyugai/odograph/issues/157)) ([540a0fc](https://github.com/maksimyugai/odograph/commit/540a0fc45e7c3f598ce464c29944498b935fe484))
+* units toggle converts fuel economy (spec 050, issue [#155](https://github.com/maksimyugai/odograph/issues/155)) ([#158](https://github.com/maksimyugai/odograph/issues/158)) ([b317f0b](https://github.com/maksimyugai/odograph/commit/b317f0b2a9abf312e0714c08618da89f0fb818fc))
+
+
+### Bug Fixes
+
+* **auth:** gate dev-only routes by allow-list, not deny-list (security) ([#152](https://github.com/maksimyugai/odograph/issues/152)) ([f387c71](https://github.com/maksimyugai/odograph/commit/f387c7162d5e060cb9630348bdaf248767880988))
+* **idempotency:** scope the write-operation ledger by route, not just tenant+key ([#165](https://github.com/maksimyugai/odograph/issues/165)) ([8645481](https://github.com/maksimyugai/odograph/commit/86454810b4c7313f402465dfdc1d7a52c215bcd2))
+
+
+### Performance Improvements
+
+* **client:** code-split non-initial views (spec 051, issue [#161](https://github.com/maksimyugai/odograph/issues/161)) ([#163](https://github.com/maksimyugai/odograph/issues/163)) ([0ac8a7f](https://github.com/maksimyugai/odograph/commit/0ac8a7f762d7bba706832fc5461d722b7d6ae3d9))
+* **client:** compress large photo attachments before upload (spec 052, issue [#162](https://github.com/maksimyugai/odograph/issues/162)) ([#164](https://github.com/maksimyugai/odograph/issues/164)) ([ab2febf](https://github.com/maksimyugai/odograph/commit/ab2febf17d33ca07c59379456f627fcb44483a92))
+* **client:** stop Dashboard from re-fetching data App.tsx already has ([#160](https://github.com/maksimyugai/odograph/issues/160)) ([0e4715a](https://github.com/maksimyugai/odograph/commit/0e4715ad75d0949390afab4b1ea8e216483c1d74))
+
 ## [1.7.0](https://github.com/maksimyugai/odograph/compare/v1.6.0...v1.7.0) (2026-08-13)
 
 
