@@ -39,6 +39,8 @@ type AppShellProps = {
   vehicles: Vehicle[];
   selectedVehicleId: string | null;
   onSelectVehicle: (id: string) => void;
+  /** Transient save-confirmation message (specs/046) — null when nothing to show. */
+  toast: string | null;
   children: ReactNode;
 };
 
@@ -80,13 +82,14 @@ export function AppShell(
     vehicles,
     selectedVehicleId,
     onSelectVehicle,
+    toast,
     children,
   }: AppShellProps,
 ) {
   const [, toggleTheme] = useTheme();
 
   return (
-    <div style={{ display: "flex", height: "100vh", minHeight: 560 }}>
+    <div style={{ display: "flex", height: "100vh", minHeight: 560, position: "relative" }}>
       <nav
         style={{
           width: 76,
@@ -268,6 +271,27 @@ export function AppShell(
 
         <main style={{ flex: 1, overflow: "auto", padding: "20px 22px 26px" }}>{children}</main>
       </div>
+
+      {toast !== null && (
+        <div
+          style={{
+            position: "absolute",
+            right: 22,
+            bottom: 22,
+            zIndex: 40,
+            background: "var(--acc)",
+            color: "var(--on-acc)",
+            borderRadius: "var(--radius-lg)",
+            padding: "13px 17px",
+            font: "600 12.5px var(--font-ui)",
+            boxShadow: "0 14px 34px rgba(0,0,0,.5)",
+            animation: "tin .18s ease",
+            maxWidth: 360,
+          }}
+        >
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
