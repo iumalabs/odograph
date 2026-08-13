@@ -82,6 +82,63 @@ describe("fuel preview: server-computed, division-safe live estimate (spec 040)"
     expect(preview.costPerDistance).toBeNull();
   });
 
+  it("?unit=mi converts a km-native preview's economy correctly (specs/050 FR-002)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 20_000,
+      volume: 40,
+      cost: 60,
+    });
+
+    const res = await getPreview(sharedCookie, vehicleId, {
+      odometerReading: "20500",
+      volume: "40",
+      unit: "mi",
+    });
+    expect(res.status).toBe(200);
+    const preview = (await res.json()) as Preview;
+    // 500km/40L native (8 L/100km) converted, not reciprocally rescaled from 8.
+    const KM_TO_MI = 0.621371;
+    const L_TO_GAL = 0.264172;
+    const expectedMi = (500 * KM_TO_MI) / (40 * L_TO_GAL);
+    expect(preview.economy).toBeCloseTo(expectedMi, 5);
+  });
+
+  it("?unit=km explicitly matches the default (no-param) value (FR-003)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 21_000,
+      volume: 40,
+      cost: 60,
+    });
+
+    const withoutParam = await getPreview(sharedCookie, vehicleId, {
+      odometerReading: "21500",
+      volume: "40",
+    });
+    const withKm = await getPreview(sharedCookie, vehicleId, {
+      odometerReading: "21500",
+      volume: "40",
+      unit: "km",
+    });
+    expect((await withKm.json() as Preview).economy).toBeCloseTo(
+      (await withoutParam.json() as Preview).economy as number,
+      10,
+    );
+  });
+
+  it("returns 400 for an unrecognized ?unit= value", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    const res = await getPreview(sharedCookie, vehicleId, {
+      odometerReading: "1000",
+      volume: "40",
+      unit: "furlong",
+    });
+    expect(res.status).toBe(400);
+  });
+
   it("computes economy (MPG) for a mi-odometer vehicle", async () => {
     const vehicleId = await createVehicleId(sharedCookie, { odometerUnit: "mi" });
     await createFuelRecord(sharedCookie, vehicleId, {

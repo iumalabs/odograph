@@ -125,7 +125,7 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
 
     let cancelled = false;
     const timer = setTimeout(() => {
-      fetchFuelPreview(vehicleId, parsedOdometer, parsedVolume, parsedCost)
+      fetchFuelPreview(vehicleId, parsedOdometer, parsedVolume, parsedCost, distanceUnit)
         .then((result) => {
           if (!cancelled) setPreview(result);
         })
@@ -138,7 +138,7 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [vehicleId, odometerReading, volume, cost]);
+  }, [vehicleId, odometerReading, volume, cost, distanceUnit]);
 
   function startEdit(record: FuelRecord) {
     setEditingId(record.id);

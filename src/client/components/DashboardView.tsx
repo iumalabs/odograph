@@ -106,11 +106,11 @@ export function DashboardView({ vehicle, currencySymbol, distanceUnit }: Dashboa
     }
     let cancelled = false;
     Promise.all([
-      getVehicleAggregates(vehicle.id).catch(() => null),
+      getVehicleAggregates(vehicle.id, distanceUnit).catch(() => null),
       getVehicleExpenseBreakdown(vehicle.id, "month").catch(() => [] as ExpensePeriod[]),
       listReminderRules(vehicle.id).catch(() => [] as ReminderRule[]),
       listServiceRecords(vehicle.id).catch(() => []),
-      listFuelRecords(vehicle.id).catch(() => []),
+      listFuelRecords(vehicle.id, distanceUnit).catch(() => []),
     ]).then(([aggregates, periods, reminders, serviceRecords, fuelRecords]) => {
       if (cancelled) return;
       const recent: RecentEntry[] = [
@@ -132,7 +132,7 @@ export function DashboardView({ vehicle, currencySymbol, distanceUnit }: Dashboa
     return () => {
       cancelled = true;
     };
-  }, [vehicle?.id]);
+  }, [vehicle?.id, distanceUnit]);
 
   if (!vehicle) {
     return (

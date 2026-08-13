@@ -54,8 +54,9 @@ function createFuelRecord(
   });
 }
 
-function listFuelRecords(cookie: string, vehicleId: string): Promise<Response> {
-  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/fuel-records`, {
+function listFuelRecords(cookie: string, vehicleId: string, unit?: string): Promise<Response> {
+  const query = unit !== undefined ? `?unit=${unit}` : "";
+  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/fuel-records${query}`, {
     headers: { Cookie: cookie },
   });
 }
@@ -278,6 +279,63 @@ describe("fuel record read + economy calculation (User Story 2)", () => {
     const secondBody = (await second.json()) as { fuelEconomy: number | null };
     // 300mi travelled on 10gal => 30 MPG
     expect(secondBody.fuelEconomy).toBeCloseTo(30, 5);
+  });
+
+  it("?unit=mi converts a km-native vehicle's list fuelEconomy correctly, not a reciprocal rescale (specs/050 FR-002)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie, { odometerUnit: "km" });
+
+    await createFuelRecord(cookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    });
+    await createFuelRecord(cookie, vehicleId, {
+      fuelDate: "2026-01-15",
+      odometerReading: 1500,
+      volume: 40,
+      cost: 60,
+    });
+
+    const { fuelRecords } = (await (await listFuelRecords(cookie, vehicleId, "mi")).json()) as {
+      fuelRecords: { fuelEconomy: number | null }[];
+    };
+    const KM_TO_MI = 0.621371;
+    const L_TO_GAL = 0.264172;
+    const expectedMi = (500 * KM_TO_MI) / (40 * L_TO_GAL);
+    const converted = fuelRecords.find((r) => r.fuelEconomy !== null);
+    expect(converted?.fuelEconomy).toBeCloseTo(expectedMi, 5);
+  });
+
+  it("?unit= omitted matches the vehicle's native unit (FR-003) and an invalid value 400s", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie, { odometerUnit: "km" });
+    await createFuelRecord(cookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 1000,
+      volume: 40,
+      cost: 60,
+    });
+    await createFuelRecord(cookie, vehicleId, {
+      fuelDate: "2026-01-15",
+      odometerReading: 1500,
+      volume: 40,
+      cost: 60,
+    });
+
+    const withoutParam = (await (await listFuelRecords(cookie, vehicleId)).json()) as {
+      fuelRecords: { fuelEconomy: number | null }[];
+    };
+    const withKm = (await (await listFuelRecords(cookie, vehicleId, "km")).json()) as {
+      fuelRecords: { fuelEconomy: number | null }[];
+    };
+    expect(withKm.fuelRecords.map((r) => r.fuelEconomy)).toEqual(
+      withoutParam.fuelRecords.map((r) => r.fuelEconomy),
+    );
+
+    const invalid = await listFuelRecords(cookie, vehicleId, "furlong");
+    expect(invalid.status).toBe(400);
   });
 
   it("shows no economy figure for a same-odometer fill-up, never a crash or infinite value", async () => {

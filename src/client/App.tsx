@@ -232,10 +232,10 @@ export function App() {
       setFuelRecords([]);
       return;
     }
-    listFuelRecords(selectedVehicleId).then(setFuelRecords).catch(() =>
+    listFuelRecords(selectedVehicleId, distanceUnit).then(setFuelRecords).catch(() =>
       setError(t("genericError"))
     );
-  }, [selectedVehicleId]);
+  }, [selectedVehicleId, distanceUnit]);
 
   useEffect(() => {
     if (!selectedVehicleId) {

@@ -1377,24 +1377,68 @@ function computeFuelEconomy(
   return odometerUnit === "km" ? volume / (deltaDistance / 100) : deltaDistance / volume;
 }
 
+const KM_TO_MI = 0.621371;
+const MI_TO_KM = 1.609344;
+// Single literal constant used both ways (matches the mockup's own cons()/vol() reference
+// implementation) rather than two independently-rounded constants for each direction — keeps
+// forward and reverse conversion consistent (specs/050 research.md).
+const L_TO_GAL = 0.264172;
+
+/** Server-side counterpart to src/client/distance.ts's convertDistance (specs/050 research.md —
+ * no shared client/server module in this codebase). */
+function convertDistance(value: number, from: "km" | "mi", to: "km" | "mi"): number {
+  if (from === to) return value;
+  return from === "km" ? value * KM_TO_MI : value * MI_TO_KM;
+}
+
+/** Volume's unit is implied by its paired distance unit: liters for "km", gallons for "mi" — the
+ * same pairing computeFuelEconomy already assumes. */
+function convertVolume(value: number, from: "km" | "mi", to: "km" | "mi"): number {
+  if (from === to) return value;
+  return from === "km" ? value * L_TO_GAL : value / L_TO_GAL;
+}
+
+/**
+ * Converts deltaDistance/volume into displayUnit's system, then delegates to the existing,
+ * already-guarded computeFuelEconomy — never a second, independently-derived formula (specs/050
+ * research.md: reciprocally rescaling an already-computed economy number is mathematically wrong
+ * for aggregates that average per-record ratios).
+ */
+function computeFuelEconomyForDisplay(
+  nativeUnit: "km" | "mi",
+  displayUnit: "km" | "mi",
+  deltaDistance: number,
+  volume: number,
+): number | null {
+  if (nativeUnit === displayUnit) return computeFuelEconomy(nativeUnit, deltaDistance, volume);
+  return computeFuelEconomy(
+    displayUnit,
+    convertDistance(deltaDistance, nativeUnit, displayUnit),
+    convertVolume(volume, nativeUnit, displayUnit),
+  );
+}
+
 /**
  * Fuel economy is never stored — it's derived here, on every read, from the whole vehicle's fuel
  * records ordered by odometer reading (not creation order, since an owner can backfill an earlier
  * fill-up after later ones already exist), so an edit or backfill anywhere always produces correct
  * figures for its neighbors without a separate recomputation step (FR-008). The returned list
  * itself is ordered by fuelDate (display order) — economy is computed in a separate odometer-order
- * pass and attached by id (contracts/api.md).
+ * pass and attached by id (contracts/api.md). `displayUnit` defaults to the vehicle's own native
+ * unit, preserving the pre-specs/050 values for every caller that doesn't request a conversion.
  */
 export async function listFuelRecordsWithEconomy(
   db: D1Database,
   ctx: TenantContext,
   vehicleId: string,
+  displayUnit?: "km" | "mi",
 ): Promise<FuelRecordWithEconomy[]> {
   const vehicle = await db
     .prepare("SELECT odometer_unit AS odometerUnit FROM vehicles WHERE id = ? AND tenant_id = ?")
     .bind(vehicleId, ctx.tenantId)
     .first<{ odometerUnit: "km" | "mi" }>();
   if (!vehicle) return [];
+  const unit = displayUnit ?? vehicle.odometerUnit;
 
   const { results } = await db
     .prepare(
@@ -1420,8 +1464,9 @@ export async function listFuelRecordsWithEconomy(
     economyById.set(
       record.id,
       previous
-        ? computeFuelEconomy(
+        ? computeFuelEconomyForDisplay(
           vehicle.odometerUnit,
+          unit,
           record.odometerReading - previous.odometerReading,
           record.volume,
         )
@@ -1452,6 +1497,7 @@ export async function computeFuelPreview(
   odometerReading: number,
   volume: number,
   cost: number | null,
+  displayUnit?: "km" | "mi",
 ): Promise<FuelPreview> {
   const vehicle = await db
     .prepare("SELECT odometer_unit AS odometerUnit FROM vehicles WHERE id = ? AND tenant_id = ?")
@@ -1477,8 +1523,16 @@ export async function computeFuelPreview(
     );
   if (previous === null || volume <= 0) return { economy: null, costPerDistance: null };
 
+  // odometerReading/volume are draft-form inputs, always already in the vehicle's own native unit
+  // (specs/047 FR-004 — forms are never unit-toggled); only the computed economy is re-expressed
+  // in displayUnit (specs/050 research.md).
   const deltaDistance = odometerReading - previous.odometerReading;
-  const economy = computeFuelEconomy(vehicle.odometerUnit, deltaDistance, volume);
+  const economy = computeFuelEconomyForDisplay(
+    vehicle.odometerUnit,
+    displayUnit ?? vehicle.odometerUnit,
+    deltaDistance,
+    volume,
+  );
   const costPerDistance = cost !== null && cost > 0 && deltaDistance > 0
     ? cost / deltaDistance
     : null;
@@ -2392,10 +2446,11 @@ export async function computeVehicleAggregates(
   db: D1Database,
   ctx: TenantContext,
   vehicleId: string,
+  displayUnit?: "km" | "mi",
 ): Promise<VehicleAggregates> {
   const [serviceRecords, fuelRecords] = await Promise.all([
     listServiceRecords(db, ctx, vehicleId),
-    listFuelRecordsWithEconomy(db, ctx, vehicleId),
+    listFuelRecordsWithEconomy(db, ctx, vehicleId, displayUnit),
   ]);
   const services = serviceRecords.filter((r) => r.duplicateOfId === null);
   const fuels = fuelRecords.filter((r) => r.duplicateOfId === null);
