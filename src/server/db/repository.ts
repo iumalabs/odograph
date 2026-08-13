@@ -3177,17 +3177,27 @@ export type WriteOperationRecord = {
   responseBody: string;
 };
 
+/**
+ * Scoped by (tenant, method, path, key) — not just (tenant, key) — so a key accidentally reused
+ * across two different routes never short-circuits the second, unrelated request with the first
+ * request's cached response (found via a test-coverage audit; constitution Principle III requires
+ * idempotency to never fail silently, and returning the wrong cached response for a different
+ * operation is exactly that: a silent, wrong success).
+ */
 export async function findWriteOperation(
   db: D1Database,
   ctx: TenantContext,
+  method: string,
+  path: string,
   idempotencyKey: string,
 ): Promise<WriteOperationRecord | null> {
   const row = await db
     .prepare(
       `SELECT status_code AS statusCode, response_body AS responseBody
-       FROM write_operations WHERE tenant_id = ? AND idempotency_key = ?`,
+       FROM write_operations
+       WHERE tenant_id = ? AND method = ? AND path = ? AND idempotency_key = ?`,
     )
-    .bind(ctx.tenantId, idempotencyKey)
+    .bind(ctx.tenantId, method, path, idempotencyKey)
     .first<WriteOperationRecord>();
   return row ?? null;
 }
@@ -3213,7 +3223,7 @@ export async function recordWriteOperation(
     .prepare(
       `INSERT INTO write_operations (tenant_id, idempotency_key, method, path, status_code, response_body)
        VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT (tenant_id, idempotency_key) DO NOTHING`,
+       ON CONFLICT (tenant_id, method, path, idempotency_key) DO NOTHING`,
     )
     .bind(
       ctx.tenantId,
