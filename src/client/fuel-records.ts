@@ -57,9 +57,15 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function listFuelRecords(vehicleId: string): Promise<FuelRecord[]> {
+/** `unit` requests each record's fuelEconomy in a specific unit system (specs/050) — omitted
+ * defaults server-side to the vehicle's own native unit, matching today's behavior. */
+export async function listFuelRecords(
+  vehicleId: string,
+  unit?: "km" | "mi",
+): Promise<FuelRecord[]> {
+  const suffix = unit !== undefined ? `?unit=${unit}` : "";
   const { fuelRecords } = await jsonFetch<{ fuelRecords: FuelRecord[] }>(
-    `/api/v1/vehicles/${vehicleId}/fuel-records`,
+    `/api/v1/vehicles/${vehicleId}/fuel-records${suffix}`,
   );
   return fuelRecords;
 }
@@ -76,12 +82,14 @@ export function fetchFuelPreview(
   odometerReading: number,
   volume: number,
   cost: number | null,
+  unit?: "km" | "mi",
 ): Promise<FuelPreview> {
   const params = new URLSearchParams({
     odometerReading: String(odometerReading),
     volume: String(volume),
   });
   if (cost !== null) params.set("cost", String(cost));
+  if (unit !== undefined) params.set("unit", unit);
   return jsonFetch<FuelPreview>(
     `/api/v1/vehicles/${vehicleId}/fuel-preview?${params.toString()}`,
   );

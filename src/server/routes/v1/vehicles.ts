@@ -309,6 +309,19 @@ vehicles.post("/:vehicleId/fuel-records", rateLimitBySession, idempotent, async 
   return c.json(withEconomy, 201);
 });
 
+const UNIT_QUERY_VALUES = new Set(["km", "mi"]);
+
+/** Parses the optional ?unit= query param shared by the fuel-economy endpoints (specs/050). Absent
+ * → { ok: true, unit: undefined } (falls back to the vehicle's own native unit downstream); an
+ * unrecognized non-empty value → { ok: false }, matching /expense-breakdown's groupBy pattern. */
+function parseUnitQuery(
+  value: string | undefined,
+): { ok: true; unit?: "km" | "mi" } | { ok: false } {
+  if (value === undefined) return { ok: true, unit: undefined };
+  if (!UNIT_QUERY_VALUES.has(value)) return { ok: false };
+  return { ok: true, unit: value as "km" | "mi" };
+}
+
 vehicles.get("/:vehicleId/fuel-records", async (c) => {
   const tenant = c.get("tenant");
   const vehicleId = c.req.param("vehicleId");
@@ -316,7 +329,10 @@ vehicles.get("/:vehicleId/fuel-records", async (c) => {
   const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
   if (!vehicle) return c.notFound();
 
-  const results = await listFuelRecordsWithEconomy(c.env.DB, tenant, vehicleId);
+  const unitQuery = parseUnitQuery(c.req.query("unit"));
+  if (!unitQuery.ok) return c.json({ error: "invalid_request" }, 400);
+
+  const results = await listFuelRecordsWithEconomy(c.env.DB, tenant, vehicleId, unitQuery.unit);
   return c.json({ fuelRecords: results });
 });
 
@@ -444,7 +460,10 @@ vehicles.get("/:vehicleId/aggregates", async (c) => {
   const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
   if (!vehicle) return c.notFound();
 
-  const aggregates = await computeVehicleAggregates(c.env.DB, tenant, vehicleId);
+  const unitQuery = parseUnitQuery(c.req.query("unit"));
+  if (!unitQuery.ok) return c.json({ error: "invalid_request" }, 400);
+
+  const aggregates = await computeVehicleAggregates(c.env.DB, tenant, vehicleId, unitQuery.unit);
   return c.json(aggregates);
 });
 
@@ -492,7 +511,11 @@ vehicles.get("/:vehicleId/fuel-preview", async (c) => {
   const volume = requiredFiniteNumberQuery(c.req.query("volume"));
   const costRaw = c.req.query("cost");
   const cost = costRaw === undefined ? null : requiredFiniteNumberQuery(costRaw);
-  if (odometerReading === null || volume === null || (costRaw !== undefined && cost === null)) {
+  const unitQuery = parseUnitQuery(c.req.query("unit"));
+  if (
+    odometerReading === null || volume === null || (costRaw !== undefined && cost === null) ||
+    !unitQuery.ok
+  ) {
     return c.json({ error: "invalid_request" }, 400);
   }
 
@@ -503,6 +526,7 @@ vehicles.get("/:vehicleId/fuel-preview", async (c) => {
     odometerReading,
     volume,
     cost,
+    unitQuery.unit,
   );
   return c.json(preview);
 });

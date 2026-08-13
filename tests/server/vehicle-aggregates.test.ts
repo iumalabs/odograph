@@ -72,8 +72,9 @@ function createServiceRecord(
   });
 }
 
-function getAggregates(cookie: string, vehicleId: string): Promise<Response> {
-  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/aggregates`, {
+function getAggregates(cookie: string, vehicleId: string, unit?: string): Promise<Response> {
+  const query = unit !== undefined ? `?unit=${unit}` : "";
+  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/aggregates${query}`, {
     headers: { Cookie: cookie },
   });
 }
@@ -426,6 +427,77 @@ describe("vehicle aggregates: averageFuelEconomy (spec 013, US2)", () => {
 
     const aggregates = (await (await getAggregates(sharedCookie, vehicleId)).json()) as Aggregates;
     expect(aggregates.averageFuelEconomy).toBeNull();
+  });
+
+  it("?unit=km explicitly matches the default (no-param) value (FR-003)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-08-01",
+      odometerReading: 11_000,
+      volume: 40,
+      cost: 60,
+    });
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-08-11",
+      odometerReading: 11_500,
+      volume: 45,
+      cost: 65,
+    });
+
+    const withoutParam =
+      (await (await getAggregates(sharedCookie, vehicleId)).json()) as Aggregates;
+    const withKm =
+      (await (await getAggregates(sharedCookie, vehicleId, "km")).json()) as Aggregates;
+    expect(withKm.averageFuelEconomy).toBeCloseTo(withoutParam.averageFuelEconomy as number, 10);
+  });
+
+  it("?unit=mi averages each record's already-mi-converted economy, not a reciprocal of the native average (specs/050 FR-002)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-08-01",
+      odometerReading: 12_000,
+      volume: 40,
+      cost: 60,
+    });
+    // delta 500km, 45L -> 9 L/100km native
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-08-11",
+      odometerReading: 12_500,
+      volume: 45,
+      cost: 65,
+    });
+    // delta 500km, 50L -> 10 L/100km native
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-08-21",
+      odometerReading: 13_000,
+      volume: 50,
+      cost: 70,
+    });
+
+    const aggregates =
+      (await (await getAggregates(sharedCookie, vehicleId, "mi")).json()) as Aggregates;
+
+    // Correct: convert each record's raw distance/volume to mi/gal, compute its own economy, then
+    // average those two numbers (mean of ratios) — the same constants src/client/distance.ts uses.
+    const KM_TO_MI = 0.621371;
+    const L_TO_GAL = 0.264172;
+    const economyMi = (deltaKm: number, litres: number) =>
+      (deltaKm * KM_TO_MI) / (litres * L_TO_GAL);
+    const expectedMi = (economyMi(500, 45) + economyMi(500, 50)) / 2;
+    expect(aggregates.averageFuelEconomy).toBeCloseTo(expectedMi, 5);
+
+    // Wrong (rejected) approach: reciprocally rescale the native 9.5 L/100km average into MPG.
+    // Proves the two approaches genuinely diverge (AM-HM inequality), so this test would catch a
+    // regression to the naive implementation.
+    const naiveReciprocalMpg = (100 / 9.5) * KM_TO_MI / L_TO_GAL;
+    expect(aggregates.averageFuelEconomy).not.toBeCloseTo(naiveReciprocalMpg, 1);
+  });
+
+  it("returns 400 for an unrecognized ?unit= value", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    const res = await getAggregates(sharedCookie, vehicleId, "furlong");
+    expect(res.status).toBe(400);
   });
 
   it("computes costPerDistance/costPerTime from service records alone while averageFuelEconomy stays null", async () => {

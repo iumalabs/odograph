@@ -109,7 +109,7 @@ export function Garage(props: GarageProps) {
     Promise.all(
       vehicles.map(async (vehicle) => {
         const [aggregates, reminderRules] = await Promise.all([
-          getVehicleAggregates(vehicle.id).catch(() => null),
+          getVehicleAggregates(vehicle.id, distanceUnit).catch(() => null),
           listReminderRules(vehicle.id).catch(() => [] as ReminderRule[]),
         ]);
         return [vehicle.id, {
@@ -124,7 +124,7 @@ export function Garage(props: GarageProps) {
     return () => {
       cancelled = true;
     };
-  }, [vehicles]);
+  }, [vehicles, distanceUnit]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
