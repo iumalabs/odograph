@@ -1435,6 +1435,56 @@ export async function listFuelRecordsWithEconomy(
     .map((record) => ({ ...record, fuelEconomy: economyById.get(record.id) ?? null }));
 }
 
+export type FuelPreview = { economy: number | null; costPerDistance: number | null };
+
+/**
+ * Server-computed live preview for the fuel-record create form (specs/040, constitution Principle
+ * II — this must never move client-side). Finds the vehicle's most recent non-duplicate fuel
+ * record by odometer reading — the same lookup listFuelRecordsWithEconomy already performs — and
+ * runs the draft odometerReading/volume through the exact same computeFuelEconomy function saved
+ * records use, so the preview and the eventual saved value are numerically identical for the same
+ * inputs. costPerDistance reuses the same delta, guarded independently for cost.
+ */
+export async function computeFuelPreview(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+  odometerReading: number,
+  volume: number,
+  cost: number | null,
+): Promise<FuelPreview> {
+  const vehicle = await db
+    .prepare("SELECT odometer_unit AS odometerUnit FROM vehicles WHERE id = ? AND tenant_id = ?")
+    .bind(vehicleId, ctx.tenantId)
+    .first<{ odometerUnit: "km" | "mi" }>();
+  if (!vehicle) return { economy: null, costPerDistance: null };
+
+  const { results } = await db
+    .prepare(
+      `SELECT ${FUEL_RECORD_COLUMNS} FROM fuel_records WHERE vehicle_id = ? AND tenant_id = ?`,
+    )
+    .bind(vehicleId, ctx.tenantId)
+    .all<FuelRecord>();
+
+  const previous = results
+    .filter((record) => record.duplicateOfId === null)
+    .reduce<FuelRecord | null>(
+      (
+        max,
+        record,
+      ) => (max === null || record.odometerReading > max.odometerReading ? record : max),
+      null,
+    );
+  if (previous === null || volume <= 0) return { economy: null, costPerDistance: null };
+
+  const deltaDistance = odometerReading - previous.odometerReading;
+  const economy = computeFuelEconomy(vehicle.odometerUnit, deltaDistance, volume);
+  const costPerDistance = cost !== null && cost > 0 && deltaDistance > 0
+    ? cost / deltaDistance
+    : null;
+  return { economy, costPerDistance };
+}
+
 /**
  * Same not-found-or-not-yours contract as findServiceRecordById (FR-003) — delegates to
  * listFuelRecordsWithEconomy for the record's own vehicle so the detail endpoint's economy figure

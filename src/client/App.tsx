@@ -624,6 +624,7 @@ export function App() {
           )
           : (
             <FuelRecordPanel
+              vehicleId={selectedVehicleId}
               records={mergedFuelRecords}
               currencySymbol={symbol}
               fuelDate={fuelDate}

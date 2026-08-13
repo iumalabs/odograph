@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import {
+  computeFuelPreview,
   computeVehicleAggregates,
   computeVehicleExpenseBreakdown,
   createDocument,
@@ -469,6 +470,41 @@ vehicles.get("/:vehicleId/expense-breakdown", async (c) => {
     groupBy as ExpenseGroupBy,
   );
   return c.json({ periods });
+});
+
+/** Parses a required query param as a finite number, or returns null on missing/invalid input. */
+function requiredFiniteNumberQuery(value: string | undefined): number | null {
+  if (value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+// Read-only, not rate-limited — matches /:vehicleId/aggregates's/expense-breakdown's existing
+// posture. Never persists anything (specs/040 contracts/api.md) — a pure computed preview.
+vehicles.get("/:vehicleId/fuel-preview", async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const odometerReading = requiredFiniteNumberQuery(c.req.query("odometerReading"));
+  const volume = requiredFiniteNumberQuery(c.req.query("volume"));
+  const costRaw = c.req.query("cost");
+  const cost = costRaw === undefined ? null : requiredFiniteNumberQuery(costRaw);
+  if (odometerReading === null || volume === null || (costRaw !== undefined && cost === null)) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+
+  const preview = await computeFuelPreview(
+    c.env.DB,
+    tenant,
+    vehicleId,
+    odometerReading,
+    volume,
+    cost,
+  );
+  return c.json(preview);
 });
 
 /** Only safe filename characters — a vehicle name is free text and could otherwise break the
