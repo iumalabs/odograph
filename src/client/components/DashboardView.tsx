@@ -41,6 +41,23 @@ function formatCostFigure(value: number | null, symbol: string): string {
   return value !== null ? `${symbol}${value.toFixed(2)}` : t("fuelEconomyNotEnoughData");
 }
 
+/** Formats a reminder's server-computed remaining value/unit (specs/043) into due-in text — all
+ * wording lives here in strings.ts templates, never a server-formatted sentence (constitution
+ * Principle IX). `Math.abs` because the sign is already conveyed by which template is chosen. */
+function dueInText(rule: ReminderRule, odometerUnit: string): string | null {
+  if (rule.remainingValue === null || rule.remainingUnit === null) return null;
+  const value = String(Math.round(Math.abs(rule.remainingValue)));
+  const overdue = rule.status === "overdue";
+  if (rule.remainingUnit === "days") {
+    return overdue
+      ? t("reminderOverdueDaysLabel", { value })
+      : t("reminderDueInDaysLabel", { value });
+  }
+  return overdue
+    ? t("reminderOverdueDistanceLabel", { value, unit: odometerUnit })
+    : t("reminderDueInDistanceLabel", { value, unit: odometerUnit });
+}
+
 /** The last 6 calendar months ending at the current one, as "YYYY-MM" keys — display-only, never
  * stored or used for any business decision (specs/037 research.md). */
 function lastSixMonthKeys(): string[] {
@@ -337,6 +354,17 @@ export function DashboardView({ vehicle, currencySymbol }: DashboardViewProps) {
                       }}
                     >
                       {rule.label}
+                    </span>
+                    <span
+                      style={{ flex: 1, borderBottom: "1px dotted var(--line)" }}
+                    />
+                    <span
+                      style={{
+                        color: rule.status === "overdue" ? "var(--warn)" : "var(--fg)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {dueInText(rule, vehicle.odometerUnit)}
                     </span>
                   </div>
                 ))}
