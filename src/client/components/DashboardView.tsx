@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import type { Vehicle } from "../vehicles";
 import { getVehicleAggregates, getVehicleExpenseBreakdown } from "../vehicle-aggregates";
 import type { ExpensePeriod, VehicleAggregates } from "../vehicle-aggregates";
-import { listReminderRules } from "../reminder-rules";
 import type { ReminderRule } from "../reminder-rules";
-import { listServiceRecords } from "../service-records";
-import { listFuelRecords } from "../fuel-records";
+import type { ServiceRecord } from "../service-records";
+import type { FuelRecord } from "../fuel-records";
+import type { WithSyncStatus } from "../offline/merge";
 import { convertDistance } from "../distance";
 import type { DistanceUnit } from "../distance";
 import { CarIcon, DashboardIcon } from "../design/icons";
@@ -17,6 +17,12 @@ type DashboardViewProps = {
   /** Header display preference (specs/047) — independent of vehicle.odometerUnit, which stays the
    * unit the underlying remainingValue is actually expressed in until converted below. */
   distanceUnit: DistanceUnit;
+  /** Already fetched (and offline-merged) by App.tsx for the selected vehicle — reused here rather
+   * than re-fetched, so selecting a vehicle doesn't fire duplicate requests for the same three
+   * entities (perf retrospective). */
+  serviceRecords: WithSyncStatus<ServiceRecord>[];
+  fuelRecords: WithSyncStatus<FuelRecord>[];
+  reminderRules: WithSyncStatus<ReminderRule>[];
 };
 
 type RecentEntry = { date: string; title: string; cost: number | null };
@@ -24,8 +30,6 @@ type RecentEntry = { date: string; title: string; cost: number | null };
 type DashboardData = {
   aggregates: VehicleAggregates | null;
   periods: ExpensePeriod[];
-  reminders: ReminderRule[];
-  recent: RecentEntry[];
 };
 
 const chipStyle = {
@@ -96,7 +100,10 @@ function upcomingReminders(rules: ReminderRule[]): ReminderRule[] {
 // prototype's actual "Дашборд" screen. Deliberately replaces, not duplicates, the previous
 // all-vehicles-overview behavior: Garage's own cards (specs/034) already show each vehicle's
 // current odometer and most-urgent-reminder at a glance.
-export function DashboardView({ vehicle, currencySymbol, distanceUnit }: DashboardViewProps) {
+export function DashboardView(
+  { vehicle, currencySymbol, distanceUnit, serviceRecords, fuelRecords, reminderRules }:
+    DashboardViewProps,
+) {
   const [data, setData] = useState<DashboardData | null>(null);
 
   useEffect(() => {
@@ -108,31 +115,29 @@ export function DashboardView({ vehicle, currencySymbol, distanceUnit }: Dashboa
     Promise.all([
       getVehicleAggregates(vehicle.id, distanceUnit).catch(() => null),
       getVehicleExpenseBreakdown(vehicle.id, "month").catch(() => [] as ExpensePeriod[]),
-      listReminderRules(vehicle.id).catch(() => [] as ReminderRule[]),
-      listServiceRecords(vehicle.id).catch(() => []),
-      listFuelRecords(vehicle.id, distanceUnit).catch(() => []),
-    ]).then(([aggregates, periods, reminders, serviceRecords, fuelRecords]) => {
+    ]).then(([aggregates, periods]) => {
       if (cancelled) return;
-      const recent: RecentEntry[] = [
-        ...serviceRecords.map((r) => ({
-          date: r.serviceDate,
-          title: r.description,
-          cost: r.cost,
-        })),
-        ...fuelRecords.map((r) => ({
-          date: r.fuelDate,
-          title: r.station ?? t("fuelRecordsHeading"),
-          cost: r.cost as number | null,
-        })),
-      ]
-        .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-        .slice(0, 5);
-      setData({ aggregates, periods, reminders, recent });
+      setData({ aggregates, periods });
     });
     return () => {
       cancelled = true;
     };
   }, [vehicle?.id, distanceUnit]);
+
+  const recent: RecentEntry[] = [
+    ...serviceRecords.map((r) => ({
+      date: r.serviceDate,
+      title: r.description,
+      cost: r.cost,
+    })),
+    ...fuelRecords.map((r) => ({
+      date: r.fuelDate,
+      title: r.station ?? t("fuelRecordsHeading"),
+      cost: r.cost as number | null,
+    })),
+  ]
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+    .slice(0, 5);
 
   if (!vehicle) {
     return (
@@ -188,8 +193,7 @@ export function DashboardView({ vehicle, currencySymbol, distanceUnit }: Dashboa
     1,
     ...chartMonths.map((m) => m.maintenanceCost + m.fuelCost),
   );
-  const reminders = upcomingReminders(data?.reminders ?? []);
-  const recent = data?.recent ?? [];
+  const reminders = upcomingReminders(reminderRules);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
