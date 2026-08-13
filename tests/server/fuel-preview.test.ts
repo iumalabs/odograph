@@ -139,6 +139,29 @@ describe("fuel preview: server-computed, division-safe live estimate (spec 040)"
     expect(res.status).toBe(400);
   });
 
+  it("?unit=km converts a mi-native preview's economy correctly (reverse direction — code-quality retrospective follow-up)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie, { odometerUnit: "mi" });
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 30_000,
+      volume: 10,
+      cost: 40,
+    });
+
+    const res = await getPreview(sharedCookie, vehicleId, {
+      odometerReading: "30300",
+      volume: "10",
+      unit: "km",
+    });
+    expect(res.status).toBe(200);
+    const preview = (await res.json()) as Preview;
+    // 300mi/10gal native (30 MPG) converted, not reciprocally rescaled from 30.
+    const MI_TO_KM = 1.609344;
+    const L_TO_GAL = 0.264172;
+    const expectedKm = (10 / L_TO_GAL) / ((300 * MI_TO_KM) / 100);
+    expect(preview.economy).toBeCloseTo(expectedKm, 5);
+  });
+
   it("computes economy (MPG) for a mi-odometer vehicle", async () => {
     const vehicleId = await createVehicleId(sharedCookie, { odometerUnit: "mi" });
     await createFuelRecord(sharedCookie, vehicleId, {
