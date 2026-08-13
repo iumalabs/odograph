@@ -53,6 +53,7 @@ import {
 import type { PlanCard, PlanCardStage } from "./plan-cards";
 import { t } from "./i18n/strings";
 import { currencySymbol, useCurrency } from "./currency";
+import { useDistanceUnit } from "./distance";
 import type { AppView } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
 import { AuthScreen } from "./components/AuthScreen";
@@ -90,6 +91,7 @@ type OidcOutcome = "ok" | "error" | "linked" | null;
 export function App() {
   const [currency, setCurrency] = useCurrency();
   const symbol = currencySymbol(currency);
+  const [distanceUnit, setDistanceUnit] = useDistanceUnit();
   const [view, setView] = useState<AppView>("garage");
   const [email, setEmail] = useState("");
   const [linkEmail, setLinkEmail] = useState("");
@@ -574,10 +576,15 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
         toast={toast}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
       >
         <DashboardView
           vehicle={mergedVehicles.find((v) => v.id === selectedVehicleId) ?? null}
           currencySymbol={symbol}
+          distanceUnit={distanceUnit}
         />
         {selectedVehicleId && (
           <div style={{ marginTop: 20 }}>
@@ -619,6 +626,10 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
         toast={toast}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
       >
         {!selectedVehicleId
           ? (
@@ -640,6 +651,9 @@ export function App() {
               vehicleId={selectedVehicleId}
               records={mergedFuelRecords}
               currencySymbol={symbol}
+              distanceUnit={distanceUnit}
+              vehicleOdometerUnit={mergedVehicles.find((v) => v.id === selectedVehicleId)
+                ?.odometerUnit ?? "km"}
               fuelDate={fuelDate}
               onFuelDateChange={setFuelDate}
               odometerReading={fuelOdometerReading}
@@ -687,6 +701,10 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
         toast={toast}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
       >
         {!selectedVehicleId
           ? (
@@ -707,6 +725,9 @@ export function App() {
             <ServiceRecordPanel
               records={mergedServiceRecords}
               currencySymbol={symbol}
+              distanceUnit={distanceUnit}
+              vehicleOdometerUnit={mergedVehicles.find((v) => v.id === selectedVehicleId)
+                ?.odometerUnit ?? "km"}
               serviceDate={serviceDate}
               onServiceDateChange={setServiceDate}
               serviceDescription={serviceDescription}
@@ -750,6 +771,10 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
         toast={toast}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
       >
         {!selectedVehicleId
           ? (
@@ -769,6 +794,9 @@ export function App() {
           : (
             <ReminderRulePanel
               rules={mergedReminderRules}
+              distanceUnit={distanceUnit}
+              vehicleOdometerUnit={mergedVehicles.find((v) => v.id === selectedVehicleId)
+                ?.odometerUnit ?? "km"}
               label={reminderLabel}
               onLabelChange={setReminderLabel}
               intervalDays={reminderIntervalDays}
@@ -825,6 +853,10 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
         toast={toast}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
       >
         {!selectedVehicleId
           ? (
@@ -891,6 +923,10 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
         toast={toast}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
       >
         {!selectedVehicleId
           ? (
@@ -948,6 +984,10 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
         toast={toast}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
       >
         <SyncReviewScreen actions={queueSnapshot.actions} />
       </AppShell>
@@ -965,6 +1005,10 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={setSelectedVehicleId}
         toast={toast}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
       >
         <SettingsView
           onError={() => setError(t("genericError"))}
@@ -986,6 +1030,10 @@ export function App() {
       selectedVehicleId={selectedVehicleId}
       onSelectVehicle={setSelectedVehicleId}
       toast={toast}
+      currency={currency}
+      onCurrencyChange={setCurrency}
+      distanceUnit={distanceUnit}
+      onDistanceUnitChange={setDistanceUnit}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -1075,6 +1123,7 @@ export function App() {
 
         <Garage
           vehicles={mergedVehicles}
+          distanceUnit={distanceUnit}
           selectedVehicleId={selectedVehicleId}
           onSelectVehicle={(id) => {
             setSelectedVehicleId(id);

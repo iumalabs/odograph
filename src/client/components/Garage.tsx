@@ -4,11 +4,16 @@ import type { WithSyncStatus } from "../offline/merge";
 import { getVehicleAggregates } from "../vehicle-aggregates";
 import { listReminderRules } from "../reminder-rules";
 import type { ReminderRule } from "../reminder-rules";
+import { convertDistance } from "../distance";
+import type { DistanceUnit } from "../distance";
 import { AddIcon, CarIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
 type GarageProps = {
   vehicles: WithSyncStatus<Vehicle>[];
+  /** Header display preference (specs/047) — independent of each vehicle's own stored
+   * odometerUnit below, which stays the source of truth for what gets persisted. */
+  distanceUnit: DistanceUnit;
   selectedVehicleId: string | null;
   onSelectVehicle: (id: string) => void;
   vehicleName: string;
@@ -76,6 +81,7 @@ function mostUrgentReminder(rules: ReminderRule[]): ReminderRule | null {
 export function Garage(props: GarageProps) {
   const {
     vehicles,
+    distanceUnit,
     selectedVehicleId,
     onSelectVehicle,
     vehicleName,
@@ -129,6 +135,9 @@ export function Garage(props: GarageProps) {
         const isSelected = selectedVehicleId === vehicle.id;
         const summary = summaries[vehicle.id];
         const currentOdometer = summary?.currentOdometer ?? null;
+        const displayOdometer = currentOdometer != null
+          ? Math.round(convertDistance(currentOdometer, vehicle.odometerUnit, distanceUnit))
+          : null;
         const averageFuelEconomy = summary?.averageFuelEconomy ?? null;
         const urgentReminder = summary?.mostUrgentReminder ?? null;
         const remainingFraction = urgentReminder?.remainingFraction ?? null;
@@ -182,9 +191,9 @@ export function Garage(props: GarageProps) {
 
             <div style={{ display: "flex", gap: 26, flexWrap: "wrap" }}>
               <div>
-                <div style={statLabelStyle}>{t("odometerLabel")}</div>
+                <div style={statLabelStyle}>{t("odometerLabel")}, {distanceUnit}</div>
                 <div style={statValueStyle}>
-                  {currentOdometer != null ? currentOdometer : t("fuelEconomyNotEnoughData")}
+                  {displayOdometer != null ? displayOdometer : t("fuelEconomyNotEnoughData")}
                 </div>
               </div>
               <div>

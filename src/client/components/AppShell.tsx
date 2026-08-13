@@ -1,5 +1,9 @@
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type { Vehicle } from "../vehicles";
+import type { Currency } from "../currency";
+import { currencySymbol } from "../currency";
+import type { DistanceUnit } from "../distance";
 import { Logo } from "./Logo";
 import {
   AddIcon,
@@ -15,6 +19,7 @@ import {
 } from "../design/icons";
 import { useTheme } from "../theme";
 import { t } from "../i18n/strings";
+import type { StringKey } from "../i18n/strings";
 import { APP_VERSION } from "../version";
 
 export type AppView =
@@ -41,6 +46,13 @@ type AppShellProps = {
   onSelectVehicle: (id: string) => void;
   /** Transient save-confirmation message (specs/046) — null when nothing to show. */
   toast: string | null;
+  /** Header currency/units quick-toggles (specs/047) — duplicate the same underlying preferences
+   * App.tsx already threads elsewhere (currency: specs/035; distanceUnit: specs/047), never a
+   * second independent copy of either. */
+  currency: Currency;
+  onCurrencyChange: (value: Currency) => void;
+  distanceUnit: DistanceUnit;
+  onDistanceUnitChange: (value: DistanceUnit) => void;
   children: ReactNode;
 };
 
@@ -69,6 +81,16 @@ const NAV_ITEMS: {
   { view: "settings", icon: SettingsIcon, labelKey: "settingsNavLabel" },
 ];
 
+// Header currency dropdown options (specs/047) — duplicates the same four currencies
+// SettingsView.tsx's own <select> already offers, both backed by the one useCurrency() instance
+// App.tsx holds (research.md: never a second, independently-drifting copy).
+const CURRENCY_OPTIONS: { value: Currency; labelKey: StringKey }[] = [
+  { value: "USD", labelKey: "currencyUsdLabel" },
+  { value: "EUR", labelKey: "currencyEurLabel" },
+  { value: "RUB", labelKey: "currencyRubLabel" },
+  { value: "GBP", labelKey: "currencyGbpLabel" },
+];
+
 // The persistent chrome wrapping every signed-in screen — nav rail + header, ported from
 // docs/odograph-design.zip's "Кокпит" mockup. Both nav entries (Garage, Dashboard) are now live —
 // spec 014 is the first feature to make the nav rail an actual view switch rather than a single
@@ -83,10 +105,15 @@ export function AppShell(
     selectedVehicleId,
     onSelectVehicle,
     toast,
+    currency,
+    onCurrencyChange,
+    distanceUnit,
+    onDistanceUnitChange,
     children,
   }: AppShellProps,
 ) {
   const [, toggleTheme] = useTheme();
+  const [currencyOpen, setCurrencyOpen] = useState(false);
 
   return (
     <div style={{ display: "flex", height: "100vh", minHeight: 560, position: "relative" }}>
@@ -228,6 +255,94 @@ export function AppShell(
               flex: "none",
             }}
           >
+            <button
+              type="button"
+              onClick={() => onDistanceUnitChange(distanceUnit === "km" ? "mi" : "km")}
+              style={{
+                font: "500 10.5px var(--font-mono)",
+                color: "var(--dim)",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--radius-sm)",
+                padding: "6px 10px",
+                cursor: "pointer",
+                background: "transparent",
+              }}
+            >
+              {distanceUnit}
+            </button>
+
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                onClick={() => setCurrencyOpen((open) => !open)}
+                style={{
+                  font: "500 10.5px var(--font-mono)",
+                  color: "var(--dim)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "var(--radius-sm)",
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                  background: "transparent",
+                }}
+              >
+                {currencySymbol(currency)} {currency}
+              </button>
+              {currencyOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 36,
+                    right: 0,
+                    zIndex: 20,
+                    background: "var(--panel2)",
+                    border: "1px solid var(--line)",
+                    borderRadius: "var(--radius-md)",
+                    padding: 5,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    minWidth: 132,
+                    boxShadow: "0 12px 30px rgba(0,0,0,.45)",
+                    animation: "tin .14s ease",
+                  }}
+                >
+                  {CURRENCY_OPTIONS.map((option) => {
+                    const isSelected = option.value === currency;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          onCurrencyChange(option.value);
+                          setCurrencyOpen(false);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 9,
+                          padding: "8px 9px",
+                          borderRadius: "var(--radius-sm)",
+                          border: "none",
+                          cursor: "pointer",
+                          font: "500 11px var(--font-mono)",
+                          color: isSelected ? "var(--on-acc)" : "var(--fg)",
+                          background: isSelected ? "var(--acc)" : "transparent",
+                          textAlign: "left",
+                        }}
+                      >
+                        <span style={{ width: 14, textAlign: "center", fontSize: 12 }}>
+                          {currencySymbol(option.value)}
+                        </span>
+                        {t(option.labelKey)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div style={{ width: 1, height: 22, background: "var(--line)", margin: "0 3px" }} />
+
             <button
               type="button"
               onClick={() => onSelectView("fuel")}

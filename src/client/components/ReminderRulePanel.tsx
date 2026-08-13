@@ -1,11 +1,17 @@
 import type { ReminderRule, ReminderStatus } from "../reminder-rules";
 import type { WithSyncStatus } from "../offline/merge";
+import { convertDistance } from "../distance";
+import type { DistanceUnit } from "../distance";
 import { AddIcon, BellIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 import type { StringKey } from "../i18n/strings";
 
 type ReminderRulePanelProps = {
   rules: WithSyncStatus<ReminderRule>[];
+  /** Header display preference (specs/047) — applies only to intervalSummary's read-only row
+   * text; the add-form's distance fields always stay in vehicleOdometerUnit (research.md). */
+  distanceUnit: DistanceUnit;
+  vehicleOdometerUnit: DistanceUnit;
   label: string;
   onLabelChange: (value: string) => void;
   intervalDays: string;
@@ -76,10 +82,19 @@ function recentlyCompleted(rules: ReminderRule[]): ReminderRule[] {
     .slice(0, 3);
 }
 
-function intervalSummary(rule: ReminderRule): string {
+function intervalSummary(
+  rule: ReminderRule,
+  vehicleOdometerUnit: DistanceUnit,
+  distanceUnit: DistanceUnit,
+): string {
   const parts: string[] = [];
   if (rule.intervalDays != null) parts.push(`${rule.intervalDays}d`);
-  if (rule.intervalDistance != null) parts.push(`${rule.intervalDistance}`);
+  if (rule.intervalDistance != null) {
+    const converted = Math.round(
+      convertDistance(rule.intervalDistance, vehicleOdometerUnit, distanceUnit),
+    );
+    parts.push(`${converted}${distanceUnit}`);
+  }
   return parts.join(" / ");
 }
 
@@ -87,6 +102,8 @@ function intervalSummary(rule: ReminderRule): string {
 export function ReminderRulePanel(props: ReminderRulePanelProps) {
   const {
     rules,
+    distanceUnit,
+    vehicleOdometerUnit,
     label,
     onLabelChange,
     intervalDays,
@@ -173,7 +190,7 @@ export function ReminderRulePanel(props: ReminderRulePanelProps) {
                             marginTop: 5,
                           }}
                         >
-                          {intervalSummary(rule)}
+                          {intervalSummary(rule, vehicleOdometerUnit, distanceUnit)}
                         </div>
                       </div>
                       <span

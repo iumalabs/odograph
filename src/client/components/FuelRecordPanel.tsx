@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import type { Attachment, FuelPreview, FuelRecord } from "../fuel-records";
 import { fetchFuelPreview } from "../fuel-records";
 import type { WithSyncStatus } from "../offline/merge";
+import { convertDistance } from "../distance";
+import type { DistanceUnit } from "../distance";
 import { AddIcon, CameraIcon, FuelIcon, ReceiptIcon, UploadIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
@@ -9,6 +11,10 @@ type FuelRecordPanelProps = {
   vehicleId: string;
   records: WithSyncStatus<FuelRecord>[];
   currencySymbol: string;
+  /** Header display preference (specs/047) — applies only to the read-only table column below;
+   * the create/edit form's odometer fields always stay in vehicleOdometerUnit (research.md). */
+  distanceUnit: DistanceUnit;
+  vehicleOdometerUnit: DistanceUnit;
   fuelDate: string;
   onFuelDateChange: (value: string) => void;
   odometerReading: string;
@@ -69,6 +75,8 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
     vehicleId,
     records,
     currencySymbol,
+    distanceUnit,
+    vehicleOdometerUnit,
     fuelDate,
     onFuelDateChange,
     odometerReading,
@@ -318,7 +326,13 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
                           )}
                         </div>
                         <span style={{ font: "400 12.5px var(--font-mono)", color: "var(--fg)" }}>
-                          {record.odometerReading}
+                          {Math.round(
+                            convertDistance(
+                              record.odometerReading,
+                              vehicleOdometerUnit,
+                              distanceUnit,
+                            ),
+                          )}
                         </span>
                         <span style={{ font: "400 12.5px var(--font-mono)", color: "var(--fg)" }}>
                           {record.volume}
