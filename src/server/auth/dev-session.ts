@@ -7,12 +7,22 @@ import { tenantContext } from "../middleware/tenant-context";
 import type { AppEnv } from "../types";
 
 /**
- * Runs first, before any other middleware, so a production deploy does
- * nothing at all for this route — no rate-limit counter write, no session
- * lookup — not just an early return from within the handler.
+ * Runs first, before any other middleware, so any non-development deploy
+ * does nothing at all for this route — no rate-limit counter write, no
+ * session lookup — not just an early return from within the handler.
+ *
+ * Allow-list, not deny-list: originally this checked `ENVIRONMENT ===
+ * "production"`, which left the "preview" environment (every open PR's
+ * auto-deployed, publicly reachable Worker, sharing one D1 database across
+ * all PRs) wide open — an unauthenticated GET to /_dev/oidc-google?email=
+ * <victim> signs in as whatever account that email resolves to, no Google
+ * credential required (security audit finding, 2026-08-13). Checking
+ * against the one value these routes are actually meant for, instead of
+ * against the one value they're most obviously not meant for, is what
+ * closes that gap for every future non-development environment too.
  */
 export const notFoundOutsideDev = createMiddleware<AppEnv>(async (c, next) => {
-  if (c.env.ENVIRONMENT === "production") return c.notFound();
+  if (c.env.ENVIRONMENT !== "development") return c.notFound();
   await next();
 });
 
@@ -24,8 +34,8 @@ export const notFoundOutsideDev = createMiddleware<AppEnv>(async (c, next) => {
  * therefore before `c.env`) exists — there's no way to *literally* skip
  * registration based on a runtime binding. Instead, every handler's first
  * step checks `c.env.ENVIRONMENT` and returns Hono's own `c.notFound()`
- * when it's "production" — a response indistinguishable from the route
- * never having existed, which is what FR-009 actually requires (see
+ * whenever it's not "development" — a response indistinguishable from the
+ * route never having existed, which is what FR-009 actually requires (see
  * research.md's "no secret to leak or forget to rotate" reasoning: this is
  * a deploy-time config value the client can't influence, not a checked
  * secret).
