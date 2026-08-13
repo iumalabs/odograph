@@ -46,7 +46,7 @@ export function SettingsView(
           >
             <option value="USD">{t("currencyUsdLabel")}</option>
             <option value="EUR">{t("currencyEurLabel")}</option>
-            <option value="RUB">{t("currencyRubLabel")}</option>
+            <option value="KGS">{t("currencyKgsLabel")}</option>
             <option value="GBP">{t("currencyGbpLabel")}</option>
           </select>
         </label>

@@ -87,7 +87,7 @@ const NAV_ITEMS: {
 const CURRENCY_OPTIONS: { value: Currency; labelKey: StringKey }[] = [
   { value: "USD", labelKey: "currencyUsdLabel" },
   { value: "EUR", labelKey: "currencyEurLabel" },
-  { value: "RUB", labelKey: "currencyRubLabel" },
+  { value: "KGS", labelKey: "currencyKgsLabel" },
   { value: "GBP", labelKey: "currencyGbpLabel" },
 ];
 

@@ -1,13 +1,13 @@
 import { useState } from "react";
 
-export type Currency = "USD" | "EUR" | "RUB" | "GBP";
+export type Currency = "USD" | "EUR" | "KGS" | "GBP";
 
 const STORAGE_KEY = "odograph:currency";
 
 const CURRENCY_SYMBOLS: Record<Currency, string> = {
   USD: "$",
   EUR: "€",
-  RUB: "₽",
+  KGS: "с",
   GBP: "£",
 };
 
@@ -17,7 +17,7 @@ export function currencySymbol(currency: Currency): string {
 
 function readStoredCurrency(): Currency {
   const stored = localStorage.getItem(STORAGE_KEY);
-  return stored === "EUR" || stored === "RUB" || stored === "GBP" ? stored : "USD";
+  return stored === "EUR" || stored === "KGS" || stored === "GBP" ? stored : "USD";
 }
 
 /** Mirrors theme.ts's localStorage-backed pattern — call once, from App.tsx, and thread the
