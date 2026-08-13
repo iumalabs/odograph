@@ -1,10 +1,12 @@
-import { useState } from "react";
-import type { Attachment, FuelRecord } from "../fuel-records";
+import { useEffect, useState } from "react";
+import type { Attachment, FuelPreview, FuelRecord } from "../fuel-records";
+import { fetchFuelPreview } from "../fuel-records";
 import type { WithSyncStatus } from "../offline/merge";
 import { AddIcon, CameraIcon, FuelIcon, ReceiptIcon, UploadIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
 type FuelRecordPanelProps = {
+  vehicleId: string;
   records: WithSyncStatus<FuelRecord>[];
   currencySymbol: string;
   fuelDate: string;
@@ -64,6 +66,7 @@ const numberInputStyle = {
 // var(--dim) when null, never a blank cell (spec 009 research.md).
 export function FuelRecordPanel(props: FuelRecordPanelProps) {
   const {
+    vehicleId,
     records,
     currencySymbol,
     fuelDate,
@@ -92,6 +95,42 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
   const [draftCost, setDraftCost] = useState("");
   const [draftStation, setDraftStation] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
+  const [preview, setPreview] = useState<FuelPreview | null>(null);
+
+  // Debounced, server-computed create-form preview (specs/040 — constitution Principle II forbids
+  // computing this division client-side; the "live" part is only the debounced re-fetch as the
+  // owner types, never local arithmetic). odometerReading/volume are parsed here only as a cheap
+  // non-blank/parseable gate on whether to ask at all — the actual division-safety and
+  // comparison-against-history computation always happens server-side.
+  useEffect(() => {
+    const parsedOdometer = Number(odometerReading);
+    const parsedVolume = Number(volume);
+    const parsedCost = cost === "" ? null : Number(cost);
+    if (
+      odometerReading === "" || volume === "" || !Number.isFinite(parsedOdometer) ||
+      !Number.isFinite(parsedVolume) || parsedOdometer <= 0 || parsedVolume <= 0 ||
+      (parsedCost !== null && !Number.isFinite(parsedCost))
+    ) {
+      setPreview(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetchFuelPreview(vehicleId, parsedOdometer, parsedVolume, parsedCost)
+        .then((result) => {
+          if (!cancelled) setPreview(result);
+        })
+        .catch(() => {
+          if (!cancelled) setPreview(null);
+        });
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [vehicleId, odometerReading, volume, cost]);
 
   function startEdit(record: FuelRecord) {
     setEditingId(record.id);
@@ -578,6 +617,21 @@ export function FuelRecordPanel(props: FuelRecordPanelProps) {
           <AddIcon size={15} />
           {t("addFuelRecord")}
         </button>
+        {(preview?.economy != null || preview?.costPerDistance != null) && (
+          <div style={{ flex: "1 0 100%", display: "flex", gap: 16 }}>
+            {preview.economy != null && (
+              <span style={{ font: "500 10.5px var(--font-mono)", color: "var(--dim)" }}>
+                {t("fuelEconomyPreviewLabel")}: {preview.economy.toFixed(1)}
+              </span>
+            )}
+            {preview.costPerDistance != null && (
+              <span style={{ font: "500 10.5px var(--font-mono)", color: "var(--dim)" }}>
+                {t("fuelCostPerDistancePreviewLabel")}: {currencySymbol}
+                {preview.costPerDistance.toFixed(2)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

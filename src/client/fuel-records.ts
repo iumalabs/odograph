@@ -64,6 +64,29 @@ export async function listFuelRecords(vehicleId: string): Promise<FuelRecord[]> 
   return fuelRecords;
 }
 
+export type FuelPreview = { economy: number | null; costPerDistance: number | null };
+
+/**
+ * Server-computed live preview for the create-fuel-record form (specs/040 — constitution Principle
+ * II forbids running this division client-side). `cost` is only appended to the query when present,
+ * matching contracts/api.md's optional-param contract.
+ */
+export function fetchFuelPreview(
+  vehicleId: string,
+  odometerReading: number,
+  volume: number,
+  cost: number | null,
+): Promise<FuelPreview> {
+  const params = new URLSearchParams({
+    odometerReading: String(odometerReading),
+    volume: String(volume),
+  });
+  if (cost !== null) params.set("cost", String(cost));
+  return jsonFetch<FuelPreview>(
+    `/api/v1/vehicles/${vehicleId}/fuel-preview?${params.toString()}`,
+  );
+}
+
 /**
  * Builds a displayable record from a still-pending/rejected "create" action —
  * `fuelEconomy`/`duplicateOfId` are left `null`, the same value they'd legitimately have before

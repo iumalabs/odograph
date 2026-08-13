@@ -66,6 +66,8 @@ const en = {
   fuelStationLabel: "Station",
   addFuelRecord: "Add fuel record",
   quickFuelLabel: "Fuel",
+  fuelEconomyPreviewLabel: "Est. economy",
+  fuelCostPerDistancePreviewLabel: "Est. cost/distance",
   fuelEconomyNotEnoughData: "—",
   possibleDuplicateLabel: "Possible duplicate",
   dismissDuplicate: "Dismiss",
