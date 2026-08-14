@@ -39,6 +39,19 @@ export default defineConfig(() => {
   const wranglerEnv = process.env.WRANGLER_ENV;
 
   return {
+    build: {
+      // Fonts must stay same-origin url() references, never inlined as data: URIs — the CSP
+      // (specs/015-csp-nonces) deliberately keeps font-src to 'self' only, matching how
+      // @fontsource files are meant to be served (csp.ts's own comment: "fonts are self-hosted
+      // via @fontsource, bundled as same-origin files"). Vite's default size-based inlining
+      // (assetsInlineLimit, 4KB) doesn't know about that constraint and silently inlines small
+      // font subsets as data: URIs, which the CSP then blocks on every single page load
+      // (issue #191) — both .woff2 (the primary format) and its .woff fallback (smaller, and the
+      // one actually falling under the 4KB default) need excluding; every other asset type's
+      // default inlining behavior is untouched.
+      assetsInlineLimit: (filePath: string) =>
+        filePath.endsWith(".woff2") || filePath.endsWith(".woff") ? false : undefined,
+    },
     plugins: [
       react(),
       cloudflare(wranglerEnv ? { configPath: configPathFor(wranglerEnv) } : {}),
