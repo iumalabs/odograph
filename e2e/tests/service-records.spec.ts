@@ -2,6 +2,7 @@ import { expect, test } from "../support/dev-session.ts";
 import {
   addServiceRecord,
   addVehicle,
+  goToView,
   selectVehicle,
   serviceRecordRow,
   t,
@@ -11,6 +12,7 @@ test.describe("service record CRUD & duplicate detection (specs 007, 010)", () =
   test.beforeEach(async ({ authedPage }) => {
     await addVehicle(authedPage, { name: "Service Test Car", odometerUnit: "km" });
     await selectVehicle(authedPage, "Service Test Car");
+    await goToView(authedPage, "service");
   });
 
   test("adding a record with required fields shows it in the history", async ({ authedPage }) => {
@@ -50,8 +52,10 @@ test.describe("service record CRUD & duplicate detection (specs 007, 010)", () =
   test("the same date and description on a DIFFERENT vehicle is not flagged (duplicate detection is per-vehicle)", async ({ authedPage }) => {
     await addServiceRecord(authedPage, { date: "2026-07-01", description: "Spark plugs" });
 
+    await goToView(authedPage, "garage");
     await addVehicle(authedPage, { name: "Second Car", odometerUnit: "km" });
     await selectVehicle(authedPage, "Second Car");
+    await goToView(authedPage, "service");
     await addServiceRecord(authedPage, { date: "2026-07-01", description: "Spark plugs" });
 
     await expect(authedPage.getByText(t("possibleDuplicateLabel"))).toHaveCount(0);

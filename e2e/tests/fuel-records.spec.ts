@@ -1,10 +1,18 @@
 import { expect, test } from "../support/dev-session.ts";
-import { addFuelRecord, addVehicle, fuelRecordRow, selectVehicle, t } from "../support/app.ts";
+import {
+  addFuelRecord,
+  addVehicle,
+  fuelRecordRow,
+  goToView,
+  selectVehicle,
+  t,
+} from "../support/app.ts";
 
 test.describe("fuel record CRUD, economy & duplicate detection (specs 009, 010)", () => {
   test.beforeEach(async ({ authedPage }) => {
     await addVehicle(authedPage, { name: "Fuel Test Car", odometerUnit: "km" });
     await selectVehicle(authedPage, "Fuel Test Car");
+    await goToView(authedPage, "fuel");
   });
 
   test("the first fuel record ever has no economy — shown as an explicit dash, never blank", async ({ authedPage }) => {
@@ -86,8 +94,10 @@ test.describe("fuel record CRUD, economy & duplicate detection (specs 009, 010)"
       cost: "15",
     });
 
+    await goToView(authedPage, "garage");
     await addVehicle(authedPage, { name: "Second Fuel Car", odometerUnit: "km" });
     await selectVehicle(authedPage, "Second Fuel Car");
+    await goToView(authedPage, "fuel");
     await addFuelRecord(authedPage, {
       date: "2026-02-15",
       odometer: "25001",
@@ -193,7 +203,8 @@ test.describe("fuel record CRUD, economy & duplicate detection (specs 009, 010)"
     await editForm.getByRole("button", { name: t("saveEdit"), exact: true }).click();
 
     await expect(authedPage.getByRole("button", { name: t("saveEdit") })).toHaveCount(0);
-    await expect(row.getByText("99", { exact: true })).toBeVisible();
+    // Cost renders as currencySymbol + amount in one row ("$99"), not "99" alone (specs 035/047).
+    await expect(row.getByText("$99", { exact: true })).toBeVisible();
   });
 
   test("cancelling a fuel record edit discards the draft", async ({ authedPage }) => {
@@ -213,7 +224,7 @@ test.describe("fuel record CRUD, economy & duplicate detection (specs 009, 010)"
 
     await expect(authedPage.getByRole("button", { name: t("saveEdit") })).toHaveCount(0);
     await expect(row.getByText("999999", { exact: true })).toHaveCount(0);
-    await expect(row.getByText("15", { exact: true })).toBeVisible();
+    await expect(row.getByText("$15", { exact: true })).toBeVisible();
   });
 
   test("deleting a fuel record removes it from the history (issue #49)", async ({ authedPage }) => {

@@ -1,5 +1,5 @@
 import { bootstrapDevSession, expect, test } from "../support/dev-session.ts";
-import { addVehicle, t } from "../support/app.ts";
+import { addVehicle, t, vehicleCard } from "../support/app.ts";
 
 // The passkey/magic-link/Google WebAuthn ceremonies themselves aren't automated here — that
 // needs a virtual WebAuthn authenticator (CDP) or a real email inbox and is tracked as follow-up
@@ -44,12 +44,12 @@ test.describe("dev-session bootstrap", () => {
       const pageA = await contextA.newPage();
       await pageA.goto("/");
       await addVehicle(pageA, { name: "Tenant A's Car", odometerUnit: "km" });
-      await expect(pageA.getByRole("button").filter({ hasText: "Tenant A's Car" })).toBeVisible();
+      await expect(vehicleCard(pageA, "Tenant A's Car")).toBeVisible();
 
       const pageB = await contextB.newPage();
       await pageB.goto("/");
       await expect(pageB.getByText(t("noVehiclesYet"))).toBeVisible();
-      await expect(pageB.getByRole("button").filter({ hasText: "Tenant A's Car" })).toHaveCount(0);
+      await expect(vehicleCard(pageB, "Tenant A's Car")).toHaveCount(0);
     } finally {
       await contextA.close();
       await contextB.close();
