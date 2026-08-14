@@ -295,3 +295,29 @@ describe("vehicle deletion (User Story 3)", () => {
     expect(ownFetch.status).toBe(200);
   });
 });
+it("exposes hasPhoto (never the raw photoR2Key/photoContentType) across create/list/get/patch", async () => {
+  const { cookie } = await createSession();
+  const created = (await (await createVehicle(cookie, { name: "No Photo", odometerUnit: "km" }))
+    .json()) as Record<string, unknown>;
+  expect(created.hasPhoto).toBe(false);
+  expect(created.photoR2Key).toBeUndefined();
+  expect(created.photoContentType).toBeUndefined();
+
+  const listRes = await listVehicles(cookie);
+  const { vehicles } = (await listRes.json()) as { vehicles: Array<Record<string, unknown>> };
+  const listed = vehicles.find((v) => v.id === created.id);
+  expect(listed?.hasPhoto).toBe(false);
+  expect(listed?.photoR2Key).toBeUndefined();
+
+  const getRes = await SELF.fetch(`https://example.com/api/v1/vehicles/${created.id}`, {
+    headers: { Cookie: cookie },
+  });
+  expect(((await getRes.json()) as Record<string, unknown>).hasPhoto).toBe(false);
+
+  const patchRes = await SELF.fetch(`https://example.com/api/v1/vehicles/${created.id}`, {
+    method: "PATCH",
+    headers: { Cookie: cookie, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "Still No Photo" }),
+  });
+  expect(((await patchRes.json()) as Record<string, unknown>).hasPhoto).toBe(false);
+});

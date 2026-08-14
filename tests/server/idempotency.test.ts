@@ -790,3 +790,97 @@ describe("idempotency — client-supplied id on create (spec 020 FR-007)", () =>
     expect(body.id.length).toBeGreaterThan(0);
   });
 });
+type VehiclePhoto = { id: string; category: string };
+
+function createVehiclePhotoReq(
+  cookie: string,
+  vehicleId: string,
+  body: Record<string, unknown>,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/photos`, {
+    method: "POST",
+    headers: {
+      Cookie: cookie,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function createVehiclePhoto(cookie: string, vehicleId: string): Promise<VehiclePhoto> {
+  const res = await createVehiclePhotoReq(cookie, vehicleId, { category: "general" });
+  return (await res.json()) as VehiclePhoto;
+}
+
+function patchVehiclePhotoReq(
+  cookie: string,
+  id: string,
+  body: Record<string, unknown>,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/vehicle-photos/${id}`, {
+    method: "PATCH",
+    headers: {
+      Cookie: cookie,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function deleteVehiclePhotoReq(
+  cookie: string,
+  id: string,
+  idempotencyKey?: string,
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/vehicle-photos/${id}`, {
+    method: "DELETE",
+    headers: {
+      Cookie: cookie,
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+  });
+}
+
+it("POST /vehicles/:id/photos: a repeated key creates only one (still-imageless) tile", async () => {
+  const { cookie } = await createSession();
+  const vehicle = await createVehicle(cookie, "Owner");
+  const key = crypto.randomUUID();
+
+  const first = await createVehiclePhotoReq(cookie, vehicle.id, { category: "general" }, key);
+  const firstBody = await first.json();
+
+  const second = await createVehiclePhotoReq(cookie, vehicle.id, { category: "damage" }, key);
+  expect(await second.json()).toEqual(firstBody);
+});
+
+it("PATCH /vehicle-photos/:id: a repeated key does not re-apply the second call's body", async () => {
+  const { cookie } = await createSession();
+  const vehicle = await createVehicle(cookie, "Owner");
+  const photo = await createVehiclePhoto(cookie, vehicle.id);
+  const key = crypto.randomUUID();
+
+  const first = await patchVehiclePhotoReq(cookie, photo.id, { caption: "First" }, key);
+  expect(first.status).toBe(200);
+
+  const second = await patchVehiclePhotoReq(cookie, photo.id, { caption: "Second" }, key);
+  expect(second.status).toBe(200);
+  const secondBody = (await second.json()) as { caption: string | null };
+  expect(secondBody.caption).toBe("First");
+});
+
+it("DELETE /vehicle-photos/:id: a repeated key returns the cached 204, not a second-delete 404", async () => {
+  const { cookie } = await createSession();
+  const vehicle = await createVehicle(cookie, "Owner");
+  const photo = await createVehiclePhoto(cookie, vehicle.id);
+  const key = crypto.randomUUID();
+
+  const first = await deleteVehiclePhotoReq(cookie, photo.id, key);
+  expect(first.status).toBe(204);
+
+  const second = await deleteVehiclePhotoReq(cookie, photo.id, key);
+  expect(second.status).toBe(204);
+});
