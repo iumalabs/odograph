@@ -3,6 +3,7 @@ import type { Locator, Page } from "@playwright/test";
 // these tests break loudly (import error or stale text) instead of silently drifting the moment
 // UI copy changes, per the project's single-source i18n setup (src/client/i18n/strings.ts).
 import { t } from "../../src/client/i18n/strings.ts";
+import type { StringKey } from "../../src/client/i18n/strings.ts";
 
 /**
  * Locates a record-creation form by its submit button, then scopes to that
@@ -44,13 +45,21 @@ async function submitAndWait(
 
 export async function addVehicle(
   page: Page,
-  opts: { name: string; odometerUnit?: "km" | "mi" },
+  opts: { name: string; odometerUnit?: "km" | "mi"; year?: string },
 ): Promise<void> {
   const form = formFor(page, t("addVehicle"));
   await form.getByLabel(t("vehicleNameLabel")).fill(opts.name);
   if (opts.odometerUnit) {
     await form.getByLabel(t("vehicleOdometerUnitLabel")).selectOption(opts.odometerUnit);
   }
+  // Known bug (github.com/maksimyugai/odograph/issues/178): a blank Year field sends
+  // `year: null`, which the server's create-vehicle validator rejects as `invalid_request` — the
+  // offline write queue then silently marks the create "rejected" while the UI has already
+  // optimistically rendered the vehicle as if it existed, so every later request against it
+  // 404s. None of these tests are *about* the Year field, so default to a valid one to route
+  // around the bug; pass `year: ""` explicitly (as the dedicated regression test in
+  // vehicles.spec.ts does) to exercise the bug itself.
+  await form.getByLabel(t("vehicleYearLabel")).fill(opts.year ?? "2020");
   await submitAndWait(
     page,
     "/api/v1/vehicles",
@@ -58,12 +67,86 @@ export async function addVehicle(
   );
 }
 
+/**
+ * Every screen's header also renders a vehicle-switcher pill per vehicle
+ * (specs/039, `AppShell.tsx`) whose text is the bare vehicle name — outside
+ * the `<main>` landmark that holds the actual view content. Scoping to
+ * `main` is what keeps this from also matching that header pill once a
+ * second vehicle exists or the header itself is visible (it always is).
+ */
 export function vehicleCard(page: Page, name: string): Locator {
-  return page.getByRole("button").filter({ hasText: name });
+  return page.locator("main").getByRole("button").filter({ hasText: name });
 }
 
+/**
+ * Only ever a Garage-screen action: clicking a vehicle card there selects
+ * it AND jumps straight to the Dashboard view (specs/038 `App.tsx`'s
+ * `Garage`'s `onSelectVehicle`) — it no longer just reveals inline panels.
+ * Callers that need a different screen must follow up with `goToView`.
+ */
 export async function selectVehicle(page: Page, name: string): Promise<void> {
   await vehicleCard(page, name).click();
+  await page.getByText(t("dashboardHeading"), { exact: true }).waitFor();
+}
+
+export type AppView =
+  | "garage"
+  | "dashboard"
+  | "fuel"
+  | "service"
+  | "photos"
+  | "reminders"
+  | "planner"
+  | "documents"
+  | "review"
+  | "settings";
+
+const VIEW_NAV_LABEL: Record<AppView, StringKey> = {
+  garage: "garageNavLabel",
+  dashboard: "dashboardNavLabel",
+  fuel: "fuelNavLabel",
+  service: "serviceNavLabel",
+  photos: "photosNavLabel",
+  reminders: "remindersNavLabel",
+  planner: "plannerNavLabel",
+  documents: "documentsNavLabel",
+  review: "syncReviewNavLabel",
+  settings: "settingsNavLabel",
+};
+
+const VIEW_HEADING: Partial<Record<AppView, StringKey>> = {
+  garage: "vehiclesHeading",
+  dashboard: "dashboardHeading",
+  fuel: "fuelRecordsHeading",
+  service: "serviceRecordsHeading",
+  photos: "photoGalleryHeading",
+  reminders: "reminderRulesHeading",
+  planner: "planBoardHeading",
+  documents: "documentsHeading",
+  review: "syncReviewHeading",
+  settings: "settingsScreenHeading",
+};
+
+/**
+ * Clicks a nav-rail destination (specs/038 `AppShell.tsx`'s `NAV_ITEMS`) and
+ * waits for that screen's own title to render — the rail persists across
+ * every view, so scoping the click to `nav` avoids ever matching content
+ * inside `main` that happens to repeat a label.
+ *
+ * The "review" entry's accessible name gets a live count prefixed onto it
+ * once anything is rejected (AppShell.tsx's reviewBadgeCount span renders
+ * before the label span, e.g. "1 REVIEW" instead of bare "REVIEW") — an
+ * exact match against the bare label silently stops finding it the moment
+ * that happens. Matching on the label as a suffix handles both cases; none
+ * of the ten nav labels is a suffix of another, so this stays precise.
+ */
+export async function goToView(page: Page, view: AppView): Promise<void> {
+  const label = t(VIEW_NAV_LABEL[view]);
+  await page.locator("nav").getByRole("button", { name: new RegExp(`${label}$`) }).click();
+  const heading = VIEW_HEADING[view];
+  if (heading) {
+    await page.getByText(t(heading), { exact: true }).first().waitFor();
+  }
 }
 
 export function serviceForm(page: Page): Locator {
@@ -178,6 +261,64 @@ export function fuelRecordRow(page: Page, odometerReading: string): Locator {
 
 export function reminderRuleRow(page: Page, label: string): Locator {
   return rowContaining(page, label, 3);
+}
+
+export function documentForm(page: Page): Locator {
+  return formFor(page, t("addDocument"));
+}
+
+export async function addDocument(
+  page: Page,
+  opts: {
+    title: string;
+    category?: "registration" | "insurance" | "warranty" | "inspection" | "other";
+  },
+): Promise<void> {
+  const form = documentForm(page);
+  await form.getByLabel(t("documentTitleLabel")).fill(opts.title);
+  if (opts.category) {
+    await form.getByLabel(t("documentCategoryLabel")).selectOption(opts.category);
+  }
+  await submitAndWait(
+    page,
+    "/documents",
+    () => form.getByRole("button", { name: t("addDocument"), exact: true }).click(),
+  );
+}
+
+export function documentRow(page: Page, title: string): Locator {
+  return rowContaining(page, title, 3);
+}
+
+export function planCardForm(page: Page): Locator {
+  return formFor(page, t("addPlanCard"));
+}
+
+export async function addPlanCard(
+  page: Page,
+  opts: { title: string; targetDate?: string; estimatedCost?: string; urgent?: boolean },
+): Promise<void> {
+  const form = planCardForm(page);
+  await form.getByLabel(t("planCardTitleLabel")).fill(opts.title);
+  if (opts.targetDate) {
+    await form.getByLabel(t("planCardTargetDateLabel")).fill(opts.targetDate);
+  }
+  if (opts.estimatedCost) {
+    await form.getByLabel(t("planCardEstimatedCostLabel")).fill(opts.estimatedCost);
+  }
+  if (opts.urgent) {
+    await form.getByLabel(t("planCardUrgentLabel")).check();
+  }
+  await submitAndWait(
+    page,
+    "/plan-cards",
+    () => form.getByRole("button", { name: t("addPlanCard"), exact: true }).click(),
+  );
+}
+
+/** Plan cards render inside their stage column, title one hop above the card container. */
+export function planCard(page: Page, title: string): Locator {
+  return rowContaining(page, title, 1);
 }
 
 export { t };
