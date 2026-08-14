@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.10.0](https://github.com/maksimyugai/odograph/compare/v1.9.0...v1.10.0) (2026-08-14)
+
+
+### Features
+
+* import LubeLogger history for Subaru Legacy, add vehicle photo support ([#172](https://github.com/maksimyugai/odograph/issues/172)) ([d83a32a](https://github.com/maksimyugai/odograph/commit/d83a32a173ad9900768722172a58414f4a888817))
+
+
+### Bug Fixes
+
+* **client:** always keep a vehicle selected in the picker ([#170](https://github.com/maksimyugai/odograph/issues/170)) ([c95ea09](https://github.com/maksimyugai/odograph/commit/c95ea09a89f703e6b4bf1664a9c26310870d3e27))
+
 ## [1.9.0](https://github.com/maksimyugai/odograph/compare/v1.8.0...v1.9.0) (2026-08-14)
 
 
