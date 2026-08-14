@@ -2795,6 +2795,144 @@ export async function createReminderRule(
   };
 }
 
+export type ServiceDueEstimate = {
+  description: string;
+  estimatedOdometer: number;
+  averageInterval: number;
+  basedOnRecordCount: number;
+} | null;
+
+type ServiceDueEstimateCandidate = {
+  description: string;
+  estimatedOdometer: number;
+  averageInterval: number;
+  basedOnRecordCount: number;
+  lastDoneDate: string;
+  lastDoneOdometer: number;
+};
+
+function normalizeServiceDescription(description: string): string {
+  return description.trim().toLowerCase();
+}
+
+/**
+ * Shared core for computeServiceDueEstimate (GET) and acceptServiceDueEstimate (POST) — the accept
+ * path re-derives this itself rather than trusting a client-supplied estimatedOdometer/
+ * averageInterval (data-model.md), and needs the winning group's lastDoneDate/lastDoneOdometer that
+ * the public ServiceDueEstimate shape doesn't expose.
+ */
+async function findServiceDueEstimateCandidate(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<ServiceDueEstimateCandidate | null> {
+  const records = await listServiceRecords(db, ctx, vehicleId);
+  const usable = records.filter((r) => r.duplicateOfId === null && r.odometerReading !== null);
+
+  const groups = new Map<string, ServiceRecord[]>();
+  for (const record of usable) {
+    const key = normalizeServiceDescription(record.description);
+    const group = groups.get(key);
+    if (group) group.push(record);
+    else groups.set(key, [record]);
+  }
+
+  const { results: ruleRows } = await db
+    .prepare(`SELECT label FROM reminder_rules WHERE vehicle_id = ? AND tenant_id = ?`)
+    .bind(vehicleId, ctx.tenantId)
+    .all<{ label: string }>();
+  const existingLabels = new Set(ruleRows.map((r) => normalizeServiceDescription(r.label)));
+
+  const candidates: ServiceDueEstimateCandidate[] = [];
+  for (const [key, group] of groups) {
+    if (group.length < 2 || existingLabels.has(key)) continue;
+
+    const sorted = [...group].sort((a, b) => a.serviceDate.localeCompare(b.serviceDate));
+    const intervals: number[] = [];
+    for (let i = 1; i < sorted.length; i++) {
+      // Indices 1..sorted.length-1 are always in-bounds here (group.length >= 2 checked above);
+      // odometerReading is non-null for every record (filtered above).
+      const current = sorted[i]!;
+      const prior = sorted[i - 1]!;
+      const distance = current.odometerReading! - prior.odometerReading!;
+      if (distance > 0) intervals.push(distance); // zero-distance pairs contribute no usable interval
+    }
+    if (intervals.length === 0) continue;
+
+    const averageInterval = intervals.reduce((sum, v) => sum + v, 0) / intervals.length;
+    const mostRecent = sorted[sorted.length - 1]!; // sorted.length >= 2, so this index always exists
+    candidates.push({
+      description: mostRecent.description,
+      estimatedOdometer: mostRecent.odometerReading! + averageInterval,
+      averageInterval,
+      basedOnRecordCount: sorted.length,
+      lastDoneDate: mostRecent.serviceDate,
+      lastDoneOdometer: mostRecent.odometerReading!,
+    });
+  }
+  if (candidates.length === 0) return null;
+
+  // Soonest-due wins; ties broken by most-recent contributing record's serviceDate (spec Edge Cases).
+  candidates.sort((a, b) =>
+    a.estimatedOdometer - b.estimatedOdometer || b.lastDoneDate.localeCompare(a.lastDoneDate)
+  );
+  return candidates[0]!; // candidates.length checked above
+}
+
+/**
+ * Server-computed live estimate for the service-entry form (specs/053, constitution Principle II —
+ * this must never move client-side). Groups a vehicle's own service history by normalized
+ * description and, for the single soonest-due qualifying group, projects a next-due odometer
+ * reading from the average interval between its records. Never persists anything.
+ */
+export async function computeServiceDueEstimate(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<ServiceDueEstimate> {
+  const candidate = await findServiceDueEstimateCandidate(db, ctx, vehicleId);
+  if (!candidate) return null;
+  const { description, estimatedOdometer, averageInterval, basedOnRecordCount } = candidate;
+  return { description, estimatedOdometer, averageInterval, basedOnRecordCount };
+}
+
+/**
+ * Turns a shown estimate into a real reminder_rules row (specs/053 FR-008/FR-009) — re-derives the
+ * estimate from current data rather than trusting the client's remembered numbers, so a stale
+ * client can't write a stale/fabricated interval. Returns null when no group still qualifies for
+ * `description` (already accepted, superseded by new records, or never existed) — the route maps
+ * that to 409 per contracts/api.md. Field mapping (data-model.md): distance-only, so intervalDays
+ * stays null.
+ */
+export async function acceptServiceDueEstimate(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+  description: string,
+  clientId?: string,
+): Promise<ReminderRule | null> {
+  const candidate = await findServiceDueEstimateCandidate(db, ctx, vehicleId);
+  if (
+    !candidate ||
+    normalizeServiceDescription(candidate.description) !== normalizeServiceDescription(description)
+  ) {
+    return null;
+  }
+  return createReminderRule(
+    db,
+    ctx,
+    vehicleId,
+    {
+      label: candidate.description,
+      intervalDays: null,
+      intervalDistance: candidate.averageInterval,
+      lastDoneDate: candidate.lastDoneDate,
+      lastDoneOdometer: candidate.lastDoneOdometer,
+    },
+    clientId,
+  );
+}
+
 /**
  * Fetches the vehicle's rules and its current odometer reading once, then maps
  * computeReminderStatus over each rule — avoids an N+1 odometer lookup per rule.

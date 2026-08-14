@@ -45,6 +45,10 @@ const en = {
   serviceDescriptionLabel: "Description",
   addServiceRecord: "Add service record",
   serviceRecordAddedToast: "Service record added",
+  serviceDueEstimateHint:
+    "Estimated from your history ({count} records) — {description} likely due around {value} {unit}",
+  acceptServiceDueEstimateAction: "Turn into reminder",
+  serviceDueEstimateUnavailableError: "That estimate is no longer available.",
   performedByLabel: "Performed by",
   performedBySelf: "Self",
   performedByShop: "Shop",

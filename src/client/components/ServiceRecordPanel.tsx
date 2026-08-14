@@ -1,12 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Attachment, ServiceRecord } from "../service-records";
 import type { WithSyncStatus } from "../offline/merge";
 import { convertDistance } from "../distance";
 import type { DistanceUnit } from "../distance";
+import {
+  acceptServiceDueEstimate,
+  fetchServiceDueEstimate,
+  ServiceDueEstimateUnavailableError,
+} from "../service-due-estimate";
+import type { ServiceDueEstimate } from "../service-due-estimate";
 import { AddIcon, CameraIcon, ReceiptIcon, ServiceIcon, UploadIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
 type ServiceRecordPanelProps = {
+  vehicleId: string;
   records: WithSyncStatus<ServiceRecord>[];
   currencySymbol: string;
   /** Header display preference (specs/047) — applies only to the read-only table column below;
@@ -76,6 +83,7 @@ function editActionButtonStyle(color: string) {
 // ТО (service records) screen — adapted to this project's actual ServiceRecord/Attachment fields.
 export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
   const {
+    vehicleId,
     records,
     currencySymbol,
     distanceUnit,
@@ -104,6 +112,46 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
   const [draftCost, setDraftCost] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
   const [draftPerformedBy, setDraftPerformedBy] = useState<"self" | "shop" | null>(null);
+  const [dueEstimate, setDueEstimate] = useState<ServiceDueEstimate>(null);
+  const [acceptingEstimate, setAcceptingEstimate] = useState(false);
+  const [estimateError, setEstimateError] = useState(false);
+
+  // Server-computed live estimate for recurring work (specs/053 — constitution Principle II
+  // forbids computing this grouping/averaging client-side). Re-fetched whenever the record list
+  // changes (a newly logged record can change or clear the winning group) so it's never stale
+  // (spec FR-007), the same "no local caching" posture FuelRecordPanel's fuel-preview follows.
+  useEffect(() => {
+    let cancelled = false;
+    fetchServiceDueEstimate(vehicleId)
+      .then((result) => {
+        if (!cancelled) setDueEstimate(result);
+      })
+      .catch(() => {
+        if (!cancelled) setDueEstimate(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [vehicleId, records]);
+
+  function acceptDueEstimate() {
+    if (!dueEstimate) return;
+    setAcceptingEstimate(true);
+    setEstimateError(false);
+    acceptServiceDueEstimate(vehicleId, dueEstimate.description)
+      .then(() => {
+        setDueEstimate(null);
+      })
+      .catch((error) => {
+        if (error instanceof ServiceDueEstimateUnavailableError) {
+          setEstimateError(true);
+          setDueEstimate(null);
+        } else {
+          setEstimateError(true);
+        }
+      })
+      .finally(() => setAcceptingEstimate(false));
+  }
 
   function startEdit(record: ServiceRecord) {
     setEditingId(record.id);
@@ -552,6 +600,45 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
             })}
           </div>
         )}
+
+      {dueEstimate && (
+        <div
+          style={{
+            border: "1px solid var(--acc)",
+            background: "var(--panel)",
+            borderRadius: "var(--radius-lg)",
+            padding: "12px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ font: "400 11.5px var(--font-mono)", color: "var(--dim)", flex: 1 }}>
+            {t("serviceDueEstimateHint", {
+              count: String(dueEstimate.basedOnRecordCount),
+              description: dueEstimate.description,
+              value: String(Math.round(
+                convertDistance(dueEstimate.estimatedOdometer, vehicleOdometerUnit, distanceUnit),
+              )),
+              unit: distanceUnit,
+            })}
+          </span>
+          <button
+            type="button"
+            onClick={acceptDueEstimate}
+            disabled={acceptingEstimate}
+            style={editActionButtonStyle("var(--acc)")}
+          >
+            {t("acceptServiceDueEstimateAction")}
+          </button>
+        </div>
+      )}
+      {estimateError && (
+        <span style={{ font: "400 11px var(--font-mono)", color: "var(--warn)" }}>
+          {t("serviceDueEstimateUnavailableError")}
+        </span>
+      )}
 
       <div
         style={{

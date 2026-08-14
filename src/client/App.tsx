@@ -757,6 +757,7 @@ export function App() {
           : (
             <LazyViewBoundary>
               <ServiceRecordPanel
+                vehicleId={selectedVehicleId}
                 records={mergedServiceRecords}
                 currencySymbol={symbol}
                 distanceUnit={distanceUnit}
