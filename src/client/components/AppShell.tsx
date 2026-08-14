@@ -13,6 +13,7 @@ import {
   DocumentIcon,
   FuelIcon,
   GarageIcon,
+  PhotoIcon,
   PlannerIcon,
   ServiceIcon,
   SettingsIcon,
@@ -27,6 +28,7 @@ export type AppView =
   | "dashboard"
   | "fuel"
   | "service"
+  | "photos"
   | "reminders"
   | "planner"
   | "documents"
@@ -64,6 +66,7 @@ const NAV_ITEMS: {
     | "dashboardNavLabel"
     | "fuelNavLabel"
     | "serviceNavLabel"
+    | "photosNavLabel"
     | "remindersNavLabel"
     | "plannerNavLabel"
     | "documentsNavLabel"
@@ -74,6 +77,7 @@ const NAV_ITEMS: {
   { view: "dashboard", icon: DashboardIcon, labelKey: "dashboardNavLabel" },
   { view: "fuel", icon: FuelIcon, labelKey: "fuelNavLabel" },
   { view: "service", icon: ServiceIcon, labelKey: "serviceNavLabel" },
+  { view: "photos", icon: PhotoIcon, labelKey: "photosNavLabel" },
   { view: "reminders", icon: BellIcon, labelKey: "remindersNavLabel" },
   { view: "planner", icon: PlannerIcon, labelKey: "plannerNavLabel" },
   { view: "documents", icon: DocumentIcon, labelKey: "documentsNavLabel" },

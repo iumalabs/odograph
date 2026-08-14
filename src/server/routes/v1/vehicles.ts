@@ -11,10 +11,13 @@ import {
   createReminderRule,
   createServiceRecord,
   createVehicle,
+  createVehiclePhoto,
   deleteVehicle,
   findFuelRecordById,
   findReminderRuleById,
+  findServiceRecordById,
   findVehicleById,
+  findVehicleCoverPhotoKey,
   getVehicleHistoryForReport,
   listAttachmentKeysForVehicle,
   listAttachmentKeysForVehicleDocuments,
@@ -24,6 +27,8 @@ import {
   listPlanCards,
   listReminderRulesWithStatus,
   listServiceRecords,
+  listVehiclePhotoKeysForVehicle,
+  listVehiclePhotos,
   listVehicles,
   updateVehicle,
 } from "../../db/repository";
@@ -36,8 +41,10 @@ import type {
   ServiceRecordInput,
   Vehicle,
   VehicleInput,
+  VehiclePhotoInput,
 } from "../../db/repository";
 import { deleteAttachments, getAttachment } from "../../attachments/storage";
+import { publicVehiclePhoto } from "./vehicle-photos";
 import { buildReportData } from "../../reports/maintenance-history-report";
 import { renderReportPdf } from "../../reports/render-pdf";
 import { rateLimitBySession } from "../../auth/rate-limit";
@@ -186,9 +193,9 @@ vehicles.delete("/:id", rateLimitBySession, async (c) => {
   const vehicleId = c.req.param("id");
 
   // R2 objects never cascade from a D1 delete (constitution Principle VIII) — clean them up
-  // before removing the D1 rows that reference them. All three attachment kinds (service records,
-  // fuel records, documents) belonging to this vehicle must be cleaned up (spec 009's retrofit,
-  // extended by specs/023).
+  // before removing the D1 rows that reference them. All attachment kinds (service records, fuel
+  // records, documents, the gallery, the cover photo) belonging to this vehicle must be cleaned
+  // up (spec 009's retrofit, extended by specs/023 and the vehicle photo gallery).
   const serviceAttachmentKeys = await listAttachmentKeysForVehicle(c.env.DB, tenant, vehicleId);
   const fuelAttachmentKeys = await listAttachmentKeysForVehicleFuelRecords(
     c.env.DB,
@@ -200,10 +207,14 @@ vehicles.delete("/:id", rateLimitBySession, async (c) => {
     tenant,
     vehicleId,
   );
+  const photoKeys = await listVehiclePhotoKeysForVehicle(c.env.DB, tenant, vehicleId);
+  const coverPhotoKey = await findVehicleCoverPhotoKey(c.env.DB, tenant, vehicleId);
   await deleteAttachments(c.env.ATTACHMENTS, [
     ...serviceAttachmentKeys,
     ...fuelAttachmentKeys,
     ...documentAttachmentKeys,
+    ...photoKeys,
+    ...(coverPhotoKey ? [coverPhotoKey] : []),
   ]);
 
   const deleted = await deleteVehicle(c.env.DB, tenant, vehicleId);
@@ -697,4 +708,74 @@ vehicles.get("/:vehicleId/reminder-rules", async (c) => {
 
   const results = await listReminderRulesWithStatus(c.env.DB, tenant, vehicleId);
   return c.json({ reminderRules: results });
+});
+
+const VEHICLE_PHOTO_CATEGORIES = new Set(["general", "repair", "damage", "parts"]);
+
+type VehiclePhotoBody = {
+  id?: unknown;
+  category?: unknown;
+  caption?: unknown;
+  photoDate?: unknown;
+  odometerReading?: unknown;
+  serviceRecordId?: unknown;
+};
+
+vehicles.post("/:vehicleId/photos", rateLimitBySession, idempotent, async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const body = await c.req.json().catch(() => ({}) as VehiclePhotoBody);
+  if (typeof body.category !== "string" || !VEHICLE_PHOTO_CATEGORIES.has(body.category)) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+  if (body.caption !== undefined && typeof body.caption !== "string") {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+  if (body.photoDate !== undefined && typeof body.photoDate !== "string") {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+  if (body.odometerReading !== undefined && typeof body.odometerReading !== "number") {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+  if (body.serviceRecordId !== undefined && typeof body.serviceRecordId !== "string") {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+  // A linked service record must actually belong to this same vehicle — never trust a
+  // client-supplied id blindly (same not-found-or-not-yours posture as every other cross-entity
+  // reference in this codebase).
+  if (body.serviceRecordId !== undefined) {
+    const linked = await findServiceRecordById(c.env.DB, tenant, body.serviceRecordId);
+    if (!linked || linked.vehicleId !== vehicleId) {
+      return c.json({ error: "invalid_request" }, 400);
+    }
+  }
+  const clientId = parseOptionalId(body);
+  if (clientId === undefined) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+
+  const input: VehiclePhotoInput = {
+    category: body.category as VehiclePhotoInput["category"],
+    caption: typeof body.caption === "string" ? body.caption : null,
+    photoDate: typeof body.photoDate === "string" ? body.photoDate : null,
+    odometerReading: typeof body.odometerReading === "number" ? body.odometerReading : null,
+    serviceRecordId: typeof body.serviceRecordId === "string" ? body.serviceRecordId : null,
+  };
+  const photo = await createVehiclePhoto(c.env.DB, tenant, vehicleId, input, clientId ?? undefined);
+  return c.json(publicVehiclePhoto(photo), 201);
+});
+
+vehicles.get("/:vehicleId/photos", async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const results = await listVehiclePhotos(c.env.DB, tenant, vehicleId);
+  return c.json({ photos: results.map(publicVehiclePhoto) });
 });

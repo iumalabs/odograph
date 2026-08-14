@@ -5,9 +5,10 @@ import type { WithSyncStatus } from "../offline/merge";
 import { getVehicleAggregates } from "../vehicle-aggregates";
 import { listReminderRules } from "../reminder-rules";
 import type { ReminderRule } from "../reminder-rules";
+import { listVehiclePhotos } from "../vehicle-photos";
 import { convertDistance } from "../distance";
 import type { DistanceUnit } from "../distance";
-import { AddIcon, CarIcon } from "../design/icons";
+import { AddIcon, CarIcon, PhotoIcon } from "../design/icons";
 import { t } from "../i18n/strings";
 
 type GarageProps = {
@@ -17,6 +18,9 @@ type GarageProps = {
   distanceUnit: DistanceUnit;
   selectedVehicleId: string | null;
   onSelectVehicle: (id: string) => void;
+  /** Jumps straight to that vehicle's photo gallery screen (design mockup's g.photoAct) —
+   * selects it first, same as onSelectVehicle, then navigates; App.tsx composes both. */
+  onViewPhotos: (id: string) => void;
   vehicleName: string;
   onVehicleNameChange: (value: string) => void;
   vehicleOdometerUnit: "km" | "mi";
@@ -67,6 +71,7 @@ type VehicleSummary = {
   currentOdometer: number | null;
   averageFuelEconomy: number | null;
   mostUrgentReminder: ReminderRule | null;
+  photoCount: number;
 };
 
 /** Overdue outranks coming-up; on_track/not_enough_data never qualify (research.md). */
@@ -101,6 +106,7 @@ export function Garage(props: GarageProps) {
     onLookupVin,
     vinLookupNotFound,
     onAddVehicle,
+    onViewPhotos,
   } = props;
 
   const [summaries, setSummaries] = useState<Record<string, VehicleSummary>>({});
@@ -109,14 +115,16 @@ export function Garage(props: GarageProps) {
     let cancelled = false;
     Promise.all(
       vehicles.map(async (vehicle) => {
-        const [aggregates, reminderRules] = await Promise.all([
+        const [aggregates, reminderRules, photos] = await Promise.all([
           getVehicleAggregates(vehicle.id, distanceUnit).catch(() => null),
           listReminderRules(vehicle.id).catch(() => [] as ReminderRule[]),
+          listVehiclePhotos(vehicle.id).catch(() => []),
         ]);
         return [vehicle.id, {
           currentOdometer: aggregates?.currentOdometer ?? null,
           averageFuelEconomy: aggregates?.averageFuelEconomy ?? null,
           mostUrgentReminder: mostUrgentReminder(reminderRules),
+          photoCount: photos.length,
         }] as const;
       }),
     ).then((entries) => {
@@ -212,10 +220,33 @@ export function Garage(props: GarageProps) {
                     {spec}
                   </span>
                 )}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  title={t("viewPhotoGallery")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onViewPhotos(vehicle.id);
+                  }}
+                  style={{
+                    marginLeft: "auto",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    font: "500 10.5px var(--font-mono)",
+                    border: "1px solid var(--line)",
+                    borderRadius: "var(--radius-sm)",
+                    padding: "4px 8px",
+                    color: "var(--dim)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <PhotoIcon size={11} />
+                  {t("photoCountLabel", { count: String(summary?.photoCount ?? 0) })}
+                </span>
                 {urgentReminder && (
                   <span
                     style={{
-                      marginLeft: "auto",
                       font: "500 10.5px var(--font-mono)",
                       border: `1px solid ${
                         urgentReminder.status === "overdue" ? "var(--warn)" : "var(--line)"
