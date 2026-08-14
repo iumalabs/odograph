@@ -371,8 +371,25 @@ export function App() {
           action.resourceId,
           responseBody,
         );
+        // markDone auto-logs a service record server-side (spec 049) — the reminder-rule
+        // response has no way to carry that second record, so refetch it directly.
+        if (action.actionType === "markDone" && selectedVehicleId) {
+          listServiceRecords(selectedVehicleId).then(setServiceRecords).catch(() =>
+            setError(t("genericError"))
+          );
+        }
       } else if (action.entity === "planCard" && action.vehicleId === selectedVehicleId) {
         upsert<PlanCard>(setPlanCards, action.actionType, action.resourceId, responseBody);
+        // Same auto-log side effect as reminderRule markDone above, triggered by advancing a
+        // plan card's stage to "done" instead of a dedicated action type.
+        if (
+          action.actionType === "update" && selectedVehicleId &&
+          (action.body as { stage?: unknown } | undefined)?.stage === "done"
+        ) {
+          listServiceRecords(selectedVehicleId).then(setServiceRecords).catch(() =>
+            setError(t("genericError"))
+          );
+        }
       }
     });
   }, [selectedVehicleId]);
