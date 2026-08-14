@@ -93,7 +93,13 @@ type CreateBody = {
 function validateCreate(body: CreateBody): VehicleInput | null {
   if (typeof body.name !== "string" || body.name.length === 0) return null;
   if (typeof body.odometerUnit !== "string" || !ODOMETER_UNITS.has(body.odometerUnit)) return null;
-  if (body.year !== undefined && !isValidYear(body.year)) return null;
+  // `!= null` (not `!== undefined`) — the client's add-vehicle form sends an explicit `year: null`
+  // for "no year given" (App.tsx: `vehicleYear.trim() ? Number(vehicleYear) : null`), same as
+  // validatePatch below already treats null as "no value" rather than "invalid value" (issue #178:
+  // rejecting it here 400'd every blank-Year vehicle create, which the offline write queue then
+  // silently marks rejected — never retried, never rolled back from the optimistic UI — so the
+  // vehicle looked created client-side while every subsequent request against it 404'd).
+  if (body.year != null && !isValidYear(body.year)) return null;
 
   return {
     name: body.name,
