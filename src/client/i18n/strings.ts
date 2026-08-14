@@ -200,6 +200,7 @@ const en = {
   noRecentActivityYet: "No recent activity.",
   costPerDistanceLabel: "Cost / distance",
   costPerTimeLabel: "Cost / time",
+  costPer100DistanceLabel: "$ / 100 {unit}",
   averageFuelEconomyLabel: "Avg. economy",
   needsAttention: "Needs attention",
   allGood: "All good",
