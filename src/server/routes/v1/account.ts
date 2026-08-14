@@ -5,6 +5,8 @@ import {
   listAttachmentKeysForTenant,
   listAttachmentKeysForTenantDocuments,
   listAttachmentKeysForTenantFuelRecords,
+  listVehicleCoverPhotoKeysForTenant,
+  listVehiclePhotoKeysForTenant,
 } from "../../db/repository";
 import { deleteAttachments } from "../../attachments/storage";
 import { clearSessionCache, serializeExpiredSessionCookie } from "../../auth/session";
@@ -37,10 +39,14 @@ account.delete("/", rateLimitBySession, async (c) => {
   const serviceAttachmentKeys = await listAttachmentKeysForTenant(c.env.DB, tenant);
   const fuelAttachmentKeys = await listAttachmentKeysForTenantFuelRecords(c.env.DB, tenant);
   const documentAttachmentKeys = await listAttachmentKeysForTenantDocuments(c.env.DB, tenant);
+  const photoKeys = await listVehiclePhotoKeysForTenant(c.env.DB, tenant);
+  const coverPhotoKeys = await listVehicleCoverPhotoKeysForTenant(c.env.DB, tenant);
   await deleteAttachments(c.env.ATTACHMENTS, [
     ...serviceAttachmentKeys,
     ...fuelAttachmentKeys,
     ...documentAttachmentKeys,
+    ...photoKeys,
+    ...coverPhotoKeys,
   ]);
 
   // magic_link_tokens has no foreign key to tenants/users at all (research.md) — delete it

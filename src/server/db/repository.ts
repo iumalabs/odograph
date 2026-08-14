@@ -411,6 +411,260 @@ export async function deleteVehicle(
   return result.meta.changes > 0;
 }
 
+/** The vehicle's own cover photo key (`vehicles.photo_r2_key`), or null if unset — used by
+ * deleteVehicle's/account erasure's R2 cleanup retrofit, same reasoning as every other attachment
+ * kind (constitution Principle VIII: R2 objects never cascade from a D1 delete). */
+export async function findVehicleCoverPhotoKey(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<string | null> {
+  const row = await db
+    .prepare("SELECT photo_r2_key AS r2Key FROM vehicles WHERE id = ? AND tenant_id = ?")
+    .bind(vehicleId, ctx.tenantId)
+    .first<{ r2Key: string | null }>();
+  return row?.r2Key ?? null;
+}
+
+/** Every vehicle cover-photo R2 key for this tenant, without deleting anything — used by account
+ * erasure (spec 016), alongside the other listAttachmentKeysForTenant* helpers. */
+export async function listVehicleCoverPhotoKeysForTenant(
+  db: D1Database,
+  ctx: TenantContext,
+): Promise<string[]> {
+  const { results } = await db
+    .prepare(
+      "SELECT photo_r2_key AS r2Key FROM vehicles WHERE tenant_id = ? AND photo_r2_key IS NOT NULL",
+    )
+    .bind(ctx.tenantId)
+    .all<{ r2Key: string }>();
+  return results.map((row) => row.r2Key);
+}
+
+// --- Vehicle photo gallery (design mockup's "ФОТО"/"Галерея" screen) -------
+//
+// Categorized per-vehicle photos, distinct from the single vehicles.photo_r2_key cover photo
+// above. r2Key/contentType/size stay null until an image is actually attached — the mockup's own
+// add flow creates an empty, categorized tile first, then drops a file onto it as a second step.
+
+export type VehiclePhotoCategory = "general" | "repair" | "damage" | "parts";
+
+export type VehiclePhoto = {
+  id: string;
+  tenantId: string;
+  vehicleId: string;
+  category: VehiclePhotoCategory;
+  caption: string | null;
+  photoDate: string | null;
+  odometerReading: number | null;
+  serviceRecordId: string | null;
+  r2Key: string | null;
+  contentType: string | null;
+  size: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type VehiclePhotoInput = {
+  category: VehiclePhotoCategory;
+  caption: string | null;
+  photoDate: string | null;
+  odometerReading: number | null;
+  serviceRecordId: string | null;
+};
+
+const VEHICLE_PHOTO_COLUMNS =
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, category, caption, photo_date AS photoDate, odometer_reading AS odometerReading, service_record_id AS serviceRecordId, r2_key AS r2Key, content_type AS contentType, size, created_at AS createdAt, updated_at AS updatedAt";
+
+export async function createVehiclePhoto(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+  input: VehiclePhotoInput,
+  clientId?: string,
+): Promise<VehiclePhoto> {
+  const id = clientId ?? crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO vehicle_photos
+       (id, tenant_id, vehicle_id, category, caption, photo_date, odometer_reading, service_record_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      id,
+      ctx.tenantId,
+      vehicleId,
+      input.category,
+      input.caption,
+      input.photoDate,
+      input.odometerReading,
+      input.serviceRecordId,
+      now,
+      now,
+    )
+    .run();
+  return {
+    id,
+    tenantId: ctx.tenantId,
+    vehicleId,
+    category: input.category,
+    caption: input.caption,
+    photoDate: input.photoDate,
+    odometerReading: input.odometerReading,
+    serviceRecordId: input.serviceRecordId,
+    r2Key: null,
+    contentType: null,
+    size: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export async function listVehiclePhotos(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<VehiclePhoto[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${VEHICLE_PHOTO_COLUMNS} FROM vehicle_photos
+       WHERE vehicle_id = ? AND tenant_id = ? ORDER BY created_at`,
+    )
+    .bind(vehicleId, ctx.tenantId)
+    .all<VehiclePhoto>();
+  return results;
+}
+
+/**
+ * Same not-found-or-not-yours contract as findVehicleById.
+ */
+export async function findVehiclePhotoById(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<VehiclePhoto | null> {
+  const row = await db
+    .prepare(`SELECT ${VEHICLE_PHOTO_COLUMNS} FROM vehicle_photos WHERE id = ? AND tenant_id = ?`)
+    .bind(id, ctx.tenantId)
+    .first<VehiclePhoto>();
+  return row ?? null;
+}
+
+/**
+ * Attaches an uploaded image to an existing (possibly still-empty) photo row — the mockup's own
+ * two-step add flow. The route layer is responsible for deleting any previously-attached R2
+ * object first when replacing an image (this only ever overwrites the D1 row).
+ */
+export async function attachVehiclePhotoImage(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+  input: { r2Key: string; contentType: string; size: number },
+): Promise<VehiclePhoto | null> {
+  const updatedAt = new Date().toISOString();
+  const result = await db
+    .prepare(
+      `UPDATE vehicle_photos SET r2_key = ?, content_type = ?, size = ?, updated_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(input.r2Key, input.contentType, input.size, updatedAt, id, ctx.tenantId)
+    .run();
+  if (result.meta.changes === 0) return null;
+  return findVehiclePhotoById(db, ctx, id);
+}
+
+/**
+ * Applies only the fields present in `patch` — everything else keeps its stored value, same
+ * pattern updateServiceRecord/updatePlanCard established. Never touches the attached image;
+ * that's attachVehiclePhotoImage's job.
+ */
+export async function updateVehiclePhoto(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+  patch: Partial<VehiclePhotoInput>,
+): Promise<VehiclePhoto | null> {
+  const existing = await findVehiclePhotoById(db, ctx, id);
+  if (!existing) return null;
+
+  const merged: VehiclePhotoInput = {
+    category: patch.category ?? existing.category,
+    caption: "caption" in patch ? patch.caption ?? null : existing.caption,
+    photoDate: "photoDate" in patch ? patch.photoDate ?? null : existing.photoDate,
+    odometerReading: "odometerReading" in patch
+      ? patch.odometerReading ?? null
+      : existing.odometerReading,
+    serviceRecordId: "serviceRecordId" in patch
+      ? patch.serviceRecordId ?? null
+      : existing.serviceRecordId,
+  };
+  const updatedAt = new Date().toISOString();
+
+  await db
+    .prepare(
+      `UPDATE vehicle_photos
+       SET category = ?, caption = ?, photo_date = ?, odometer_reading = ?, service_record_id = ?, updated_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(
+      merged.category,
+      merged.caption,
+      merged.photoDate,
+      merged.odometerReading,
+      merged.serviceRecordId,
+      updatedAt,
+      id,
+      ctx.tenantId,
+    )
+    .run();
+
+  return { ...existing, ...merged, updatedAt };
+}
+
+export async function deleteVehiclePhoto(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<boolean> {
+  const { meta } = await db.prepare("DELETE FROM vehicle_photos WHERE id = ? AND tenant_id = ?")
+    .bind(id, ctx.tenantId)
+    .run();
+  return meta.changes > 0;
+}
+
+/** Every vehicle_photos R2 key (excluding still-empty tiles) for this vehicle, without deleting
+ * anything — used by deleteVehicle's R2 cleanup retrofit, same reasoning as every other
+ * attachment kind. No join needed: vehicle_photos already carries its own vehicle_id column. */
+export async function listVehiclePhotoKeysForVehicle(
+  db: D1Database,
+  ctx: TenantContext,
+  vehicleId: string,
+): Promise<string[]> {
+  const { results } = await db
+    .prepare(
+      "SELECT r2_key AS r2Key FROM vehicle_photos WHERE vehicle_id = ? AND tenant_id = ? AND r2_key IS NOT NULL",
+    )
+    .bind(vehicleId, ctx.tenantId)
+    .all<{ r2Key: string }>();
+  return results.map((row) => row.r2Key);
+}
+
+/** Every vehicle_photos R2 key for this tenant across every vehicle, without deleting anything —
+ * used by account erasure (spec 016), alongside the other listAttachmentKeysForTenant* helpers. */
+export async function listVehiclePhotoKeysForTenant(
+  db: D1Database,
+  ctx: TenantContext,
+): Promise<string[]> {
+  const { results } = await db
+    .prepare(
+      "SELECT r2_key AS r2Key FROM vehicle_photos WHERE tenant_id = ? AND r2_key IS NOT NULL",
+    )
+    .bind(ctx.tenantId)
+    .all<{ r2Key: string }>();
+  return results.map((row) => row.r2Key);
+}
+
 // --- Passkey (WebAuthn) operations ------------------------------------------
 
 /**

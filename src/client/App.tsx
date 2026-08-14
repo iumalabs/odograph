@@ -88,6 +88,9 @@ const SettingsView = lazy(() =>
 const ServiceRecordPanel = lazy(() =>
   import("./components/ServiceRecordPanel").then((m) => ({ default: m.ServiceRecordPanel }))
 );
+const PhotoGalleryPanel = lazy(() =>
+  import("./components/PhotoGalleryPanel").then((m) => ({ default: m.PhotoGalleryPanel }))
+);
 const FuelRecordPanel = lazy(() =>
   import("./components/FuelRecordPanel").then((m) => ({ default: m.FuelRecordPanel }))
 );
@@ -822,6 +825,52 @@ export function App() {
     );
   }
 
+  if (view === "photos") {
+    return (
+      <AppShell
+        title={t("photoGalleryHeading")}
+        view={view}
+        onSelectView={setView}
+        reviewBadgeCount={rejectedActionCount}
+        vehicles={mergedVehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={selectVehicle}
+        toast={toast}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
+      >
+        {!selectedVehicleId
+          ? (
+            <div
+              style={{
+                border: "1px dashed var(--line)",
+                borderRadius: "var(--radius-lg)",
+                padding: 18,
+                color: "var(--dim)",
+              }}
+            >
+              <span style={{ font: "500 12.5px var(--font-ui)" }}>
+                {t("selectVehiclePrompt")}
+              </span>
+            </div>
+          )
+          : (
+            <LazyViewBoundary>
+              <PhotoGalleryPanel
+                vehicleId={selectedVehicleId}
+                vehicleOdometerUnit={mergedVehicles.find((v) => v.id === selectedVehicleId)
+                  ?.odometerUnit ?? "km"}
+                distanceUnit={distanceUnit}
+                serviceRecords={mergedServiceRecords}
+              />
+            </LazyViewBoundary>
+          )}
+      </AppShell>
+    );
+  }
+
   if (view === "reminders") {
     return (
       <AppShell
@@ -1188,7 +1237,7 @@ export function App() {
 
         <SearchBar
           onSelectVehicle={(id) => {
-            setSelectedVehicleId(id);
+            selectVehicle(id);
             setView("dashboard");
           }}
         />
@@ -1198,8 +1247,12 @@ export function App() {
           distanceUnit={distanceUnit}
           selectedVehicleId={selectedVehicleId}
           onSelectVehicle={(id) => {
-            setSelectedVehicleId(id);
+            selectVehicle(id);
             setView("dashboard");
+          }}
+          onViewPhotos={(id) => {
+            selectVehicle(id);
+            setView("photos");
           }}
           vehicleName={vehicleName}
           onVehicleNameChange={setVehicleName}

@@ -92,6 +92,26 @@ async function uploadFuelAttachment(cookie: string, fuelRecordId: string): Promi
   return (await res.json()) as { id: string };
 }
 
+async function createVehiclePhotoWithImage(
+  cookie: string,
+  vehicleId: string,
+): Promise<{ id: string }> {
+  const created = (await (await SELF.fetch(
+    `https://example.com/api/v1/vehicles/${vehicleId}/photos`,
+    {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ category: "general" }),
+    },
+  )).json()) as { id: string };
+  await SELF.fetch(`https://example.com/api/v1/vehicle-photos/${created.id}/image`, {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": "image/jpeg" },
+    body: buildFixtureJpeg({ includeExif: false }),
+  });
+  return created;
+}
+
 async function createDocumentId(cookie: string, vehicleId: string): Promise<string> {
   const res = await SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/documents`, {
     method: "POST",
@@ -172,6 +192,14 @@ describe("account erasure — core erasure (User Story 1)", () => {
     const documentAttachment = await uploadDocumentAttachment(cookie, documentId);
     const reminderRes = await createReminderRule(cookie, vehicleId);
     expect(reminderRes.status).toBe(201);
+    const galleryPhoto = await createVehiclePhotoWithImage(cookie, vehicleId);
+    const coverPhotoKey = attachmentKey(tenantId, "service-records", "cover-fixture", vehicleId);
+    await env.ATTACHMENTS.put(coverPhotoKey, buildFixtureJpeg({ includeExif: false }), {
+      httpMetadata: { contentType: "image/jpeg" },
+    });
+    await env.DB.prepare(
+      "UPDATE vehicles SET photo_r2_key = ?, photo_content_type = 'image/jpeg' WHERE id = ? AND tenant_id = ?",
+    ).bind(coverPhotoKey, vehicleId, tenantId).run();
 
     const serviceKey = attachmentKey(
       tenantId,
@@ -181,9 +209,15 @@ describe("account erasure — core erasure (User Story 1)", () => {
     );
     const fuelKey = attachmentKey(tenantId, "fuel-records", fuelRecordId, fuelAttachment.id);
     const documentKey = attachmentKey(tenantId, "documents", documentId, documentAttachment.id);
+    const galleryPhotoListing = await env.ATTACHMENTS.list({
+      prefix: `tenants/${tenantId}/vehicle-photos/${galleryPhoto.id}/`,
+    });
+    const galleryPhotoKey = galleryPhotoListing.objects[0]!.key;
     expect(await env.ATTACHMENTS.get(serviceKey)).not.toBeNull();
     expect(await env.ATTACHMENTS.get(fuelKey)).not.toBeNull();
     expect(await env.ATTACHMENTS.get(documentKey)).not.toBeNull();
+    expect(await env.ATTACHMENTS.get(galleryPhotoKey)).not.toBeNull();
+    expect(await env.ATTACHMENTS.get(coverPhotoKey)).not.toBeNull();
 
     const res = await deleteAccount(cookie, REQUIRED_CONFIRMATION);
     expect(res.status).toBe(204);
@@ -197,9 +231,12 @@ describe("account erasure — core erasure (User Story 1)", () => {
     expect(await countRows("documents", tenantId)).toBe(0);
     expect(await countRows("document_attachments", tenantId)).toBe(0);
     expect(await countRows("reminder_rules", tenantId)).toBe(0);
+    expect(await countRows("vehicle_photos", tenantId)).toBe(0);
     expect(await env.ATTACHMENTS.get(serviceKey)).toBeNull();
     expect(await env.ATTACHMENTS.get(fuelKey)).toBeNull();
     expect(await env.ATTACHMENTS.get(documentKey)).toBeNull();
+    expect(await env.ATTACHMENTS.get(galleryPhotoKey)).toBeNull();
+    expect(await env.ATTACHMENTS.get(coverPhotoKey)).toBeNull();
   });
 
   it("deletes successfully for an account with zero vehicles or records", async () => {

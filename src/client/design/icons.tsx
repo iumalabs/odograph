@@ -47,6 +47,16 @@ export function ServiceIcon({ size = 20 }: IconProps) {
   );
 }
 
+export function PhotoIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+      <circle cx="8.6" cy="10.2" r="1.4" />
+      <path d="M4 16.8l4.6-4.1 3.4 3 3-2.6 5 4.6" />
+    </svg>
+  );
+}
+
 export function FuelIcon({ size = 20 }: IconProps) {
   return (
     <svg width={size} height={size} {...commonProps}>

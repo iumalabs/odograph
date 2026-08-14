@@ -2,7 +2,11 @@
 // isolation specifically) — mirrors how session.ts already keeps KV logic separate from
 // repository.ts's D1-only scope.
 
-export type AttachmentResourceType = "service-records" | "fuel-records" | "documents";
+export type AttachmentResourceType =
+  | "service-records"
+  | "fuel-records"
+  | "documents"
+  | "vehicle-photos";
 
 /**
  * Tenant-scoped key path (research.md) — defense in depth alongside the D1-side ownership check;
