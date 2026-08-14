@@ -7,6 +7,7 @@ import { getCurrentIdentity } from "./auth/session";
 import { deleteAccount, REQUIRED_CONFIRMATION_PHRASE } from "./account";
 import { createVehicle, listVehicles } from "./vehicles";
 import type { Vehicle } from "./vehicles";
+import { readStoredSelectedVehicleId, storeSelectedVehicleId } from "./selected-vehicle";
 import { lookupVin } from "./vin-lookup";
 import {
   AttachmentUploadError,
@@ -150,7 +151,9 @@ export function App() {
   // now-blank form (code-review finding — createVehicle resolves near-instantly since it only
   // writes to the local offline queue, so it can easily finish before a slower NHTSA round trip).
   const vinLookupFormGeneration = useRef(0);
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(() =>
+    readStoredSelectedVehicleId()
+  );
   const [serviceRecords, setServiceRecords] = useState<ServiceRecord[]>([]);
   const [serviceDate, setServiceDate] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
@@ -236,6 +239,29 @@ export function App() {
     if (!identity) return;
     listVehicles().then(setVehicles).catch(() => setError(t("genericError")));
   }, [identity]);
+
+  function selectVehicle(id: string) {
+    storeSelectedVehicleId(id);
+    setSelectedVehicleId(id);
+  }
+
+  // Never leave the picker unselected once at least one vehicle exists: with exactly one
+  // vehicle it's always selected outright (there's nothing else it could mean), otherwise fall
+  // back to the last one the owner picked (persisted across reloads) or, failing that, the
+  // first. Depends on `vehicles` (not `mergedVehicles`) so it fires only when the fetched/synced
+  // list itself changes, not on every render.
+  useEffect(() => {
+    if (vehicles.length === 0) return;
+    if (vehicles.length === 1) {
+      const only = vehicles[0]!;
+      if (selectedVehicleId !== only.id) selectVehicle(only.id);
+      return;
+    }
+    if (selectedVehicleId && vehicles.some((v) => v.id === selectedVehicleId)) return;
+    const stored = readStoredSelectedVehicleId();
+    const fallback = stored && vehicles.some((v) => v.id === stored) ? stored : vehicles[0]!.id;
+    selectVehicle(fallback);
+  }, [vehicles, selectedVehicleId]);
 
   // Resumes a queue paused on a 401 once the user signs back in (research.md) — a no-op if the
   // queue was never paused (e.g. ordinary first sign-in).
@@ -600,7 +626,7 @@ export function App() {
         reviewBadgeCount={rejectedActionCount}
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
-        onSelectVehicle={setSelectedVehicleId}
+        onSelectVehicle={selectVehicle}
         toast={toast}
         currency={currency}
         onCurrencyChange={setCurrency}
@@ -655,7 +681,7 @@ export function App() {
         reviewBadgeCount={rejectedActionCount}
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
-        onSelectVehicle={setSelectedVehicleId}
+        onSelectVehicle={selectVehicle}
         toast={toast}
         currency={currency}
         onCurrencyChange={setCurrency}
@@ -732,7 +758,7 @@ export function App() {
         reviewBadgeCount={rejectedActionCount}
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
-        onSelectVehicle={setSelectedVehicleId}
+        onSelectVehicle={selectVehicle}
         toast={toast}
         currency={currency}
         onCurrencyChange={setCurrency}
@@ -805,7 +831,7 @@ export function App() {
         reviewBadgeCount={rejectedActionCount}
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
-        onSelectVehicle={setSelectedVehicleId}
+        onSelectVehicle={selectVehicle}
         toast={toast}
         currency={currency}
         onCurrencyChange={setCurrency}
@@ -889,7 +915,7 @@ export function App() {
         reviewBadgeCount={rejectedActionCount}
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
-        onSelectVehicle={setSelectedVehicleId}
+        onSelectVehicle={selectVehicle}
         toast={toast}
         currency={currency}
         onCurrencyChange={setCurrency}
@@ -961,7 +987,7 @@ export function App() {
         reviewBadgeCount={rejectedActionCount}
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
-        onSelectVehicle={setSelectedVehicleId}
+        onSelectVehicle={selectVehicle}
         toast={toast}
         currency={currency}
         onCurrencyChange={setCurrency}
@@ -1024,7 +1050,7 @@ export function App() {
         reviewBadgeCount={rejectedActionCount}
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
-        onSelectVehicle={setSelectedVehicleId}
+        onSelectVehicle={selectVehicle}
         toast={toast}
         currency={currency}
         onCurrencyChange={setCurrency}
@@ -1047,7 +1073,7 @@ export function App() {
         reviewBadgeCount={rejectedActionCount}
         vehicles={mergedVehicles}
         selectedVehicleId={selectedVehicleId}
-        onSelectVehicle={setSelectedVehicleId}
+        onSelectVehicle={selectVehicle}
         toast={toast}
         currency={currency}
         onCurrencyChange={setCurrency}
@@ -1074,7 +1100,7 @@ export function App() {
       reviewBadgeCount={rejectedActionCount}
       vehicles={mergedVehicles}
       selectedVehicleId={selectedVehicleId}
-      onSelectVehicle={setSelectedVehicleId}
+      onSelectVehicle={selectVehicle}
       toast={toast}
       currency={currency}
       onCurrencyChange={setCurrency}
