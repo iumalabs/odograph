@@ -5,6 +5,7 @@ import { registerServiceWorker } from "./pwa";
 import { init as initOfflineQueue } from "./offline/queue";
 import "./design/tokens.css";
 import "./design/base.css";
+import "./design/responsive.css";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {

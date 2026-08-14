@@ -126,8 +126,12 @@ export function AppShell(
   const [currencyOpen, setCurrencyOpen] = useState(false);
 
   return (
-    <div style={{ display: "flex", height: "100vh", minHeight: 560, position: "relative" }}>
+    <div
+      className="app-shell"
+      style={{ display: "flex", height: "100vh", minHeight: 560, position: "relative" }}
+    >
       <nav
+        className="app-nav"
         style={{
           width: 76,
           flex: "none",
@@ -140,8 +144,11 @@ export function AppShell(
           gap: 20,
         }}
       >
-        <Logo size={34} />
+        <span className="app-nav-logo">
+          <Logo size={34} />
+        </span>
         <span
+          className="app-nav-version"
           style={{
             font: "500 8.5px var(--font-mono)",
             color: "var(--dim)",
@@ -157,6 +164,7 @@ export function AppShell(
             <button
               key={itemView}
               type="button"
+              className="app-nav-item"
               onClick={() => onSelectView(itemView)}
               style={{
                 display: "flex",
@@ -195,7 +203,10 @@ export function AppShell(
                   </span>
                 )}
               </span>
-              <span style={{ font: "500 8.5px var(--font-mono)", letterSpacing: ".06em" }}>
+              <span
+                className="app-nav-item-label"
+                style={{ font: "500 8.5px var(--font-mono)", letterSpacing: ".06em" }}
+              >
                 {t(labelKey)}
               </span>
             </button>
@@ -203,8 +214,12 @@ export function AppShell(
         })}
       </nav>
 
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      <div
+        className="app-main-wrap"
+        style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}
+      >
         <header
+          className="app-header"
           style={{
             height: 62,
             flex: "none",
@@ -216,10 +231,16 @@ export function AppShell(
             padding: "0 22px",
           }}
         >
-          <div style={{ font: "600 14px var(--font-ui)", letterSpacing: "-.01em" }}>{title}</div>
+          <div
+            className="app-header-title"
+            style={{ font: "600 14px var(--font-ui)", letterSpacing: "-.01em" }}
+          >
+            {title}
+          </div>
 
           {vehicles.length > 0 && (
             <div
+              className="app-header-vehicle-pills"
               style={{
                 display: "flex",
                 gap: 6,
@@ -257,6 +278,7 @@ export function AppShell(
           )}
 
           <div
+            className="app-header-controls"
             style={{
               marginLeft: "auto",
               display: "flex",
@@ -410,11 +432,14 @@ export function AppShell(
           </p>
         )}
 
-        <main style={{ flex: 1, overflow: "auto", padding: "20px 22px 26px" }}>{children}</main>
+        <main className="app-main" style={{ flex: 1, overflow: "auto", padding: "20px 22px 26px" }}>
+          {children}
+        </main>
       </div>
 
       {toast !== null && (
         <div
+          className="app-toast"
           style={{
             position: "absolute",
             right: 22,
