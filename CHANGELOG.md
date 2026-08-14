@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.12.0](https://github.com/maksimyugai/odograph/compare/v1.11.1...v1.12.0) (2026-08-14)
+
+
+### Features
+
+* let owners upload a vehicle cover photo from the Garage card ([#188](https://github.com/maksimyugai/odograph/issues/188)) ([f8de1fc](https://github.com/maksimyugai/odograph/commit/f8de1fc522277c23aa82c98319e3d9e5f466a135))
+* show cost-per-100-distance on Garage cards ([#189](https://github.com/maksimyugai/odograph/issues/189)) ([5fabc56](https://github.com/maksimyugai/odograph/commit/5fabc56093cfb73330a0307a0281269ac6e21f75))
+
+
+### Bug Fixes
+
+* **client:** center the Garage cover-photo crop on the actual box ([#186](https://github.com/maksimyugai/odograph/issues/186)) ([d2b98bf](https://github.com/maksimyugai/odograph/commit/d2b98bffb20081918ec59ed9689648103018f3a8))
+
 ## [1.11.1](https://github.com/maksimyugai/odograph/compare/v1.11.0...v1.11.1) (2026-08-14)
 
 
