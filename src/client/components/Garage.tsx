@@ -180,22 +180,32 @@ export function Garage(props: GarageProps) {
                 borderRadius: "var(--radius-md)",
                 overflow: "hidden",
                 background: "var(--panel2)",
-                display: "grid",
-                placeItems: "center",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
                 border: vehicle.hasPhoto ? "1px solid var(--line)" : "1px dashed var(--line)",
               }}
             >
               {vehicle.hasPhoto
                 ? (
-                  // contain, not cover — a cropped-to-fill thumbnail assumes a landscape photo
-                  // (the mockup's own "1400×900" hint), but real uploads are whatever aspect
-                  // ratio the owner's camera produced (a portrait phone shot of the car easily
-                  // ends up taller than wide); cover would hard-crop most of a portrait photo
-                  // away, contain always shows the whole thing letterboxed instead.
+                  // position:absolute + inset:0, not width/height:100% — a percentage height on
+                  // a non-stretched flex/grid child doesn't reliably resolve against the parent's
+                  // box (browsers fall back to the image's own intrinsic size instead), which let
+                  // an unusually tall source photo render near its natural size and get clipped
+                  // to a near-arbitrary vertical sliver by the parent's overflow:hidden. Taking
+                  // the image out of flow with inset:0 pins it to the parent's actual pixel box,
+                  // so object-fit: cover crops the excess evenly from the edges as intended.
                   <img
                     src={vehiclePhotoUrl(vehicle.id)}
                     alt={t("vehiclePhotoAlt", { name: vehicle.name })}
-                    style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
                   />
                 )
                 : (
