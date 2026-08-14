@@ -10,9 +10,17 @@ export type Vehicle = {
   year: number | null;
   vin: string | null;
   odometerUnit: "km" | "mi";
+  hasPhoto: boolean;
   createdAt: string;
   updatedAt: string;
 };
+
+/** GET /:id/photo is served directly by the Worker (never a redirect to a public storage URL,
+ * same posture as service-record/fuel-record/document attachments) — this is just the URL to
+ * point an <img> at, not a fetch wrapper. */
+export function vehiclePhotoUrl(vehicleId: string): string {
+  return `/api/v1/vehicles/${vehicleId}/photo`;
+}
 
 async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
@@ -53,6 +61,7 @@ export function hydrateOptimisticVehicle(action: PendingAction): Vehicle {
     year: body.year ?? null,
     vin: body.vin ?? null,
     odometerUnit: body.odometerUnit,
+    hasPhoto: false,
     createdAt: action.createdAt,
     updatedAt: action.createdAt,
   };

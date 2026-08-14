@@ -44,6 +44,13 @@ export type Vehicle = {
   year: number | null;
   vin: string | null;
   odometerUnit: "km" | "mi";
+  // Not settable via the normal create/update API yet (no client form for them) — populated only
+  // by one-off data-import migrations (e.g. 0021) until an editing UI exists.
+  licensePlate: string | null;
+  purchaseDate: string | null;
+  purchasePrice: number | null;
+  photoR2Key: string | null;
+  photoContentType: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -261,7 +268,7 @@ export async function revokeApiToken(
 // a caller) and scopes its query by ctx.tenantId internally.
 
 const VEHICLE_COLUMNS =
-  "id, tenant_id AS tenantId, name, make, model, year, vin, odometer_unit AS odometerUnit, created_at AS createdAt, updated_at AS updatedAt";
+  "id, tenant_id AS tenantId, name, make, model, year, vin, odometer_unit AS odometerUnit, license_plate AS licensePlate, purchase_date AS purchaseDate, purchase_price AS purchasePrice, photo_r2_key AS photoR2Key, photo_content_type AS photoContentType, created_at AS createdAt, updated_at AS updatedAt";
 
 export type VehicleInput = {
   name: string;
@@ -307,6 +314,11 @@ export async function createVehicle(
     year: input.year,
     vin: input.vin,
     odometerUnit: input.odometerUnit,
+    licensePlate: null,
+    purchaseDate: null,
+    purchasePrice: null,
+    photoR2Key: null,
+    photoContentType: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -2258,6 +2270,9 @@ export type PlanCard = {
   targetDate: string | null;
   estimatedCost: number | null;
   urgent: boolean;
+  // Not settable via the normal create/update API yet (no client form field) — populated only by
+  // one-off data-import migrations (e.g. 0021) until an editing UI exists.
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -2270,7 +2285,7 @@ export type PlanCardInput = {
 };
 
 const PLAN_CARD_COLUMNS =
-  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, title, stage, target_date AS targetDate, estimated_cost AS estimatedCost, urgent, created_at AS createdAt, updated_at AS updatedAt";
+  "id, tenant_id AS tenantId, vehicle_id AS vehicleId, title, stage, target_date AS targetDate, estimated_cost AS estimatedCost, urgent, notes, created_at AS createdAt, updated_at AS updatedAt";
 
 type PlanCardRow = Omit<PlanCard, "urgent"> & { urgent: number };
 
@@ -2314,6 +2329,7 @@ export async function createPlanCard(
     targetDate: input.targetDate,
     estimatedCost: input.estimatedCost,
     urgent: input.urgent,
+    notes: null,
     createdAt: now,
     updatedAt: now,
   };

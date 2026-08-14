@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Vehicle } from "../vehicles";
+import { vehiclePhotoUrl } from "../vehicles";
 import type { WithSyncStatus } from "../offline/merge";
 import { getVehicleAggregates } from "../vehicle-aggregates";
 import { listReminderRules } from "../reminder-rules";
@@ -158,89 +159,125 @@ export function Garage(props: GarageProps) {
               cursor: "pointer",
               color: "var(--fg)",
               display: "flex",
-              flexDirection: "column",
-              gap: 9,
+              flexDirection: "row",
+              gap: 16,
+              alignItems: "flex-start",
             }}
           >
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ font: "600 20px var(--font-ui)", letterSpacing: "-.02em" }}>
-                {vehicle.name}
-              </span>
-              {spec && (
-                <span style={{ font: "400 11px var(--font-mono)", color: "var(--dim)" }}>
-                  {spec}
-                </span>
-              )}
-              {urgentReminder && (
-                <span
-                  style={{
-                    marginLeft: "auto",
-                    font: "500 10.5px var(--font-mono)",
-                    border: `1px solid ${
-                      urgentReminder.status === "overdue" ? "var(--warn)" : "var(--line)"
-                    }`,
-                    borderRadius: "var(--radius-sm)",
-                    padding: "4px 8px",
-                    color: urgentReminder.status === "overdue" ? "var(--warn)" : "var(--dim)",
-                  }}
-                >
-                  {urgentReminder.label}
-                </span>
-              )}
+            <div
+              style={{
+                width: 120,
+                height: 77,
+                flex: "none",
+                borderRadius: "var(--radius-md)",
+                overflow: "hidden",
+                background: "var(--panel2)",
+                display: "grid",
+                placeItems: "center",
+                border: vehicle.hasPhoto ? "1px solid var(--line)" : "1px dashed var(--line)",
+              }}
+            >
+              {vehicle.hasPhoto
+                ? (
+                  <img
+                    src={vehiclePhotoUrl(vehicle.id)}
+                    alt={t("vehiclePhotoAlt", { name: vehicle.name })}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                )
+                : (
+                  <span
+                    style={{
+                      font: "400 9.5px var(--font-mono)",
+                      color: "var(--dim)",
+                      letterSpacing: ".06em",
+                    }}
+                  >
+                    {t("vehiclePhotoPlaceholder")}
+                  </span>
+                )}
             </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9, flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ font: "600 20px var(--font-ui)", letterSpacing: "-.02em" }}>
+                  {vehicle.name}
+                </span>
+                {spec && (
+                  <span style={{ font: "400 11px var(--font-mono)", color: "var(--dim)" }}>
+                    {spec}
+                  </span>
+                )}
+                {urgentReminder && (
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      font: "500 10.5px var(--font-mono)",
+                      border: `1px solid ${
+                        urgentReminder.status === "overdue" ? "var(--warn)" : "var(--line)"
+                      }`,
+                      borderRadius: "var(--radius-sm)",
+                      padding: "4px 8px",
+                      color: urgentReminder.status === "overdue" ? "var(--warn)" : "var(--dim)",
+                    }}
+                  >
+                    {urgentReminder.label}
+                  </span>
+                )}
+              </div>
 
-            <div style={{ display: "flex", gap: 26, flexWrap: "wrap" }}>
-              <div>
-                <div style={statLabelStyle}>{t("odometerLabel")}, {distanceUnit}</div>
-                <div style={statValueStyle}>
-                  {displayOdometer != null ? displayOdometer : t("fuelEconomyNotEnoughData")}
+              <div style={{ display: "flex", gap: 26, flexWrap: "wrap" }}>
+                <div>
+                  <div style={statLabelStyle}>{t("odometerLabel")}, {distanceUnit}</div>
+                  <div style={statValueStyle}>
+                    {displayOdometer != null ? displayOdometer : t("fuelEconomyNotEnoughData")}
+                  </div>
+                </div>
+                <div>
+                  <div style={statLabelStyle}>{t("averageFuelEconomyLabel")}</div>
+                  <div style={{ ...statValueStyle, color: "var(--acc)" }}>
+                    {averageFuelEconomy != null
+                      ? averageFuelEconomy.toFixed(1)
+                      : t("fuelEconomyNotEnoughData")}
+                  </div>
                 </div>
               </div>
-              <div>
-                <div style={statLabelStyle}>{t("averageFuelEconomyLabel")}</div>
-                <div style={{ ...statValueStyle, color: "var(--acc)" }}>
-                  {averageFuelEconomy != null
-                    ? averageFuelEconomy.toFixed(1)
-                    : t("fuelEconomyNotEnoughData")}
-                </div>
-              </div>
-            </div>
 
-            {urgentReminder && barFillPercent != null && (
-              <div
-                style={{
-                  height: 5,
-                  background: "var(--panel2)",
-                  borderRadius: 3,
-                  overflow: "hidden",
-                }}
-              >
+              {urgentReminder && barFillPercent != null && (
                 <div
                   style={{
-                    width: `${barFillPercent}%`,
-                    height: "100%",
-                    background: REMINDER_STATUS_COLOR[urgentReminder.status] ?? "var(--dim)",
+                    height: 5,
+                    background: "var(--panel2)",
+                    borderRadius: 3,
+                    overflow: "hidden",
                   }}
-                />
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-              {vehicle.vin && <span style={chipStyle}>{vehicle.vin}</span>}
-              <span style={chipStyle}>{vehicle.odometerUnit}</span>
-              {vehicle.syncStatus === "pending" && (
-                <span style={{ ...chipStyle, color: "var(--dim)" }}>
-                  {t("pendingSyncLabel")}
-                </span>
-              )}
-              {vehicle.syncStatus === "rejected" && (
-                <span
-                  style={{ ...chipStyle, color: "var(--warn)", borderColor: "var(--warn)" }}
-                  title={vehicle.rejectReason ?? undefined}
                 >
-                  {t("rejectedSyncLabel")}
-                </span>
+                  <div
+                    style={{
+                      width: `${barFillPercent}%`,
+                      height: "100%",
+                      background: REMINDER_STATUS_COLOR[urgentReminder.status] ?? "var(--dim)",
+                    }}
+                  />
+                </div>
               )}
+
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {vehicle.vin && <span style={chipStyle}>{vehicle.vin}</span>}
+                <span style={chipStyle}>{vehicle.odometerUnit}</span>
+                {vehicle.syncStatus === "pending" && (
+                  <span style={{ ...chipStyle, color: "var(--dim)" }}>
+                    {t("pendingSyncLabel")}
+                  </span>
+                )}
+                {vehicle.syncStatus === "rejected" && (
+                  <span
+                    style={{ ...chipStyle, color: "var(--warn)", borderColor: "var(--warn)" }}
+                    title={vehicle.rejectReason ?? undefined}
+                  >
+                    {t("rejectedSyncLabel")}
+                  </span>
+                )}
+              </div>
             </div>
           </button>
         );
