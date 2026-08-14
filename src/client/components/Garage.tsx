@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Vehicle } from "../vehicles";
 import { vehiclePhotoUrl } from "../vehicles";
 import type { WithSyncStatus } from "../offline/merge";
@@ -21,6 +21,9 @@ type GarageProps = {
   /** Jumps straight to that vehicle's photo gallery screen (design mockup's g.photoAct) —
    * selects it first, same as onSelectVehicle, then navigates; App.tsx composes both. */
   onViewPhotos: (id: string) => void;
+  /** Sets or replaces the vehicle's single cover photo (design mockup's drag-and-drop dropzone
+   * on the card itself) — distinct from onViewPhotos' multi-photo gallery. */
+  onUploadPhoto: (id: string, file: File) => void;
   vehicleName: string;
   onVehicleNameChange: (value: string) => void;
   vehicleOdometerUnit: "km" | "mi";
@@ -107,9 +110,11 @@ export function Garage(props: GarageProps) {
     vinLookupNotFound,
     onAddVehicle,
     onViewPhotos,
+    onUploadPhoto,
   } = props;
 
   const [summaries, setSummaries] = useState<Record<string, VehicleSummary>>({});
+  const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -173,6 +178,23 @@ export function Garage(props: GarageProps) {
             }}
           >
             <div
+              role="button"
+              tabIndex={0}
+              title={t("uploadVehiclePhotoLabel")}
+              onClick={(event) => {
+                event.stopPropagation();
+                photoInputRefs.current[vehicle.id]?.click();
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const file = event.dataTransfer.files?.[0];
+                if (file) onUploadPhoto(vehicle.id, file);
+              }}
               style={{
                 width: 160,
                 height: 120,
@@ -184,9 +206,24 @@ export function Garage(props: GarageProps) {
                 alignItems: "center",
                 justifyContent: "center",
                 position: "relative",
+                cursor: "pointer",
                 border: vehicle.hasPhoto ? "1px solid var(--line)" : "1px dashed var(--line)",
               }}
             >
+              <input
+                ref={(el) => {
+                  photoInputRefs.current[vehicle.id] = el;
+                }}
+                type="file"
+                accept="image/*"
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) onUploadPhoto(vehicle.id, file);
+                  event.target.value = "";
+                }}
+                style={{ display: "none" }}
+              />
               {vehicle.hasPhoto
                 ? (
                   // position:absolute + inset:0, not width/height:100% — a percentage height on

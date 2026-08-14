@@ -5,7 +5,8 @@ import { requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
 import { GOOGLE_LINK_URL, GOOGLE_SIGN_IN_URL } from "./auth/oidc";
 import { getCurrentIdentity } from "./auth/session";
 import { deleteAccount, REQUIRED_CONFIRMATION_PHRASE } from "./account";
-import { createVehicle, listVehicles } from "./vehicles";
+import { createVehicle, listVehicles, uploadVehicleCoverPhoto } from "./vehicles";
+import { AttachmentUploadError as VehicleAttachmentUploadError } from "./vehicles";
 import type { Vehicle } from "./vehicles";
 import { readStoredSelectedVehicleId, storeSelectedVehicleId } from "./selected-vehicle";
 import { lookupVin } from "./vin-lookup";
@@ -511,6 +512,27 @@ export function App() {
         setError(t("attachmentTooLargeError"));
       } else if (
         error instanceof DocumentAttachmentUploadError && error.code === "unsupported_file_type"
+      ) {
+        setError(t("attachmentUnsupportedTypeError"));
+      } else {
+        setError(t("genericError"));
+      }
+    }
+  }
+
+  // Plain fetch-then-patch-local-state, not the offline-queue pattern below — like every other
+  // attachment upload in this file, a binary photo upload isn't routed through the offline write
+  // queue, so there's no merge.ts overlay or onSyncEvent-driven confirmation to wait for.
+  async function handleUploadVehiclePhoto(vehicleId: string, file: File) {
+    setError(null);
+    try {
+      const updated = await uploadVehicleCoverPhoto(vehicleId, file);
+      setVehicles((current) => current.map((v) => v.id === vehicleId ? updated : v));
+    } catch (error) {
+      if (error instanceof VehicleAttachmentUploadError && error.code === "file_too_large") {
+        setError(t("attachmentTooLargeError"));
+      } else if (
+        error instanceof VehicleAttachmentUploadError && error.code === "unsupported_file_type"
       ) {
         setError(t("attachmentUnsupportedTypeError"));
       } else {
@@ -1281,6 +1303,7 @@ export function App() {
             selectVehicle(id);
             setView("photos");
           }}
+          onUploadPhoto={handleUploadVehiclePhoto}
           vehicleName={vehicleName}
           onVehicleNameChange={setVehicleName}
           vehicleOdometerUnit={vehicleOdometerUnit}

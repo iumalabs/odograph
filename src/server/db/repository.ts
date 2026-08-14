@@ -396,6 +396,52 @@ export async function updateVehicle(
 }
 
 /**
+ * Sets (or replaces) the vehicle's cover photo — same not-found-or-not-yours contract as
+ * updateVehicle. Unlike vehicle_photos gallery tiles, a vehicle has at most one cover photo
+ * stored at a fixed R2 key (attachmentKey(tenantId, "vehicles", id, "photo")), so the route
+ * layer never needs to delete-then-write across a key change; a re-upload just overwrites the
+ * same object in place.
+ */
+export async function attachVehicleCoverPhoto(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+  input: { r2Key: string; contentType: string },
+): Promise<Vehicle | null> {
+  const updatedAt = new Date().toISOString();
+  const result = await db
+    .prepare(
+      `UPDATE vehicles SET photo_r2_key = ?, photo_content_type = ?, updated_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(input.r2Key, input.contentType, updatedAt, id, ctx.tenantId)
+    .run();
+  if (result.meta.changes === 0) return null;
+  return findVehicleById(db, ctx, id);
+}
+
+/** Clears the vehicle's cover photo fields — the route layer is responsible for deleting the R2
+ * object itself (same ordering every other attachment-backed delete route in this codebase
+ * uses: D1 update first is fine here since it's a null-out, not a replace, so there's no window
+ * where the row points at a deleted object). */
+export async function removeVehicleCoverPhoto(
+  db: D1Database,
+  ctx: TenantContext,
+  id: string,
+): Promise<Vehicle | null> {
+  const updatedAt = new Date().toISOString();
+  const result = await db
+    .prepare(
+      `UPDATE vehicles SET photo_r2_key = NULL, photo_content_type = NULL, updated_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+    )
+    .bind(updatedAt, id, ctx.tenantId)
+    .run();
+  if (result.meta.changes === 0) return null;
+  return findVehicleById(db, ctx, id);
+}
+
+/**
  * Returns whether a row was actually deleted — false if it didn't exist or
  * belonged to a different tenant, same not-found-or-not-yours contract.
  */

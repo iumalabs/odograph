@@ -1,5 +1,6 @@
 import { enqueue } from "./offline/queue";
 import type { PendingAction } from "./offline/types";
+import { compressImageIfNeeded } from "./compress-image";
 
 export type Vehicle = {
   id: string;
@@ -20,6 +21,52 @@ export type Vehicle = {
  * point an <img> at, not a fetch wrapper. */
 export function vehiclePhotoUrl(vehicleId: string): string {
   return `/api/v1/vehicles/${vehicleId}/photo`;
+}
+
+export type AttachmentUploadErrorCode = "file_too_large" | "unsupported_file_type" | "unknown";
+
+export class AttachmentUploadError extends Error {
+  code: AttachmentUploadErrorCode;
+
+  constructor(code: AttachmentUploadErrorCode) {
+    super(`attachment upload failed: ${code}`);
+    this.code = code;
+  }
+}
+
+async function attachmentErrorCode(res: Response): Promise<AttachmentUploadErrorCode> {
+  try {
+    const body = (await res.json()) as { error?: string };
+    if (body.error === "file_too_large" || body.error === "unsupported_file_type") {
+      return body.error;
+    }
+  } catch {
+    // response body wasn't JSON — fall through to "unknown"
+  }
+  return "unknown";
+}
+
+/** Sets or replaces the vehicle's cover photo — not routed through the offline write queue, same
+ * posture every other attachment upload in this codebase uses (binary uploads aren't queued). */
+export async function uploadVehicleCoverPhoto(vehicleId: string, file: File): Promise<Vehicle> {
+  const upload = await compressImageIfNeeded(file);
+  const res = await fetch(`/api/v1/vehicles/${vehicleId}/photo`, {
+    method: "POST",
+    headers: { "Content-Type": upload.type || "application/octet-stream" },
+    body: upload,
+  });
+  if (!res.ok) {
+    throw new AttachmentUploadError(await attachmentErrorCode(res));
+  }
+  return res.json() as Promise<Vehicle>;
+}
+
+export async function deleteVehicleCoverPhoto(vehicleId: string): Promise<Vehicle> {
+  const res = await fetch(`/api/v1/vehicles/${vehicleId}/photo`, { method: "DELETE" });
+  if (!res.ok) {
+    throw new Error(`delete vehicle cover photo failed: ${res.status}`);
+  }
+  return res.json() as Promise<Vehicle>;
 }
 
 async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {

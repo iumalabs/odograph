@@ -350,6 +350,26 @@ describe("vehicle deletion cleans up the photo gallery's R2 images (retrofit)", 
 // The single vehicles.photo_r2_key cover photo (specs/053's follow-up PR) has no create/upload
 // API yet (data-import-only until an editing UI exists), so these tests set it directly in D1,
 // same technique other tests already use for server-only state.
+function uploadVehicleCoverPhotoReq(
+  cookie: string,
+  vehicleId: string,
+  bytes: Uint8Array,
+  contentType = "application/octet-stream",
+): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/photo`, {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": contentType },
+    body: bytes,
+  });
+}
+
+function deleteVehicleCoverPhotoReq(cookie: string, vehicleId: string): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/photo`, {
+    method: "DELETE",
+    headers: { Cookie: cookie },
+  });
+}
+
 describe("vehicle cover photo (vehicles.photo_r2_key)", () => {
   async function setCoverPhoto(
     tenantId: string,
@@ -411,5 +431,139 @@ describe("vehicle cover photo (vehicles.photo_r2_key)", () => {
     const del = await deleteVehicleReq(cookie, vehicleId);
     expect(del.status).toBe(204);
     expect(await env.ATTACHMENTS.get(key)).toBeNull();
+  });
+});
+
+describe("vehicle cover photo upload/delete routes", () => {
+  it("uploads a cover photo; GET .../photo serves the exact bytes back, hasPhoto flips true", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+    const bytes = buildFixtureJpeg({ includeExif: false });
+
+    const upload = await uploadVehicleCoverPhotoReq(cookie, vehicleId, bytes, "image/jpeg");
+    expect(upload.status).toBe(200);
+    const uploaded = (await upload.json()) as { hasPhoto: boolean };
+    expect(uploaded.hasPhoto).toBe(true);
+
+    const photoRes = await SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/photo`, {
+      headers: { Cookie: cookie },
+    });
+    expect(photoRes.status).toBe(200);
+    expect(photoRes.headers.get("content-type")).toBe("image/jpeg");
+    expect(new Uint8Array(await photoRes.arrayBuffer())).toEqual(bytes);
+  });
+
+  it("strips EXIF from an uploaded jpeg cover photo, same as every other attachment upload", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+    const bytes = buildFixtureJpeg({ includeExif: true });
+
+    await uploadVehicleCoverPhotoReq(cookie, vehicleId, bytes, "image/jpeg");
+
+    const photoRes = await SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/photo`, {
+      headers: { Cookie: cookie },
+    });
+    const served = new Uint8Array(await photoRes.arrayBuffer());
+    expect(served).not.toEqual(bytes);
+    expect(served.length).toBeLessThan(bytes.length);
+  });
+
+  it("rejects an upload whose bytes aren't a recognizable image type", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    const res = await uploadVehicleCoverPhotoReq(cookie, vehicleId, new Uint8Array([1, 2, 3, 4]));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "unsupported_file_type" });
+
+    const check = await SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}`, {
+      headers: { Cookie: cookie },
+    });
+    expect(((await check.json()) as { hasPhoto: boolean }).hasPhoto).toBe(false);
+  });
+
+  it("re-uploading replaces the cover photo in place at the same R2 key", async () => {
+    const { cookie, tenantId } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    await uploadVehicleCoverPhotoReq(
+      cookie,
+      vehicleId,
+      buildFixtureJpeg({ includeExif: false }),
+      "image/jpeg",
+    );
+    const secondBytes = buildFixtureJpeg({ includeExif: true });
+    await uploadVehicleCoverPhotoReq(cookie, vehicleId, secondBytes, "image/jpeg");
+
+    const key = attachmentKey(tenantId, "vehicles", vehicleId, "photo");
+    const stored = await env.ATTACHMENTS.get(key);
+    expect(stored).not.toBeNull();
+
+    // Only one object ever exists under this vehicle's cover-photo prefix — a re-upload
+    // overwrites the fixed key rather than accumulating orphaned objects.
+    const listed = await env.ATTACHMENTS.list({ prefix: `tenants/${tenantId}/vehicles/` });
+    expect(listed.objects.length).toBe(1);
+
+    const photoRes = await SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/photo`, {
+      headers: { Cookie: cookie },
+    });
+    expect(new Uint8Array(await photoRes.arrayBuffer())).not.toEqual(secondBytes);
+  });
+
+  it("deletes the cover photo; GET .../photo 404s afterward, hasPhoto flips false, R2 object removed", async () => {
+    const { cookie, tenantId } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+    await uploadVehicleCoverPhotoReq(
+      cookie,
+      vehicleId,
+      buildFixtureJpeg({ includeExif: false }),
+      "image/jpeg",
+    );
+
+    const del = await deleteVehicleCoverPhotoReq(cookie, vehicleId);
+    expect(del.status).toBe(200);
+    expect(((await del.json()) as { hasPhoto: boolean }).hasPhoto).toBe(false);
+
+    const photoRes = await SELF.fetch(`https://example.com/api/v1/vehicles/${vehicleId}/photo`, {
+      headers: { Cookie: cookie },
+    });
+    expect(photoRes.status).toBe(404);
+
+    const key = attachmentKey(tenantId, "vehicles", vehicleId, "photo");
+    expect(await env.ATTACHMENTS.get(key)).toBeNull();
+  });
+
+  it("404s deleting a cover photo that was never set", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie);
+
+    const del = await deleteVehicleCoverPhotoReq(cookie, vehicleId);
+    expect(del.status).toBe(404);
+  });
+
+  it("404s uploading or deleting a cover photo for a different tenant's vehicle or a made-up id", async () => {
+    const owner = await createSession();
+    const other = await createSession();
+    const vehicleId = await createVehicleId(owner.cookie);
+    const madeUpId = crypto.randomUUID();
+
+    const crossUpload = await uploadVehicleCoverPhotoReq(
+      other.cookie,
+      vehicleId,
+      buildFixtureJpeg({ includeExif: false }),
+      "image/jpeg",
+    );
+    expect(crossUpload.status).toBe(404);
+
+    const madeUpUpload = await uploadVehicleCoverPhotoReq(
+      owner.cookie,
+      madeUpId,
+      buildFixtureJpeg({ includeExif: false }),
+      "image/jpeg",
+    );
+    expect(madeUpUpload.status).toBe(404);
+
+    const crossDelete = await deleteVehicleCoverPhotoReq(other.cookie, vehicleId);
+    expect(crossDelete.status).toBe(404);
   });
 });
