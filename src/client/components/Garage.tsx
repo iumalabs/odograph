@@ -166,8 +166,8 @@ export function Garage(props: GarageProps) {
           >
             <div
               style={{
-                width: 120,
-                height: 77,
+                width: 160,
+                height: 120,
                 flex: "none",
                 borderRadius: "var(--radius-md)",
                 overflow: "hidden",
@@ -179,10 +179,15 @@ export function Garage(props: GarageProps) {
             >
               {vehicle.hasPhoto
                 ? (
+                  // contain, not cover — a cropped-to-fill thumbnail assumes a landscape photo
+                  // (the mockup's own "1400×900" hint), but real uploads are whatever aspect
+                  // ratio the owner's camera produced (a portrait phone shot of the car easily
+                  // ends up taller than wide); cover would hard-crop most of a portrait photo
+                  // away, contain always shows the whole thing letterboxed instead.
                   <img
                     src={vehiclePhotoUrl(vehicle.id)}
                     alt={t("vehiclePhotoAlt", { name: vehicle.name })}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    style={{ width: "100%", height: "100%", objectFit: "contain" }}
                   />
                 )
                 : (
