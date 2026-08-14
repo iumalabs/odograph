@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.12.1](https://github.com/maksimyugai/odograph/compare/v1.12.0...v1.12.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* add a responsive mobile breakpoint (issue [#190](https://github.com/maksimyugai/odograph/issues/190), severity:high) ([#193](https://github.com/maksimyugai/odograph/issues/193)) ([4739029](https://github.com/maksimyugai/odograph/commit/47390292148bda2cc268f1f4699e0336cc84c81b))
+* stop Vite from inlining fonts as CSP-blocked data: URIs (issue [#191](https://github.com/maksimyugai/odograph/issues/191), severity:low) ([#192](https://github.com/maksimyugai/odograph/issues/192)) ([a4cff1d](https://github.com/maksimyugai/odograph/commit/a4cff1db6c885168f267cdc6f9bcaeed550f3197))
+
 ## [1.12.0](https://github.com/maksimyugai/odograph/compare/v1.11.1...v1.12.0) (2026-08-14)
 
 
