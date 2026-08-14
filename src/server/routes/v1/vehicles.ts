@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import {
+  acceptServiceDueEstimate,
   computeFuelPreview,
+  computeServiceDueEstimate,
   computeVehicleAggregates,
   computeVehicleExpenseBreakdown,
   createDocument,
@@ -530,6 +532,54 @@ vehicles.get("/:vehicleId/fuel-preview", async (c) => {
   );
   return c.json(preview);
 });
+
+// Read-only, not rate-limited — matches /fuel-preview's existing posture (specs/053
+// contracts/api.md). Never persists anything — a pure computed estimate.
+vehicles.get("/:vehicleId/service-due-estimate", async (c) => {
+  const tenant = c.get("tenant");
+  const vehicleId = c.req.param("vehicleId");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+  if (!vehicle) return c.notFound();
+
+  const estimate = await computeServiceDueEstimate(c.env.DB, tenant, vehicleId);
+  return c.json({ estimate });
+});
+
+vehicles.post(
+  "/:vehicleId/service-due-estimate/accept",
+  rateLimitBySession,
+  idempotent,
+  async (c) => {
+    const tenant = c.get("tenant");
+    const vehicleId = c.req.param("vehicleId");
+
+    const vehicle = await findVehicleById(c.env.DB, tenant, vehicleId);
+    if (!vehicle) return c.notFound();
+
+    const body = await c.req.json().catch(() => ({}) as { description?: unknown; id?: unknown });
+    if (typeof body.description !== "string" || body.description.length === 0) {
+      return c.json({ error: "invalid_request" }, 400);
+    }
+    const clientId = parseOptionalId(body);
+    if (clientId === undefined) {
+      return c.json({ error: "invalid_request" }, 400);
+    }
+
+    const rule = await acceptServiceDueEstimate(
+      c.env.DB,
+      tenant,
+      vehicleId,
+      body.description,
+      clientId ?? undefined,
+    );
+    if (!rule) {
+      return c.json({ error: "no_longer_available" }, 409);
+    }
+    const withStatus = await findReminderRuleById(c.env.DB, tenant, rule.id);
+    return c.json(withStatus, 201);
+  },
+);
 
 /** Only safe filename characters — a vehicle name is free text and could otherwise break the
  * Content-Disposition header or produce an unusable filename on the client's filesystem. */
