@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.11.1](https://github.com/maksimyugai/odograph/compare/v1.11.0...v1.11.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* refresh service records when planner/reminder mark-done syncs ([#184](https://github.com/maksimyugai/odograph/issues/184)) ([91497e4](https://github.com/maksimyugai/odograph/commit/91497e4b8258bb6a5c4c237ac72c451de9543aaf)), closes [#180](https://github.com/maksimyugai/odograph/issues/180)
+* show error banner on every view, not just Garage ([#183](https://github.com/maksimyugai/odograph/issues/183)) ([fb9a043](https://github.com/maksimyugai/odograph/commit/fb9a043236cf8f29cfd586751638bc9d8e5970a0)), closes [#179](https://github.com/maksimyugai/odograph/issues/179)
+* **vehicles:** accept year: null on create, not just PATCH (issue [#178](https://github.com/maksimyugai/odograph/issues/178), critical) ([#181](https://github.com/maksimyugai/odograph/issues/181)) ([3afdeb9](https://github.com/maksimyugai/odograph/commit/3afdeb9f71543ed17bc49362c48681185667b7a2))
+
 ## [1.11.0](https://github.com/maksimyugai/odograph/compare/v1.10.1...v1.11.0) (2026-08-14)
 
 
