@@ -153,6 +153,22 @@ describe("vehicle creation (User Story 1)", () => {
     expect(upperBound.status).toBe(201);
   });
 
+  // Issue #178: the add-vehicle form sends an explicit `year: null` (not an omitted key) whenever
+  // the Year field is left blank — the create-route guard must treat that as "no value", exactly
+  // like the PATCH route already does, not reject it as an invalid year.
+  it("accepts an explicit year: null exactly like an omitted year (issue #178)", async () => {
+    const { cookie } = await createSession();
+
+    const res = await createVehicle(cookie, {
+      name: "No Year Given",
+      odometerUnit: "km",
+      year: null,
+    });
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as { year: number | null };
+    expect(created.year).toBeNull();
+  });
+
   it("rejects an odometerUnit value that isn't km/mi and creates nothing (FR-009)", async () => {
     const { cookie } = await createSession();
     const res = await createVehicle(cookie, { name: "Bad Unit", odometerUnit: "gallons" });
