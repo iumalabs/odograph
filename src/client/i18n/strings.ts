@@ -36,6 +36,8 @@ const en = {
   lookupVinButton: "Look up",
   vinLookupInProgress: "Looking up…",
   vinLookupNotFound: "Couldn't find details for this VIN — enter manually.",
+  vehiclePhotoPlaceholder: "PHOTO",
+  vehiclePhotoAlt: "{name} photo",
   addVehicle: "Add vehicle",
   vehicleAddedToast: "Vehicle added",
   noVehiclesYet: "No vehicles yet.",

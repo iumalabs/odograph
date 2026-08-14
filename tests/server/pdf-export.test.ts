@@ -77,6 +77,11 @@ const BASE_VEHICLE: Vehicle = {
   year: null,
   vin: null,
   odometerUnit: "km",
+  licensePlate: null,
+  purchaseDate: null,
+  purchasePrice: null,
+  photoR2Key: null,
+  photoContentType: null,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
 };

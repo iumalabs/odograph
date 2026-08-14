@@ -34,9 +34,10 @@ import type {
   PlanCardInput,
   ReminderRuleInput,
   ServiceRecordInput,
+  Vehicle,
   VehicleInput,
 } from "../../db/repository";
-import { deleteAttachments } from "../../attachments/storage";
+import { deleteAttachments, getAttachment } from "../../attachments/storage";
 import { buildReportData } from "../../reports/maintenance-history-report";
 import { renderReportPdf } from "../../reports/render-pdf";
 import { rateLimitBySession } from "../../auth/rate-limit";
@@ -121,6 +122,14 @@ function validatePatch(body: CreateBody): Partial<VehicleInput> | null {
   return patch;
 }
 
+/** Strips the R2 key/content-type (internal storage detail, never handed to a client — same
+ * posture as every other attachment response in this file) down to a plain `hasPhoto` flag; the
+ * actual bytes are only ever reachable through GET /:id/photo below. */
+function publicVehicle(vehicle: Vehicle) {
+  const { photoR2Key, photoContentType: _photoContentType, ...rest } = vehicle;
+  return { ...rest, hasPhoto: photoR2Key !== null };
+}
+
 vehicles.post("/", rateLimitBySession, idempotent, async (c) => {
   const body = await c.req.json().catch(() => ({}) as CreateBody);
   const input = validateCreate(body);
@@ -133,18 +142,18 @@ vehicles.post("/", rateLimitBySession, idempotent, async (c) => {
   }
 
   const vehicle = await createVehicle(c.env.DB, c.get("tenant"), input, clientId ?? undefined);
-  return c.json(vehicle, 201);
+  return c.json(publicVehicle(vehicle), 201);
 });
 
 vehicles.get("/", async (c) => {
   const results = await listVehicles(c.env.DB, c.get("tenant"));
-  return c.json({ vehicles: results });
+  return c.json({ vehicles: results.map(publicVehicle) });
 });
 
 vehicles.get("/:id", async (c) => {
   const vehicle = await findVehicleById(c.env.DB, c.get("tenant"), c.req.param("id"));
   if (!vehicle) return c.notFound();
-  return c.json(vehicle);
+  return c.json(publicVehicle(vehicle));
 });
 
 vehicles.patch("/:id", rateLimitBySession, async (c) => {
@@ -156,7 +165,20 @@ vehicles.patch("/:id", rateLimitBySession, async (c) => {
 
   const vehicle = await updateVehicle(c.env.DB, c.get("tenant"), c.req.param("id"), patch);
   if (!vehicle) return c.notFound();
-  return c.json(vehicle);
+  return c.json(publicVehicle(vehicle));
+});
+
+// Read-only, not rate-limited — same posture as every other GET in this file. Served directly by
+// this Worker route, never a redirect to a public storage URL (same posture as
+// service-records'/fuel-records'/documents' attachment routes).
+vehicles.get("/:id/photo", async (c) => {
+  const vehicle = await findVehicleById(c.env.DB, c.get("tenant"), c.req.param("id"));
+  if (!vehicle || !vehicle.photoR2Key || !vehicle.photoContentType) return c.notFound();
+
+  const object = await getAttachment(c.env.ATTACHMENTS, vehicle.photoR2Key);
+  if (!object) return c.notFound();
+
+  return c.body(object.body, 200, { "Content-Type": vehicle.photoContentType });
 });
 
 vehicles.delete("/:id", rateLimitBySession, async (c) => {
