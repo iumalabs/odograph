@@ -48,6 +48,11 @@ type AppShellProps = {
   onSelectVehicle: (id: string) => void;
   /** Transient save-confirmation message (specs/046) — null when nothing to show. */
   toast: string | null;
+  /** Shared error banner (issue #179) — rendered here, once, so it's visible regardless of which
+   * of the ten `view`s is active; previously duplicated only into the Garage view's own JSX, so
+   * every setError() call from any other screen (attachment rejections, VIN lookup failures, ...)
+   * had nothing to render it against. null when nothing to show. */
+  error: string | null;
   /** Header currency/units quick-toggles (specs/047) — duplicate the same underlying preferences
    * App.tsx already threads elsewhere (currency: specs/035; distanceUnit: specs/047), never a
    * second independent copy of either. */
@@ -109,6 +114,7 @@ export function AppShell(
     selectedVehicleId,
     onSelectVehicle,
     toast,
+    error,
     currency,
     onCurrencyChange,
     distanceUnit,
@@ -387,6 +393,22 @@ export function AppShell(
             </button>
           </div>
         </header>
+
+        {error !== null && (
+          <p
+            role="alert"
+            style={{
+              margin: 0,
+              padding: "10px 22px",
+              borderBottom: "1px solid var(--line)",
+              background: "var(--panel)",
+              color: "var(--warn)",
+              font: "400 12.5px var(--font-ui)",
+            }}
+          >
+            {error}
+          </p>
+        )}
 
         <main style={{ flex: 1, overflow: "auto", padding: "20px 22px 26px" }}>{children}</main>
       </div>

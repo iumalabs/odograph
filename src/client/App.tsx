@@ -631,6 +631,7 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={selectVehicle}
         toast={toast}
+        error={error}
         currency={currency}
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
@@ -686,6 +687,7 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={selectVehicle}
         toast={toast}
+        error={error}
         currency={currency}
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
@@ -763,6 +765,7 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={selectVehicle}
         toast={toast}
+        error={error}
         currency={currency}
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
@@ -836,6 +839,7 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={selectVehicle}
         toast={toast}
+        error={error}
         currency={currency}
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
@@ -882,6 +886,7 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={selectVehicle}
         toast={toast}
+        error={error}
         currency={currency}
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
@@ -966,6 +971,7 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={selectVehicle}
         toast={toast}
+        error={error}
         currency={currency}
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
@@ -1038,6 +1044,7 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={selectVehicle}
         toast={toast}
+        error={error}
         currency={currency}
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
@@ -1101,6 +1108,7 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={selectVehicle}
         toast={toast}
+        error={error}
         currency={currency}
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
@@ -1124,6 +1132,7 @@ export function App() {
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={selectVehicle}
         toast={toast}
+        error={error}
         currency={currency}
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
@@ -1151,6 +1160,7 @@ export function App() {
       selectedVehicleId={selectedVehicleId}
       onSelectVehicle={selectVehicle}
       toast={toast}
+      error={error}
       currency={currency}
       onCurrencyChange={setCurrency}
       distanceUnit={distanceUnit}
@@ -1295,12 +1305,6 @@ export function App() {
               t("vehicleAddedToast"),
             )}
         />
-
-        {error && (
-          <p role="alert" style={{ color: "var(--warn)", font: "400 12.5px var(--font-ui)" }}>
-            {error}
-          </p>
-        )}
       </div>
     </AppShell>
   );
