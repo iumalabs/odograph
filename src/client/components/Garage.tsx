@@ -16,6 +16,7 @@ type GarageProps = {
   /** Header display preference (specs/047) — independent of each vehicle's own stored
    * odometerUnit below, which stays the source of truth for what gets persisted. */
   distanceUnit: DistanceUnit;
+  currencySymbol: string;
   selectedVehicleId: string | null;
   onSelectVehicle: (id: string) => void;
   /** Jumps straight to that vehicle's photo gallery screen (design mockup's g.photoAct) —
@@ -73,6 +74,10 @@ const REMINDER_STATUS_COLOR: Record<string, string> = {
 type VehicleSummary = {
   currentOdometer: number | null;
   averageFuelEconomy: number | null;
+  /** $ per one distanceUnit (matches DashboardView.tsx's own aggregates field) — the card
+   * multiplies by 100 at render time, same "$ / 100 km" framing the design mockup uses (a raw
+   * per-km figure like $0.14 reads oddly small next to the other stats). */
+  costPerDistance: number | null;
   mostUrgentReminder: ReminderRule | null;
   photoCount: number;
 };
@@ -111,6 +116,7 @@ export function Garage(props: GarageProps) {
     onAddVehicle,
     onViewPhotos,
     onUploadPhoto,
+    currencySymbol,
   } = props;
 
   const [summaries, setSummaries] = useState<Record<string, VehicleSummary>>({});
@@ -128,6 +134,7 @@ export function Garage(props: GarageProps) {
         return [vehicle.id, {
           currentOdometer: aggregates?.currentOdometer ?? null,
           averageFuelEconomy: aggregates?.averageFuelEconomy ?? null,
+          costPerDistance: aggregates?.costPerDistance ?? null,
           mostUrgentReminder: mostUrgentReminder(reminderRules),
           photoCount: photos.length,
         }] as const;
@@ -153,6 +160,9 @@ export function Garage(props: GarageProps) {
           ? Math.round(convertDistance(currentOdometer, vehicle.odometerUnit, distanceUnit))
           : null;
         const averageFuelEconomy = summary?.averageFuelEconomy ?? null;
+        const costPer100Distance = summary?.costPerDistance != null
+          ? summary.costPerDistance * 100
+          : null;
         const urgentReminder = summary?.mostUrgentReminder ?? null;
         const remainingFraction = urgentReminder?.remainingFraction ?? null;
         const barFillPercent = remainingFraction !== null
@@ -320,6 +330,16 @@ export function Garage(props: GarageProps) {
                   <div style={{ ...statValueStyle, color: "var(--acc)" }}>
                     {averageFuelEconomy != null
                       ? averageFuelEconomy.toFixed(1)
+                      : t("fuelEconomyNotEnoughData")}
+                  </div>
+                </div>
+                <div>
+                  <div style={statLabelStyle}>
+                    {t("costPer100DistanceLabel", { unit: distanceUnit })}
+                  </div>
+                  <div style={statValueStyle}>
+                    {costPer100Distance != null
+                      ? `${currencySymbol}${costPer100Distance.toFixed(2)}`
                       : t("fuelEconomyNotEnoughData")}
                   </div>
                 </div>

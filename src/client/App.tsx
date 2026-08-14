@@ -1294,6 +1294,7 @@ export function App() {
         <Garage
           vehicles={mergedVehicles}
           distanceUnit={distanceUnit}
+          currencySymbol={symbol}
           selectedVehicleId={selectedVehicleId}
           onSelectVehicle={(id) => {
             selectVehicle(id);
