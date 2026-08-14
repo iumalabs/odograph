@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/maksimyugai/odograph/compare/v1.8.0...v1.9.0) (2026-08-14)
+
+
+### Features
+
+* infer next-service-due estimate from service history (spec 053, issue [#167](https://github.com/maksimyugai/odograph/issues/167)) ([#168](https://github.com/maksimyugai/odograph/issues/168)) ([be4169a](https://github.com/maksimyugai/odograph/commit/be4169a29c2a61c12cf265ce6fc4d00400ef838f))
+
 ## [1.8.0](https://github.com/maksimyugai/odograph/compare/v1.7.0...v1.8.0) (2026-08-13)
 
 
