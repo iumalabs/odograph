@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/maksimyugai/odograph/compare/v1.10.1...v1.11.0) (2026-08-14)
+
+
+### Features
+
+* add per-vehicle photo gallery screen from the design mockup ([#175](https://github.com/maksimyugai/odograph/issues/175)) ([7a4c583](https://github.com/maksimyugai/odograph/commit/7a4c583b8536253ddd9ea01ddfc465cf7a5079f7))
+
 ## [1.10.1](https://github.com/maksimyugai/odograph/compare/v1.10.0...v1.10.1) (2026-08-14)
 
 
