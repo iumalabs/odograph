@@ -205,6 +205,7 @@ export function DashboardView(
       </div>
 
       <div
+        className="dashboard-stat-grid"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
@@ -212,6 +213,7 @@ export function DashboardView(
         }}
       >
         <div
+          className="dashboard-stat-tile"
           style={{
             border: "1px solid var(--line)",
             background: "var(--panel)",
@@ -222,11 +224,15 @@ export function DashboardView(
           <div style={{ font: "400 9.5px var(--font-mono)", color: "var(--dim)" }}>
             {t("expenseTotalLabel")}
           </div>
-          <div style={{ font: "500 22px var(--font-mono)", marginTop: 8 }}>
+          <div
+            className="dashboard-stat-value"
+            style={{ font: "500 22px var(--font-mono)", marginTop: 8 }}
+          >
             {formatCostFigure(totals.totalCost, currencySymbol)}
           </div>
         </div>
         <div
+          className="dashboard-stat-tile"
           style={{
             border: "1px solid var(--line)",
             background: "var(--panel)",
@@ -237,11 +243,15 @@ export function DashboardView(
           <div style={{ font: "400 9.5px var(--font-mono)", color: "var(--dim)" }}>
             {t("expenseFuelLabel")}
           </div>
-          <div style={{ font: "500 22px var(--font-mono)", marginTop: 8 }}>
+          <div
+            className="dashboard-stat-value"
+            style={{ font: "500 22px var(--font-mono)", marginTop: 8 }}
+          >
             {formatCostFigure(totals.fuelCost, currencySymbol)}
           </div>
         </div>
         <div
+          className="dashboard-stat-tile"
           style={{
             border: "1px solid var(--line)",
             background: "var(--panel)",
@@ -252,11 +262,15 @@ export function DashboardView(
           <div style={{ font: "400 9.5px var(--font-mono)", color: "var(--dim)" }}>
             {t("expenseMaintenanceLabel")}
           </div>
-          <div style={{ font: "500 22px var(--font-mono)", marginTop: 8 }}>
+          <div
+            className="dashboard-stat-value"
+            style={{ font: "500 22px var(--font-mono)", marginTop: 8 }}
+          >
             {formatCostFigure(totals.maintenanceCost, currencySymbol)}
           </div>
         </div>
         <div
+          className="dashboard-stat-tile"
           style={{
             border: "1px solid var(--acc)",
             background: "var(--panel)",
@@ -267,7 +281,10 @@ export function DashboardView(
           <div style={{ font: "400 9.5px var(--font-mono)", color: "var(--dim)" }}>
             {t("costPerDistanceLabel")}
           </div>
-          <div style={{ font: "500 22px var(--font-mono)", marginTop: 8, color: "var(--acc)" }}>
+          <div
+            className="dashboard-stat-value"
+            style={{ font: "500 22px var(--font-mono)", marginTop: 8, color: "var(--acc)" }}
+          >
             {formatCostFigure(data?.aggregates?.costPerDistance ?? null, currencySymbol)}
           </div>
         </div>

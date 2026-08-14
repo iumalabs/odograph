@@ -1,0 +1,119 @@
+/* Mobile breakpoint (issue #190) — the rest of the app is styled entirely via React inline
+   `style` props, which always win over an ordinary CSS class on the same element, so every
+   override below needs `!important`. These are the only responsive rules in the app; the
+   className hooks they target are added purely for this file, not for any other styling. */
+
+@media (max-width: 640px) {
+  .app-shell {
+    flex-direction: column !important;
+    height: 100dvh !important;
+  }
+
+  /* Switching app-shell's flex-direction to column makes height the flex main axis instead of
+     the cross axis — a flex:1 item's default min-height:auto then refuses to shrink below its
+     own content's intrinsic height (the classic flexbox min-size gotcha), so app-main-wrap grew
+     taller than the viewport instead of capping at it, pushing app-main's overflow:auto scroll
+     area (and everything in it, like the PDF download button) down behind the fixed nav bar
+     regardless of scroll position. min-height: 0 opts back into shrinking to the available
+     space, letting app-main's own scrolling take over as intended. */
+  .app-main-wrap {
+    min-height: 0 !important;
+  }
+
+  /* Nav rail becomes a fixed bottom tab bar instead of a left rail — the icon set already
+     doubles as compact labels, so it fits in a single row without a hamburger/drawer. */
+  .app-nav {
+    width: 100% !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: stretch !important;
+    padding: 4px 2px !important;
+    gap: 0 !important;
+    border-right: none !important;
+    border-top: 1px solid var(--line);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    overflow-x: auto;
+  }
+
+  .app-nav-logo,
+  .app-nav-version {
+    display: none !important;
+  }
+
+  .app-nav-item {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    padding: 6px 0 !important;
+    border-left: none !important;
+    border-top: 2px solid transparent !important;
+  }
+
+  .app-nav-item-label {
+    font-size: 7px !important;
+    white-space: nowrap;
+  }
+
+  /* Leaves room at the bottom for the fixed nav bar above — measured at ~59px tall (4px*2
+     padding plus icon+label content), 72px leaves a safety margin rather than matching exactly. */
+  .app-main-wrap {
+    padding-bottom: 72px;
+  }
+
+  .app-header {
+    height: auto !important;
+    min-height: 62px;
+    flex-wrap: wrap !important;
+    padding: 10px 14px !important;
+    row-gap: 8px !important;
+  }
+
+  .app-header-title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .app-header-vehicle-pills {
+    order: 3;
+    flex: 1 1 100% !important;
+    max-width: none !important;
+  }
+
+  .app-header-controls {
+    margin-left: 0 !important;
+    flex-wrap: wrap;
+  }
+
+  .app-main {
+    padding: 14px 14px 20px !important;
+  }
+
+  /* Sits above the fixed bottom nav instead of behind it, and never overflows a narrow
+     viewport's width the way a fixed 360px max-width could. */
+  .app-toast {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 76px !important;
+    max-width: none !important;
+  }
+
+  /* The Dashboard's 4 equal columns squeeze real dollar figures and labels ("Maintenance",
+     "Cost / distance") past the point they can fit — 2 columns gives each tile enough width to
+     wrap instead of visually overflowing into its neighbor. */
+  .dashboard-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .dashboard-stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-stat-value {
+    font-size: 19px !important;
+  }
+}
