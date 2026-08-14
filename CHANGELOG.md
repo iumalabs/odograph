@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/maksimyugai/odograph/compare/v1.10.0...v1.10.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* **client:** stop cropping vehicle photos, enlarge the garage-card thumbnail ([#173](https://github.com/maksimyugai/odograph/issues/173)) ([7121981](https://github.com/maksimyugai/odograph/commit/71219818d03807b17a967f66eaee47451cb8a8d7))
+
 ## [1.10.0](https://github.com/maksimyugai/odograph/compare/v1.9.0...v1.10.0) (2026-08-14)
 
 
