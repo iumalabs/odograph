@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import {
   acceptServiceDueEstimate,
+  attachVehicleCoverPhoto,
   computeFuelPreview,
   computeServiceDueEstimate,
   computeVehicleAggregates,
@@ -30,6 +31,7 @@ import {
   listVehiclePhotoKeysForVehicle,
   listVehiclePhotos,
   listVehicles,
+  removeVehicleCoverPhoto,
   updateVehicle,
 } from "../../db/repository";
 import type {
@@ -43,7 +45,14 @@ import type {
   VehicleInput,
   VehiclePhotoInput,
 } from "../../db/repository";
-import { deleteAttachments, getAttachment } from "../../attachments/storage";
+import {
+  attachmentKey,
+  deleteAttachments,
+  getAttachment,
+  putAttachment,
+} from "../../attachments/storage";
+import { contentTypeFor, detectFileType, MAX_ATTACHMENT_BYTES } from "../../attachments/validate";
+import { stripJpegExif } from "../../attachments/strip-exif";
 import { publicVehiclePhoto } from "./vehicle-photos";
 import { buildReportData } from "../../reports/maintenance-history-report";
 import { renderReportPdf } from "../../reports/render-pdf";
@@ -192,6 +201,71 @@ vehicles.get("/:id/photo", async (c) => {
   if (!object) return c.notFound();
 
   return c.body(object.body, 200, { "Content-Type": vehicle.photoContentType });
+});
+
+// Sets or replaces the vehicle's cover photo. Unlike the vehicle_photos gallery, the cover photo
+// lives at a single fixed R2 key per vehicle (attachmentKey(..., "vehicles", id, "photo")), so a
+// re-upload just overwrites the existing object in place — no delete-then-write ordering needed.
+vehicles.post("/:id/photo", rateLimitBySession, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, id);
+  if (!vehicle) return c.notFound();
+
+  // Fast-fail on a declared oversized body before reading it into memory (same guard every other
+  // attachment upload route in this codebase uses).
+  const contentLength = Number(c.req.header("content-length") ?? "0");
+  if (contentLength > MAX_ATTACHMENT_BYTES) {
+    return c.json({ error: "file_too_large" }, 400);
+  }
+
+  const buffer = await c.req.arrayBuffer();
+  if (buffer.byteLength > MAX_ATTACHMENT_BYTES) {
+    return c.json({ error: "file_too_large" }, 400);
+  }
+
+  let bytes: Uint8Array = new Uint8Array(buffer);
+  // The declared Content-Type header is never trusted for the accept/reject decision — only what
+  // the bytes actually are (constitution Principle V).
+  const detectedType = detectFileType(bytes);
+  if (!detectedType) {
+    return c.json({ error: "unsupported_file_type" }, 400);
+  }
+
+  if (detectedType === "jpeg") {
+    bytes = stripJpegExif(bytes);
+  }
+
+  const r2Key = attachmentKey(tenant.tenantId, "vehicles", id, "photo");
+  await putAttachment(c.env.ATTACHMENTS, r2Key, bytes, contentTypeFor(detectedType));
+
+  const updated = await attachVehicleCoverPhoto(c.env.DB, tenant, id, {
+    r2Key,
+    contentType: contentTypeFor(detectedType),
+  });
+  if (!updated) return c.notFound();
+
+  return c.json(publicVehicle(updated), 200);
+});
+
+vehicles.delete("/:id/photo", rateLimitBySession, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+
+  const vehicle = await findVehicleById(c.env.DB, tenant, id);
+  if (!vehicle) return c.notFound();
+  if (!vehicle.photoR2Key) return c.notFound();
+
+  const updated = await removeVehicleCoverPhoto(c.env.DB, tenant, id);
+  if (!updated) return c.notFound();
+
+  // R2 cleanup happens after the D1 update, not fire-and-forget — the row already points at
+  // nothing by the time this runs, so there's no window where a reader could 404 on a key the
+  // row still claims to have (constitution Principle VIII).
+  await deleteAttachments(c.env.ATTACHMENTS, [vehicle.photoR2Key]);
+
+  return c.json(publicVehicle(updated), 200);
 });
 
 vehicles.delete("/:id", rateLimitBySession, async (c) => {

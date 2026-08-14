@@ -6,7 +6,8 @@ export type AttachmentResourceType =
   | "service-records"
   | "fuel-records"
   | "documents"
-  | "vehicle-photos";
+  | "vehicle-photos"
+  | "vehicles";
 
 /**
  * Tenant-scoped key path (research.md) — defense in depth alongside the D1-side ownership check;
