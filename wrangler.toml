@@ -87,7 +87,15 @@ bucket_name = "odograph-preview-attachments"
 
 [env.production]
 name = "odograph"
-routes = [{ pattern = "odograph.dev", custom_domain = true }]
+# odograph.iuma.dev added alongside the existing odograph.dev during the org/domain migration to
+# iumalabs — both serve production traffic in parallel so passkeys (bound to their registration
+# origin, per WebAuthn) and any bookmarked/cached links keep working while users transition.
+# odograph.dev is only removed once that transition is complete (see the migration plan for this
+# work — not tracked in a spec doc, this is an infra-only change with no user-facing feature).
+routes = [
+  { pattern = "odograph.dev", custom_domain = true },
+  { pattern = "odograph.iuma.dev", custom_domain = true },
+]
 
 [env.production.observability]
 enabled = true
