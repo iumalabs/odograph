@@ -29,7 +29,9 @@ concurrency:
 jobs:
   e2e:
     name: e2e (Playwright) + client coverage gate
-    runs-on: ubuntu-latest
+    # No pull_request trigger (schedule + workflow_dispatch only), so the fork-safe
+    # conditional isn't needed — bare general-tier label is fine.
+    runs-on: [self-hosted, general]
     timeout-minutes: 20
     # Job-level permissions replace (not merge with) the workflow-level block above, so
     # contents:read has to be repeated here alongside the code-quality:write this job additionally

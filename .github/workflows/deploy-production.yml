@@ -20,7 +20,8 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Tag push + workflow_dispatch only, no pull_request trigger — bare deploy-tier label is fine.
+    runs-on: [self-hosted, deploy]
     environment:
       name: production
       url: https://odograph.dev

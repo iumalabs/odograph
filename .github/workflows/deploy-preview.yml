@@ -17,7 +17,9 @@ jobs:
     # Only PRs from branches in this repo get an auto-deployed preview — a fork PR's
     # secrets exposure is a separate trust decision, not something to default to open.
     if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    # The job-level `if` above already excludes fork PRs before a runner is requested,
+    # so a bare deploy-tier label is safe here without the fork-safe runs-on conditional.
+    runs-on: [self-hosted, deploy]
     environment:
       name: preview
       url: https://pr-${{ github.event.pull_request.number }}-odograph-preview.kgz.workers.dev

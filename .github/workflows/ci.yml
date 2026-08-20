@@ -15,7 +15,10 @@ concurrency:
 jobs:
   check:
     name: fmt, lint, typecheck, test, build
-    runs-on: ubuntu-latest
+    # ci.yml triggers on an unrestricted pull_request (any fork) on this public repo, so
+    # runs-on must fall back to a GitHub-hosted runner for fork PRs and only use the
+    # self-hosted general tier for same-repo PRs/pushes to main (see RUNBOOK.md).
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || fromJSON('["self-hosted", "general"]') }}
     steps:
       - uses: actions/checkout@v7
 
