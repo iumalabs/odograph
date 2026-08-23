@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
 import { health } from "./routes/v1/health";
 import { devSession } from "./auth/dev-session";
@@ -20,6 +21,7 @@ import { push } from "./routes/v1/push";
 import { search } from "./routes/v1/search";
 import { vinLookup } from "./routes/v1/vin-lookup";
 import { evaluateAllDocumentReminders, evaluateAllReminders } from "./db/repository";
+import { buildServerMonitoringConfig } from "./monitoring/config";
 import { buildCspHeader, generateNonce } from "./security/csp";
 import type { AppEnv, VapidSecrets } from "./types";
 
@@ -46,7 +48,10 @@ app.route("/api/v1/push", push);
 app.route("/api/v1/search", search);
 app.route("/api/v1/vin-lookup", vinLookup);
 
-export default {
+// specs/054-error-monitoring: production-only, PII-scrubbed error/trace capture (config lives in
+// ./monitoring/config.ts, gated by env.ENVIRONMENT — see FR-004/FR-005). withSentry() wraps both
+// `fetch` and `scheduled` below; the handler bodies themselves are otherwise unchanged.
+const handler = {
   // `assets.run_worker_first = true` (wrangler.toml) routes every request here first, including
   // the ones a static-asset layer would otherwise serve without ever reaching the Worker — the
   // only way to attach a fresh per-request CSP nonce to the HTML document (specs/015-csp-nonces).
@@ -90,3 +95,5 @@ export default {
     await evaluateAllDocumentReminders(env);
   },
 } satisfies ExportedHandler<Env>;
+
+export default Sentry.withSentry(buildServerMonitoringConfig, handler);
