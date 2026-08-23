@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.0](https://github.com/maksimyugai/odograph/compare/v1.12.1...v1.13.0) (2026-08-23)
+
+
+### Features
+
+* production error & performance monitoring via FlightDeck ([#203](https://github.com/maksimyugai/odograph/issues/203)) ([4ce4858](https://github.com/maksimyugai/odograph/commit/4ce48580ba55af7c4f8990717eacb17f001a5d2d))
+
 ## [1.12.1](https://github.com/maksimyugai/odograph/compare/v1.12.0...v1.12.1) (2026-08-14)
 
 
