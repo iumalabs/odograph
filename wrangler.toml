@@ -1,6 +1,9 @@
 name = "odograph"
 main = "./src/server/index.ts"
 compatibility_date = "2025-04-01"
+# Required by @sentry/cloudflare (specs/054-error-monitoring) — it uses Node's AsyncLocalStorage
+# API internally for request-scoped context propagation.
+compatibility_flags = ["nodejs_compat"]
 
 # binding + run_worker_first route every request through the Worker's fetch handler first
 # (rather than letting Cloudflare's edge asset layer serve matching files/the SPA fallback
