@@ -22,6 +22,11 @@ export function buildCspHeader(nonce: string): string {
     `style-src 'self' 'nonce-${nonce}'`,
     `img-src 'self'`,
     `font-src 'self'`,
+    // FlightDeck's ingest origin only (specs/054-error-monitoring FR-006) — the client Sentry SDK
+    // reports errors/traces via fetch() to this one specific origin. Allowed unconditionally
+    // (research.md): inert on preview/dev since capture itself is disabled there, not a broader
+    // relaxation of this policy.
+    `connect-src 'self' https://flightdeck.iuma.dev`,
     `object-src 'none'`,
     `base-uri 'self'`,
     `frame-ancestors 'self'`,

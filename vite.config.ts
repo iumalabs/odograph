@@ -39,6 +39,14 @@ export default defineConfig(() => {
   const wranglerEnv = process.env.WRANGLER_ENV;
 
   return {
+    // Exposes which Wrangler environment this build targets to client code as a build-time
+    // constant — import.meta.env.PROD alone can't distinguish preview from production (both run
+    // `vite build`, mode defaults to "production" either way, per this file's own comment above);
+    // only WRANGLER_ENV actually carries that distinction. Used by src/client/monitoring.ts
+    // (specs/054-error-monitoring) to keep error/trace capture off outside production.
+    define: {
+      __WRANGLER_ENV__: JSON.stringify(wranglerEnv ?? "development"),
+    },
     build: {
       // Fonts must stay same-origin url() references, never inlined as data: URIs — the CSP
       // (specs/015-csp-nonces) deliberately keeps font-src to 'self' only, matching how
