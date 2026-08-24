@@ -46,6 +46,11 @@ export default defineConfig(() => {
     // (specs/054-error-monitoring) to keep error/trace capture off outside production.
     define: {
       __WRANGLER_ENV__: JSON.stringify(wranglerEnv ?? "development"),
+      // Without this, @sentry/core's DEBUG_BUILD constant defaults to true in every build
+      // (including production), which activates a dev-only strict DSN validator that rejects
+      // FlightDeck's UUID-format project_ids and silently drops the client transport — Sentry
+      // never sends anything, with no error anywhere (issue #205).
+      __SENTRY_DEBUG__: JSON.stringify(false),
     },
     build: {
       // Fonts must stay same-origin url() references, never inlined as data: URIs — the CSP
