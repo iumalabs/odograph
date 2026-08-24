@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.13.2](https://github.com/maksimyugai/odograph/compare/v1.13.1...v1.13.2) (2026-08-24)
+
+
+### Bug Fixes
+
+* block empty Add Vehicle submit and fix bottom-nav label crowding (issues [#214](https://github.com/maksimyugai/odograph/issues/214), [#215](https://github.com/maksimyugai/odograph/issues/215)) ([#218](https://github.com/maksimyugai/odograph/issues/218)) ([18b0abe](https://github.com/maksimyugai/odograph/commit/18b0abebd3ffccb9c41cbe98792448366c8bf9fc))
+* stack Reminders explainer panel and reposition toast on mobile (issues [#210](https://github.com/maksimyugai/odograph/issues/210), [#211](https://github.com/maksimyugai/odograph/issues/211)) ([#216](https://github.com/maksimyugai/odograph/issues/216)) ([8828388](https://github.com/maksimyugai/odograph/commit/8828388ba93129150b81ac78bb4c03be854fa912))
+
 ## [1.13.1](https://github.com/maksimyugai/odograph/compare/v1.13.0...v1.13.1) (2026-08-24)
 
 
