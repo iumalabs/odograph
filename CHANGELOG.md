@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.1](https://github.com/maksimyugai/odograph/compare/v1.13.0...v1.13.1) (2026-08-24)
+
+
+### Bug Fixes
+
+* strip Sentry's dev-only DSN validator from production builds (issue [#205](https://github.com/maksimyugai/odograph/issues/205), severity:high) ([#206](https://github.com/maksimyugai/odograph/issues/206)) ([5b10647](https://github.com/maksimyugai/odograph/commit/5b10647553f421d935a30bcb5f8f3f344b7be6c8))
+
 ## [1.13.0](https://github.com/maksimyugai/odograph/compare/v1.12.1...v1.13.0) (2026-08-23)
 
 
