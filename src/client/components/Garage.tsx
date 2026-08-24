@@ -621,6 +621,7 @@ export function Garage(props: GarageProps) {
         <button
           type="button"
           onClick={onAddVehicle}
+          disabled={vehicleName.trim().length === 0}
           style={{
             background: "var(--acc)",
             color: "var(--on-acc)",
@@ -628,7 +629,8 @@ export function Garage(props: GarageProps) {
             borderRadius: "var(--radius-md)",
             padding: "11px 14px",
             font: "600 11.5px var(--font-ui)",
-            cursor: "pointer",
+            cursor: vehicleName.trim().length === 0 ? "not-allowed" : "pointer",
+            opacity: vehicleName.trim().length === 0 ? 0.5 : 1,
             display: "inline-flex",
             alignItems: "center",
             gap: 7,

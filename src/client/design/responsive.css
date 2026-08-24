@@ -44,9 +44,15 @@
     display: none !important;
   }
 
+  /* flex: 1 1 0 (equal-share, shrinkable to nothing via min-width: 0) fits fine down to ~480px,
+     but with 10 nav destinations it leaves the later nowrap labels (REMINDERS, DOCUMENTS) no room
+     at 375-390px — their own share shrinks past their text's width, so the label overflows its
+     item box and visually runs into its neighbor's (issue #215). A fixed min-width keeps every
+     label legibly spaced regardless of item count; .app-nav's existing overflow-x: auto (above)
+     picks up the slack by scrolling horizontally once the items no longer all fit. */
   .app-nav-item {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    min-width: 58px !important;
     padding: 6px 0 !important;
     border-left: none !important;
     border-top: 2px solid transparent !important;
