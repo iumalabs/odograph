@@ -121,6 +121,7 @@ export function ReminderRulePanel(props: ReminderRulePanelProps) {
 
   return (
     <div
+      className="reminders-panel-grid"
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 340px",
