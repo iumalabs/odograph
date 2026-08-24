@@ -91,12 +91,21 @@
     padding: 14px 14px 20px !important;
   }
 
-  /* Sits above the fixed bottom nav instead of behind it, and never overflows a narrow
-     viewport's width the way a fixed 360px max-width could. */
+  /* .app-toast is position: absolute against .app-shell (height: 100vh, non-scrolling), so it
+     renders at the same screen position regardless of .app-main's own scroll offset — anchoring
+     it near the viewport bottom (like desktop's corner placement) put it right on top of
+     whatever real content happened to be scrolled into that same screen region, e.g. the
+     add-vehicle form's labels directly below a freshly-added vehicle card (issue #211). Anchoring
+     below the header instead (min-height 62px, +16px buffer — same rounding-up-for-safety
+     convention as app-main-wrap's bottom padding above) avoids that: the header's own content is
+     glanceable, not something a user is mid-interaction with the instant a toast appears, unlike
+     a form they may still be filling in. Never overflows a narrow viewport's width the way a
+     fixed 360px max-width could. */
   .app-toast {
     left: 12px !important;
     right: 12px !important;
-    bottom: 76px !important;
+    top: 78px !important;
+    bottom: auto !important;
     max-width: none !important;
   }
 
@@ -105,6 +114,15 @@
      wrap instead of visually overflowing into its neighbor. */
   .dashboard-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* The Reminders screen's fixed 340px side column ("How it's calculated") doesn't shrink with
+     its 1fr sibling — at 390px it pushed 150px past the viewport edge with clipped text (issue
+     #210), the one two-column layout in the app that #190's original pass missed. Stacks the
+     explainer panel below the reminders list/form like every other two-column layout already
+     does at this breakpoint. */
+  .reminders-panel-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 
