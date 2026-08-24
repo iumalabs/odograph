@@ -48,6 +48,20 @@ app.route("/api/v1/push", push);
 app.route("/api/v1/search", search);
 app.route("/api/v1/vin-lookup", vinLookup);
 
+// Sentry.withSentry() below only auto-captures an exception that escapes `handler.fetch` as a
+// thrown/rejected error — Hono's own default error handling never lets that happen (it catches
+// every route handler's throw internally and resolves with a plain response), so without this,
+// no exception from any /api/v1/* route ever reaches Sentry (issue #212). Mirrors Hono's own
+// default errorHandler (respecting a thrown HTTPException's own response) with capture added.
+app.onError((err, c) => {
+  Sentry.captureException(err, { mechanism: { handled: false, type: "hono.onError" } });
+  if ("getResponse" in err) {
+    return err.getResponse();
+  }
+  console.error(err);
+  return c.text("Internal Server Error", 500);
+});
+
 // specs/054-error-monitoring: production-only, PII-scrubbed error/trace capture (config lives in
 // ./monitoring/config.ts, gated by env.ENVIRONMENT — see FR-004/FR-005). withSentry() wraps both
 // `fetch` and `scheduled` below; the handler bodies themselves are otherwise unchanged.
