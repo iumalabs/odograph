@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.13.3](https://github.com/maksimyugai/odograph/compare/v1.13.2...v1.13.3) (2026-08-25)
+
+
+### Bug Fixes
+
+* require a file before Add Photo can be submitted (issue [#220](https://github.com/maksimyugai/odograph/issues/220)) ([#221](https://github.com/maksimyugai/odograph/issues/221)) ([1e97f45](https://github.com/maksimyugai/odograph/commit/1e97f455e8e9d02d07848fd64efbc2d987cad18c))
+* stop Dashboard's expense breakdown from losing its own fetch race (issue [#207](https://github.com/maksimyugai/odograph/issues/207)) ([#219](https://github.com/maksimyugai/odograph/issues/219)) ([0298007](https://github.com/maksimyugai/odograph/commit/02980073f2df7786369c0de7110e9f5a6395b9e0))
+
 ## [1.13.2](https://github.com/maksimyugai/odograph/compare/v1.13.1...v1.13.2) (2026-08-24)
 
 
