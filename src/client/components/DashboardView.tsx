@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Vehicle } from "../vehicles";
-import { getVehicleAggregates, getVehicleExpenseBreakdown } from "../vehicle-aggregates";
+import {
+  getVehicleAggregates,
+  getVehicleExpenseBreakdown,
+  reportDownloadUrl,
+} from "../vehicle-aggregates";
 import type { ExpensePeriod, VehicleAggregates } from "../vehicle-aggregates";
 import type { ReminderRule } from "../reminder-rules";
 import type { ServiceRecord } from "../service-records";
@@ -10,6 +14,15 @@ import { convertDistance } from "../distance";
 import type { DistanceUnit } from "../distance";
 import { CarIcon, DashboardIcon } from "../design/icons";
 import { t } from "../i18n/strings";
+// Statically imported (not its own lazy() chunk) deliberately — it's always rendered right here,
+// never independently, and having it resolve as a second, separately-timed dynamic import
+// alongside this component under the same Suspense boundary let its own data-fetch effect's
+// result get silently dropped on the view's first render in a session (issue #207): Suspense
+// discards a whole boundary's in-progress render on ANY child suspending, and re-fetching only
+// looked "fixed" once both chunks had already warmed on a later visit, masking the race as
+// currency- or data-related. Bundled into this view's own chunk instead, it now always resolves
+// atomically with the rest of the view.
+import { ExpenseBreakdownPanel } from "./ExpenseBreakdownPanel";
 
 type DashboardViewProps = {
   vehicle: Vehicle | null;
@@ -457,6 +470,30 @@ export function DashboardView(
           {t("averageFuelEconomyLabel")}:{" "}
           {formatFigure(data?.aggregates?.averageFuelEconomy ?? null)}
         </span>
+      </div>
+
+      <div>
+        <h2 style={{ font: "600 14px var(--font-ui)", letterSpacing: "-.01em" }}>
+          {t("expenseBreakdownHeading")}
+        </h2>
+        <ExpenseBreakdownPanel vehicleId={vehicle.id} currencySymbol={currencySymbol} />
+        <a
+          href={reportDownloadUrl(vehicle.id)}
+          style={{
+            display: "inline-flex",
+            alignSelf: "flex-start",
+            marginTop: 14,
+            background: "transparent",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--radius-md)",
+            padding: "10px 14px",
+            color: "var(--fg)",
+            font: "600 11.5px var(--font-ui)",
+            textDecoration: "none",
+          }}
+        >
+          {t("downloadReportLabel")}
+        </a>
       </div>
     </div>
   );
