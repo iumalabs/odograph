@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.6](https://github.com/iumalabs/odograph/compare/v1.13.5...v1.13.6) (2026-08-25)
+
+
+### Bug Fixes
+
+* convert cost-per-distance to the display odometer unit (issue [#236](https://github.com/iumalabs/odograph/issues/236)) ([#239](https://github.com/iumalabs/odograph/issues/239)) ([241d013](https://github.com/iumalabs/odograph/commit/241d013f86e592e453af3a2403df95a2c49f1b62))
+
 ## [1.13.5](https://github.com/maksimyugai/odograph/compare/v1.13.4...v1.13.5) (2026-08-25)
 
 
