@@ -1,13 +1,13 @@
 # Odograph
 
-[![CI](https://github.com/maksimyugai/odograph/actions/workflows/ci.yml/badge.svg)](https://github.com/maksimyugai/odograph/actions/workflows/ci.yml)
-[![E2E](https://github.com/maksimyugai/odograph/actions/workflows/e2e.yml/badge.svg)](https://github.com/maksimyugai/odograph/actions/workflows/e2e.yml)
-[![Deploy Production](https://github.com/maksimyugai/odograph/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/maksimyugai/odograph/actions/workflows/deploy-production.yml)
+[![CI](https://github.com/iumalabs/odograph/actions/workflows/ci.yml/badge.svg)](https://github.com/iumalabs/odograph/actions/workflows/ci.yml)
+[![E2E](https://github.com/iumalabs/odograph/actions/workflows/e2e.yml/badge.svg)](https://github.com/iumalabs/odograph/actions/workflows/e2e.yml)
+[![Deploy Production](https://github.com/iumalabs/odograph/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/iumalabs/odograph/actions/workflows/deploy-production.yml)
 [![Production](https://img.shields.io/website?url=https%3A%2F%2Fodograph.dev&label=production)](https://odograph.dev)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/workers/)
-[![License: AGPL v3](https://img.shields.io/github/license/maksimyugai/odograph)](LICENSE)
-[![Open issues](https://img.shields.io/github/issues/maksimyugai/odograph)](https://github.com/maksimyugai/odograph/issues)
-[![Last commit](https://img.shields.io/github/last-commit/maksimyugai/odograph)](https://github.com/maksimyugai/odograph/commits/main)
+[![License: AGPL v3](https://img.shields.io/github/license/iumalabs/odograph)](LICENSE)
+[![Open issues](https://img.shields.io/github/issues/iumalabs/odograph)](https://github.com/iumalabs/odograph/issues)
+[![Last commit](https://img.shields.io/github/last-commit/iumalabs/odograph)](https://github.com/iumalabs/odograph/commits/main)
 
 Odograph is an open-source, self-hostable vehicle maintenance tracker — an alternative to
 [LubeLogger](https://github.com/hargata/lubelogger) built on the Cloudflare stack (Workers, D1, R2,
