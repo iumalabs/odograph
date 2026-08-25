@@ -1,3 +1,6 @@
+import { renderEmailHtml, renderEmailText } from "../email/template";
+import type { EmailContent } from "../email/template";
+
 // odograph.dev was never onboarded in Cloudflare's Email Sending product (distinct from Email
 // Routing, which is enabled for the zone but doesn't cover outbound send) — every email from this
 // address has silently failed to send. Cloudflare Email Sending is configured per exact domain,
@@ -30,10 +33,28 @@ const SUBJECTS: Record<MagicLinkEmailPurpose, string> = {
   "link": "Confirm linking this email to your Odograph account",
 };
 
-const ACTIONS: Record<MagicLinkEmailPurpose, string> = {
-  "new-account": "finish creating your account",
-  "sign-in": "sign in",
-  "link": "confirm linking this email to your account",
+const PURPOSE_TAGS: Record<MagicLinkEmailPurpose, string> = {
+  "new-account": "NEW ACCOUNT",
+  "sign-in": "SIGN-IN LINK",
+  "link": "CONFIRM EMAIL",
+};
+
+const HEADLINES: Record<MagicLinkEmailPurpose, string> = {
+  "new-account": "Create your account",
+  "sign-in": "Sign in to odograph",
+  "link": "Confirm this email address",
+};
+
+const BODY_TEXTS: Record<MagicLinkEmailPurpose, string> = {
+  "new-account": "Click below to finish creating your odograph account.",
+  "sign-in": "Click below to sign in to your odograph account.",
+  "link": "Click below to confirm linking this email address to your odograph account.",
+};
+
+const CTA_LABELS: Record<MagicLinkEmailPurpose, string> = {
+  "new-account": "Create account",
+  "sign-in": "Sign in",
+  "link": "Confirm email",
 };
 
 /**
@@ -53,17 +74,28 @@ export async function sendMagicLinkEmail(
 ): Promise<SendMagicLinkResult> {
   const verifyUrl = buildVerifyUrl(input.requestUrl, input.token);
   const subject = SUBJECTS[input.purpose];
-  const action = ACTIONS[input.purpose];
+
+  const content: EmailContent = {
+    purposeTag: PURPOSE_TAGS[input.purpose],
+    headline: HEADLINES[input.purpose],
+    bodyText: BODY_TEXTS[input.purpose],
+    ctaLabel: CTA_LABELS[input.purpose],
+    ctaUrl: verifyUrl,
+    expiryNote: "EXPIRES IN 15 MINUTES — single use, then this link stops working.",
+    details: [
+      { label: "ACCOUNT", value: input.email },
+      { label: "INSTANCE", value: new URL(input.requestUrl).hostname },
+    ],
+    fallbackNote: "Didn't request this? Safe to ignore — no account changes were made.",
+  };
 
   try {
     await env.EMAIL.send({
       to: input.email,
       from: FROM_ADDRESS,
       subject,
-      text:
-        `Click to ${action}: ${verifyUrl}\n\nThis link expires in 15 minutes and can only be used once.`,
-      html:
-        `<p><a href="${verifyUrl}">Click here to ${action}</a></p><p>This link expires in 15 minutes and can only be used once.</p>`,
+      text: renderEmailText(content),
+      html: renderEmailHtml(content),
     });
     return { sent: true };
   } catch (error) {
