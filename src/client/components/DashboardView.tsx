@@ -185,6 +185,16 @@ export function DashboardView(
     );
   }
 
+  // costPerDistance from the server is always cost-per-1-native-unit (vehicle.odometerUnit) —
+  // computeVehicleAggregates never applies the display unit to it (issue #236, unlike the
+  // reminder due-in distances above, which do convert). Rescale here: convertDistance(1,
+  // displayUnit, nativeUnit) is "how many native units is 1 display unit", so multiplying gives
+  // cost-per-1-display-unit.
+  const rawCostPerDistance = data?.aggregates?.costPerDistance ?? null;
+  const costPerDistance = rawCostPerDistance !== null
+    ? rawCostPerDistance * convertDistance(1, distanceUnit, vehicle.odometerUnit)
+    : null;
+
   const periods = data?.periods ?? [];
   const totals = periods.reduce(
     (acc, p) => ({
@@ -298,7 +308,7 @@ export function DashboardView(
             className="dashboard-stat-value"
             style={{ font: "500 22px var(--font-mono)", marginTop: 8, color: "var(--acc)" }}
           >
-            {formatCostFigure(data?.aggregates?.costPerDistance ?? null, currencySymbol)}
+            {formatCostFigure(costPerDistance, currencySymbol)}
           </div>
         </div>
       </div>
