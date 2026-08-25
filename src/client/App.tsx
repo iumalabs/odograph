@@ -62,7 +62,6 @@ import { AuthScreen } from "./components/AuthScreen";
 import { Garage } from "./components/Garage";
 import { SearchBar } from "./components/SearchBar";
 import { LazyViewBoundary } from "./components/LazyViewBoundary";
-import { reportDownloadUrl } from "./vehicle-aggregates";
 import { SyncStatusIndicator } from "./components/SyncStatusIndicator";
 import {
   mergeFuelRecords,
@@ -104,11 +103,9 @@ const DocumentPanel = lazy(() =>
 const PlanBoard = lazy(() =>
   import("./components/PlanBoard").then((m) => ({ default: m.PlanBoard }))
 );
-const ExpenseBreakdownPanel = lazy(() =>
-  import("./components/ExpenseBreakdownPanel").then((m) => ({
-    default: m.ExpenseBreakdownPanel,
-  }))
-);
+// ExpenseBreakdownPanel deliberately isn't its own lazy() entry (issue #207) — it's statically
+// imported inside DashboardView.tsx itself now, so both resolve as one chunk instead of racing
+// as two independently-timed dynamic imports under the same Suspense boundary.
 const DashboardView = lazy(() =>
   import("./components/DashboardView").then((m) => ({ default: m.DashboardView }))
 );
@@ -685,31 +682,6 @@ export function App() {
             fuelRecords={mergedFuelRecords}
             reminderRules={mergedReminderRules}
           />
-          {selectedVehicleId && (
-            <div style={{ marginTop: 20 }}>
-              <h2 style={{ font: "600 14px var(--font-ui)", letterSpacing: "-.01em" }}>
-                {t("expenseBreakdownHeading")}
-              </h2>
-              <ExpenseBreakdownPanel vehicleId={selectedVehicleId} currencySymbol={symbol} />
-              <a
-                href={reportDownloadUrl(selectedVehicleId)}
-                style={{
-                  display: "inline-flex",
-                  alignSelf: "flex-start",
-                  marginTop: 14,
-                  background: "transparent",
-                  border: "1px solid var(--line)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "10px 14px",
-                  color: "var(--fg)",
-                  font: "600 11.5px var(--font-ui)",
-                  textDecoration: "none",
-                }}
-              >
-                {t("downloadReportLabel")}
-              </a>
-            </div>
-          )}
         </LazyViewBoundary>
       </AppShell>
     );
