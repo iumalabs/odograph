@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.4](https://github.com/maksimyugai/odograph/compare/v1.13.3...v1.13.4) (2026-08-25)
+
+
+### Bug Fixes
+
+* send email from odograph.iuma.dev instead of odograph.dev (issue [#223](https://github.com/maksimyugai/odograph/issues/223)) ([#224](https://github.com/maksimyugai/odograph/issues/224)) ([f447aa7](https://github.com/maksimyugai/odograph/commit/f447aa70fafa9b66e15e8ce5889dd4eb93a6e0be))
+
 ## [1.13.3](https://github.com/maksimyugai/odograph/compare/v1.13.2...v1.13.3) (2026-08-25)
 
 
