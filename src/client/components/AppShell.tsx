@@ -433,7 +433,12 @@ export function AppShell(
         )}
 
         <main className="app-main" style={{ flex: 1, overflow: "auto", padding: "20px 22px 26px" }}>
-          {children}
+          <div
+            className="app-main-content"
+            style={{ width: "100%", maxWidth: 1180, margin: "0 auto" }}
+          >
+            {children}
+          </div>
         </main>
       </div>
 
