@@ -1,6 +1,8 @@
 // odograph.dev was never onboarded in Cloudflare's Email Sending product (distinct from Email
 // Routing, which is enabled for the zone but doesn't cover outbound send) — every email from this
-// address has silently failed to send. iuma.dev is already configured there (issue #223).
+// address has silently failed to send. Cloudflare Email Sending is configured per exact domain,
+// not inherited by subdomains — auth@odograph.iuma.dev 502'd until odograph.iuma.dev was
+// onboarded there as its own domain, separately from the parent iuma.dev zone (issue #223).
 const FROM_ADDRESS = "auth@odograph.iuma.dev";
 
 export function normalizeEmail(email: string): string {
