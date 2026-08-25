@@ -1,7 +1,7 @@
 # v1.0 launch checklist
 
 Pre-GA checklist for Odograph, tracked against
-[issue #26](https://github.com/maksimyugai/odograph/issues/26).
+[issue #26](https://github.com/iumalabs/odograph/issues/26).
 
 ## Milestones
 
