@@ -1,3 +1,6 @@
+import { renderEmailHtml, renderEmailText } from "./template";
+import type { EmailContent } from "./template";
+
 // odograph.dev was never onboarded in Cloudflare's Email Sending product (distinct from Email
 // Routing, which is enabled for the zone but doesn't cover outbound send) — every email from this
 // address has silently failed to send. Cloudflare Email Sending is configured per exact domain,
@@ -24,13 +27,24 @@ export async function sendReminderDueEmail(
   const statusText = input.status === "overdue" ? "is overdue" : "is coming up";
   const subject = `${input.vehicleName}: ${input.itemLabel} ${statusText}`;
 
+  const content: EmailContent = {
+    purposeTag: "REMINDER",
+    headline: `${input.itemLabel} ${statusText}`,
+    bodyText: `Your reminder "${input.itemLabel}" for ${input.vehicleName} ${statusText}.`,
+    ctaLabel: null,
+    ctaUrl: null,
+    expiryNote: null,
+    details: [],
+    fallbackNote: null,
+  };
+
   try {
     await env.EMAIL.send({
       to: input.to,
       from: FROM_ADDRESS,
       subject,
-      text: `Your reminder "${input.itemLabel}" for ${input.vehicleName} ${statusText}.`,
-      html: `<p>Your reminder "${input.itemLabel}" for ${input.vehicleName} ${statusText}.</p>`,
+      text: renderEmailText(content),
+      html: renderEmailHtml(content),
     });
     return { sent: true };
   } catch (error) {
