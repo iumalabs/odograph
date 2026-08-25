@@ -1,4 +1,7 @@
-const FROM_ADDRESS = "auth@odograph.dev";
+// odograph.dev was never onboarded in Cloudflare's Email Sending product (distinct from Email
+// Routing, which is enabled for the zone but doesn't cover outbound send) — every email from this
+// address has silently failed to send. iuma.dev is already configured there (issue #223).
+const FROM_ADDRESS = "auth@odograph.iuma.dev";
 
 export type SendReminderDueEmailResult = { sent: true } | { sent: false; error: string };
 
