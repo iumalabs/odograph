@@ -279,6 +279,7 @@ export function PhotoGalleryPanel(props: PhotoGalleryPanelProps) {
           <button
             type="button"
             onClick={handleAdd}
+            disabled={formFile === null}
             style={{
               background: "var(--acc)",
               color: "var(--on-acc)",
@@ -286,7 +287,8 @@ export function PhotoGalleryPanel(props: PhotoGalleryPanelProps) {
               borderRadius: "var(--radius-md)",
               padding: "9px 14px",
               font: "600 11.5px var(--font-ui)",
-              cursor: "pointer",
+              cursor: formFile === null ? "not-allowed" : "pointer",
+              opacity: formFile === null ? 0.5 : 1,
             }}
           >
             {t("addPhoto")}
