@@ -160,8 +160,13 @@ export function Garage(props: GarageProps) {
           ? Math.round(convertDistance(currentOdometer, vehicle.odometerUnit, distanceUnit))
           : null;
         const averageFuelEconomy = summary?.averageFuelEconomy ?? null;
+        // costPerDistance from the server is always cost-per-1-native-unit (vehicle.odometerUnit)
+        // — computeVehicleAggregates never applies the display unit to it (issue #236, unlike
+        // currentOdometer above and averageFuelEconomy, both of which do convert). Rescale here:
+        // convertDistance(1, displayUnit, nativeUnit) is "how many native units is 1 display
+        // unit", so multiplying gives cost-per-1-display-unit.
         const costPer100Distance = summary?.costPerDistance != null
-          ? summary.costPerDistance * 100
+          ? summary.costPerDistance * convertDistance(1, distanceUnit, vehicle.odometerUnit) * 100
           : null;
         const urgentReminder = summary?.mostUrgentReminder ?? null;
         const remainingFraction = urgentReminder?.remainingFraction ?? null;
