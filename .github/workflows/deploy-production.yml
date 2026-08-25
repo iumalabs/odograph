@@ -47,9 +47,17 @@ jobs:
         run: deno task build:production
 
       # Idempotent — only applies migrations not already applied, safe to run
-      # on every deploy.
+      # on every deploy. Retried: this step talks to Cloudflare's API from a container on the
+      # shared self-hosted runner, whose rootless Podman networking has a documented flakiness
+      # under concurrent host load (github-runners RUNBOOK.md) — three consecutive real deploys
+      # failed here on transient fetch-failed/timeout errors, not auth or migration-state issues.
       - name: Apply D1 migrations (production)
-        run: deno task migrate:production
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 15
+          command: deno task migrate:production
 
       - name: Deploy to Cloudflare Workers (production)
         run: deno task deploy:production
