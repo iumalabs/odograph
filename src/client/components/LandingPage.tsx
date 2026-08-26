@@ -3,7 +3,7 @@ import { Logo } from "./Logo";
 import { SignInCard } from "./SignInCard";
 import { HelpView } from "./HelpView";
 import { useTheme } from "../theme";
-import { t } from "../i18n/strings";
+import { t, useLanguage } from "../i18n/strings";
 import { en as docsEn } from "../docs-content";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
@@ -50,6 +50,7 @@ const docsLinkStyle = {
 // the real SignInCard (Decision 1).
 export function LandingPage(props: LandingPageProps) {
   const [, toggleTheme] = useTheme();
+  const [language, setLanguage] = useLanguage();
   // Renders HelpView in place instead of opening an external link (specs/057 research.md Decision
   // 3) — reuses LandingPage's own header rather than a new signed-out "guest shell" chrome.
   const [showDocs, setShowDocs] = useState(false);
@@ -93,6 +94,24 @@ export function LandingPage(props: LandingPageProps) {
             }}
           >
             ◐
+          </button>
+          <button
+            type="button"
+            onClick={() => setLanguage(language === "en" ? "ru" : "en")}
+            style={{
+              height: 32,
+              padding: "0 10px",
+              display: "grid",
+              placeItems: "center",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-md)",
+              background: "transparent",
+              cursor: "pointer",
+              font: "600 11.5px var(--font-ui)",
+              color: "var(--dim)",
+            }}
+          >
+            {language === "en" ? t("languageToggleToRu") : t("languageToggleToEn")}
           </button>
           <button
             type="button"

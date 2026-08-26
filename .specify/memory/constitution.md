@@ -1,11 +1,12 @@
 <!--
 Sync Impact Report
-Version change: 1.0.0 → 1.1.0
-Modified principles: X. Toolchain Discipline — Deno is now the project's package manager and
-  task runner (dependencies, including Wrangler, declared as `npm:` specifiers in `deno.json`,
-  no `package.json`), replacing the prior "Wrangler stays npm-based (via npm, not Deno)" claim.
-  The core constraint — Deno MUST NOT be a source of runtime APIs inside Worker code — is
-  unchanged.
+Version change: 1.1.0 → 1.2.0
+Modified sections: Additional Constraints, "Interface language (v1)" — updated to describe the
+  shipped RU/EN interface-language toggle (specs/060-ru-en-language-toggle, issue #233),
+  replacing the prior "English only" v1 scope statement. Principle IX itself (language/locale
+  axis separation) is unchanged — this amendment only updates the locked product decision that
+  described how many languages had shipped so far, per Principle IX's own anticipation that
+  "additional languages can be added later without a string-extraction rewrite."
 Added sections: none
 Removed sections: none
 Deferred / TODO placeholders: none
@@ -148,9 +149,12 @@ applicable):
   aggregates until the user resolves them. Never silently merge or drop.
 - **Reminder channels (v1).** Email and web push. No generic outbound
   webhook in v1.
-- **Interface language (v1).** English only, fully routed through the i18n
-  layer required by Principle IX, so additional languages can be added
-  later without a string-extraction rewrite.
+- **Interface language.** English and Russian, both fully routed through the
+  i18n layer required by Principle IX, switchable via a per-device RU/EN
+  toggle (specs/060-ru-en-language-toggle). Server-rendered content
+  (transactional emails, redirect outcome text) stays English-only — the
+  toggle covers client-rendered UI chrome only. Additional languages can be
+  added the same way, without a string-extraction rewrite.
 
 **Technology stack:**
 - Runtime: Cloudflare Workers (`workerd`).
@@ -201,4 +205,4 @@ its description with a justification, not violate it silently. Complexity
 that isn't justified by one of the locked decisions or principles above
 should be simplified rather than merged.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-05 | **Last Amended**: 2026-08-05
+**Version**: 1.2.0 | **Ratified**: 2026-08-05 | **Last Amended**: 2026-08-26

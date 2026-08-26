@@ -54,7 +54,7 @@ import {
   updatePlanCard as updatePlanCardApi,
 } from "./plan-cards";
 import type { PlanCard, PlanCardStage } from "./plan-cards";
-import { t } from "./i18n/strings";
+import { t, useLanguage } from "./i18n/strings";
 import { currencySymbol, useCurrency } from "./currency";
 import { useDistanceUnit } from "./distance";
 import type { AppView } from "./components/AppShell";
@@ -206,6 +206,11 @@ export function App() {
   const [planCardTargetDate, setPlanCardTargetDate] = useState("");
   const [planCardEstimatedCost, setPlanCardEstimatedCost] = useState("");
   const [planCardUrgent, setPlanCardUrgent] = useState(false);
+
+  // Subscribing here (spec 060) forces this un-memoized tree to re-render on language change —
+  // every t() call below re-evaluates automatically, so no other component needs its own
+  // subscription (research.md Decision 1). The returned value itself isn't read here.
+  useLanguage();
 
   // Offline write queue (spec 020): re-renders whenever a pending/rejected action changes, so the
   // lists below always reflect the queue's current state without a manual refetch.

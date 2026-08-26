@@ -7,7 +7,7 @@ export default defineConfig(async () => {
 
   return {
     test: {
-      include: ["tests/server/**/*.test.ts"],
+      include: ["tests/server/**/*.test.ts", "tests/client/**/*.test.ts"],
       setupFiles: ["./tests/setup/apply-migrations.ts"],
     },
     plugins: [
