@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Attachment, DocumentCategory, VehicleDocument } from "../documents";
 import { AddIcon, AlertIcon, CameraIcon, ReceiptIcon, UploadIcon } from "../design/icons";
 import { t } from "../i18n/strings";
+import { isCameraCapableDevice } from "../device-capabilities";
 
 type DocumentPanelProps = {
   documents: VehicleDocument[];
@@ -442,28 +443,30 @@ export function DocumentPanel(props: DocumentPanelProps) {
                           }}
                         />
                       )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUploadTargetId(null);
-                          setCameraTargetId(cameraTargetId === document.id ? null : document.id);
-                        }}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                          background: "transparent",
-                          border: "1px solid var(--line)",
-                          borderRadius: "var(--radius-sm)",
-                          padding: "4px 8px",
-                          color: "var(--dim)",
-                          font: "500 10.5px var(--font-mono)",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <CameraIcon size={12} />
-                        {t("takePhotoLabel")}
-                      </button>
+                      {isCameraCapableDevice() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadTargetId(null);
+                            setCameraTargetId(cameraTargetId === document.id ? null : document.id);
+                          }}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            background: "transparent",
+                            border: "1px solid var(--line)",
+                            borderRadius: "var(--radius-sm)",
+                            padding: "4px 8px",
+                            color: "var(--dim)",
+                            font: "500 10.5px var(--font-mono)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <CameraIcon size={12} />
+                          {t("takePhotoLabel")}
+                        </button>
+                      )}
                       {cameraTargetId === document.id && (
                         <input
                           type="file"
