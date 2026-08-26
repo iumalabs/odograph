@@ -118,19 +118,27 @@ export function DashboardView(
     DashboardViewProps,
 ) {
   const [data, setData] = useState<DashboardData | null>(null);
+  // Distinct from `data === null`: that's also true for the entire fetch's pending window, which
+  // would otherwise render the same zeroed/empty UI a genuinely-empty vehicle gets — a confident
+  // "€0.00" / "No spending recorded yet." flashed on every navigation, not just an empty account
+  // (issue #248). `loaded` gates which of those two states the render below shows.
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!vehicle) {
       setData(null);
+      setLoaded(true);
       return;
     }
     let cancelled = false;
+    setLoaded(false);
     Promise.all([
       getVehicleAggregates(vehicle.id, distanceUnit).catch(() => null),
       getVehicleExpenseBreakdown(vehicle.id, "month").catch(() => [] as ExpensePeriod[]),
     ]).then(([aggregates, periods]) => {
       if (cancelled) return;
       setData({ aggregates, periods });
+      setLoaded(true);
     });
     return () => {
       cancelled = true;
@@ -196,14 +204,18 @@ export function DashboardView(
     : null;
 
   const periods = data?.periods ?? [];
-  const totals = periods.reduce(
-    (acc, p) => ({
-      maintenanceCost: acc.maintenanceCost + p.maintenanceCost,
-      fuelCost: acc.fuelCost + p.fuelCost,
-      totalCost: acc.totalCost + p.totalCost,
-    }),
-    { maintenanceCost: 0, fuelCost: 0, totalCost: 0 },
-  );
+  // null (not a reduce-over-[]) while the fetch is still pending — formatCostFigure already
+  // renders null as "—", never a fabricated "€0.00" for data that just hasn't loaded yet.
+  const totals = loaded
+    ? periods.reduce(
+      (acc, p) => ({
+        maintenanceCost: acc.maintenanceCost + p.maintenanceCost,
+        fuelCost: acc.fuelCost + p.fuelCost,
+        totalCost: acc.totalCost + p.totalCost,
+      }),
+      { maintenanceCost: 0, fuelCost: 0, totalCost: 0 },
+    )
+    : null;
   const chartMonths = lastSixMonthKeys().map((period) => {
     const found = periods.find((p) => p.period === period);
     return {
@@ -251,7 +263,7 @@ export function DashboardView(
             className="dashboard-stat-value"
             style={{ font: "500 22px var(--font-mono)", marginTop: 8 }}
           >
-            {formatCostFigure(totals.totalCost, currencySymbol)}
+            {formatCostFigure(totals?.totalCost ?? null, currencySymbol)}
           </div>
         </div>
         <div
@@ -270,7 +282,7 @@ export function DashboardView(
             className="dashboard-stat-value"
             style={{ font: "500 22px var(--font-mono)", marginTop: 8 }}
           >
-            {formatCostFigure(totals.fuelCost, currencySymbol)}
+            {formatCostFigure(totals?.fuelCost ?? null, currencySymbol)}
           </div>
         </div>
         <div
@@ -289,7 +301,7 @@ export function DashboardView(
             className="dashboard-stat-value"
             style={{ font: "500 22px var(--font-mono)", marginTop: 8 }}
           >
-            {formatCostFigure(totals.maintenanceCost, currencySymbol)}
+            {formatCostFigure(totals?.maintenanceCost ?? null, currencySymbol)}
           </div>
         </div>
         <div
@@ -320,57 +332,64 @@ export function DashboardView(
           borderRadius: "var(--radius-lg)",
           padding: 16,
           display: "flex",
-          alignItems: "flex-end",
+          alignItems: loaded ? "flex-end" : "center",
+          justifyContent: loaded ? "flex-start" : "center",
           gap: 10,
           height: 160,
         }}
       >
-        {chartMonths.map((m) => {
-          const total = m.maintenanceCost + m.fuelCost;
-          const heightPct = (total / maxMonthTotal) * 100;
-          const fuelSharePct = total > 0 ? (m.fuelCost / total) * 100 : 0;
-          return (
-            <div
-              key={m.period}
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 6,
-                height: "100%",
-                justifyContent: "flex-end",
-              }}
-            >
-              <span style={{ font: "400 9.5px var(--font-mono)", color: "var(--dim)" }}>
-                {formatCostFigure(total, currencySymbol)}
-              </span>
+        {!loaded
+          ? (
+            <span style={{ font: "500 12.5px var(--font-ui)", color: "var(--dim)" }}>
+              {t("viewLoadingLabel")}
+            </span>
+          )
+          : chartMonths.map((m) => {
+            const total = m.maintenanceCost + m.fuelCost;
+            const heightPct = (total / maxMonthTotal) * 100;
+            const fuelSharePct = total > 0 ? (m.fuelCost / total) * 100 : 0;
+            return (
               <div
+                key={m.period}
                 style={{
-                  width: "100%",
-                  height: `${heightPct}%`,
-                  minHeight: total > 0 ? 3 : 0,
+                  flex: 1,
                   display: "flex",
                   flexDirection: "column",
+                  alignItems: "center",
+                  gap: 6,
+                  height: "100%",
                   justifyContent: "flex-end",
-                  background: "var(--panel2)",
-                  borderRadius: 3,
-                  overflow: "hidden",
                 }}
               >
+                <span style={{ font: "400 9.5px var(--font-mono)", color: "var(--dim)" }}>
+                  {formatCostFigure(total, currencySymbol)}
+                </span>
                 <div
-                  style={{ height: `${fuelSharePct}%`, background: "var(--acc)" }}
-                />
-                <div
-                  style={{ height: `${100 - fuelSharePct}%`, background: "var(--acc2)" }}
-                />
+                  style={{
+                    width: "100%",
+                    height: `${heightPct}%`,
+                    minHeight: total > 0 ? 3 : 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-end",
+                    background: "var(--panel2)",
+                    borderRadius: 3,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{ height: `${fuelSharePct}%`, background: "var(--acc)" }}
+                  />
+                  <div
+                    style={{ height: `${100 - fuelSharePct}%`, background: "var(--acc2)" }}
+                  />
+                </div>
+                <span style={{ font: "400 9.5px var(--font-mono)", color: "var(--dim)" }}>
+                  {m.period.slice(5)}
+                </span>
               </div>
-              <span style={{ font: "400 9.5px var(--font-mono)", color: "var(--dim)" }}>
-                {m.period.slice(5)}
-              </span>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
