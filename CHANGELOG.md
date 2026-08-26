@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.1](https://github.com/iumalabs/odograph/compare/v1.16.0...v1.16.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* pin magic-link emails to the canonical production domain ([#257](https://github.com/iumalabs/odograph/issues/257)) ([37500f2](https://github.com/iumalabs/odograph/commit/37500f29dfe57ca342a4134f3a7612f67ce3ee36))
+
 ## [1.16.0](https://github.com/iumalabs/odograph/compare/v1.15.0...v1.16.0) (2026-08-26)
 
 
