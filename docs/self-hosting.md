@@ -3,8 +3,8 @@
 Odograph runs entirely on Cloudflare's free-tier-friendly stack (Workers, D1, R2, KV) — this guide
 walks through deploying your own instance to your own Cloudflare account, distinct from
 [docs/deployment.md](deployment.md), which documents this project's own GitHub-Actions-only pipeline
-for `odograph.dev`. A self-hosted instance doesn't need GitHub Actions at all — plain `wrangler`
-commands from your own machine are the supported path here.
+for `odograph.iuma.dev`. A self-hosted instance doesn't need GitHub Actions at all — plain
+`wrangler` commands from your own machine are the supported path here.
 
 ## Prerequisites
 
@@ -74,8 +74,8 @@ is already wired up; you only need to:
 
 1. Enable Email Routing for your domain in the Cloudflare dashboard.
 2. Change the hardcoded `FROM_ADDRESS` constant in `src/server/auth/magic-link.ts` and
-   `src/server/email/reminder-notification.ts` (currently `auth@odograph.dev`) to an address on your
-   own verified domain, and redeploy.
+   `src/server/email/reminder-notification.ts` (currently `auth@odograph.iuma.dev`) to an address on
+   your own verified domain, and redeploy.
 
 Without this, magic-link sign-in and reminder emails will fail to send — passkey sign-in and every
 other feature are unaffected.
@@ -111,6 +111,7 @@ self-hosted app you own and update on your own schedule.
 ## What you don't need for self-hosting
 
 - GitHub Actions, GitHub Environments, or any CI/CD secret — those exist for _this_ project's own
-  `odograph.dev` deployment (see [docs/deployment.md](deployment.md)), not because Odograph itself
-  requires them. Plain `wrangler deploy` from your machine is the fully-supported self-host path.
+  `odograph.iuma.dev` deployment (see [docs/deployment.md](deployment.md)), not because Odograph
+  itself requires them. Plain `wrangler deploy` from your machine is the fully-supported self-host
+  path.
 - A GitHub account at all, beyond cloning the source.

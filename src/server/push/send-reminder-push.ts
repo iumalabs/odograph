@@ -1,6 +1,6 @@
 import { sendPushNotification } from "web-push-browser";
 
-const VAPID_SUBJECT = "mailto:support@odograph.dev";
+const VAPID_SUBJECT = "mailto:support@odograph.iuma.dev";
 
 export type PushSubscriptionInput = {
   endpoint: string;

@@ -25,7 +25,7 @@ action needed.
 - [x] [README.md](../README.md) — stack, dev process, environments, getting started.
 - [x] [CONTRIBUTING.md](../CONTRIBUTING.md) — Spec Kit cycle, exemptions, git workflow.
 - [x] [docs/deployment.md](deployment.md) — this project's own GitHub-Actions-only pipeline for
-      `odograph.dev`.
+      `odograph.iuma.dev`.
 - [x] [docs/self-hosting.md](self-hosting.md) — deploying your own instance to your own Cloudflare
       account, independent of this project's CI/CD.
 - [x] [docs/backup-restore.md](backup-restore.md) — D1/R2/KV backup and disaster-recovery
@@ -63,7 +63,7 @@ Cross-checked against `.specify/memory/constitution.md`:
 - [x] **X. Toolchain Discipline** — Deno-only, enforced by `deno task check`'s repository-boundary
       guard and this project's own CI.
 - [x] **XI. English-Only Project Artifacts** — consistent throughout.
-- [x] **XII. GitHub-Actions-Only Deployment** — enforced for `odograph.dev` itself
+- [x] **XII. GitHub-Actions-Only Deployment** — enforced for `odograph.iuma.dev` itself
       (docs/deployment.md); self-hosters use plain `wrangler` by design (docs/self-hosting.md),
       which is a deliberately different, supported path for a different audience, not a violation of
       this principle as it applies to _this project's own_ deployment.

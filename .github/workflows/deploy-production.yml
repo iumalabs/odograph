@@ -24,7 +24,7 @@ jobs:
     runs-on: [self-hosted, deploy]
     environment:
       name: production
-      url: https://odograph.dev
+      url: https://odograph.iuma.dev
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

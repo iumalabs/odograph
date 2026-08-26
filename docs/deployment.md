@@ -8,7 +8,8 @@ not.
 ## Cloudflare account
 
 - Account: **Max Yugai** (`8b655d0dde6d223b9ce11116a014973a`)
-- Zone: `odograph.dev` (already active in the account)
+- Zone: `iuma.dev` (already active in the account — `odograph.iuma.dev` is a custom domain within
+  this zone, not a zone of its own; see issue #197)
 
 ## Environments
 
@@ -17,7 +18,7 @@ not.
 | Trigger      | every pull request (opened/synchronized)                                                                                                                                                                               | pushing a `v<major>.<minor>.<patch>` tag — **not** every push to `main` (see Releases below) |
 | Mechanism    | `wrangler versions upload` — a new Version of the one `odograph-preview` Worker, never promoted to serve default traffic                                                                                               | `wrangler deploy`                                                                            |
 | Worker name  | `odograph-preview` (same Worker for every PR — only the Version differs)                                                                                                                                               | `odograph`                                                                                   |
-| URL          | `https://pr-<PR number>-odograph-preview.kgz.workers.dev` (`--preview-alias`, stable across every push to the same PR)                                                                                                 | `https://odograph.dev`                                                                       |
+| URL          | `https://pr-<PR number>-odograph-preview.kgz.workers.dev` (`--preview-alias`, stable across every push to the same PR)                                                                                                 | `https://odograph.iuma.dev`                                                                  |
 | D1 / R2 / KV | dedicated `-preview` resources, shared across all open PRs                                                                                                                                                             | dedicated production resources                                                               |
 | Lifecycle    | uploaded on PR open, re-uploaded (same alias, new Version) on every push — **no teardown on PR close**: nothing separate exists to delete, so the alias keeps serving whatever Version was last uploaded, indefinitely | long-lived                                                                                   |
 
@@ -35,16 +36,17 @@ scheduled-handler test uses `createScheduledController()` directly (see
 sweep in _any_ environment — preview or production. If a future feature ever needs to watch a real
 Cron fire against in-review code, that's a real gap worth revisiting then, not a blocker now.
 
-Production uses the custom domain `odograph.dev` via a Cloudflare custom domain / route binding,
-configured in `wrangler.toml` under `[env.production]`.
+Production uses the custom domain `odograph.iuma.dev` via a Cloudflare custom domain / route
+binding, configured in `wrangler.toml` under `[env.production]`.
 
 ## Releases
 
 Production deploys are tag-triggered (`deploy-production.yml` matches `v[0-9]*.[0-9]*.[0-9]*`), not
 tied to every push to `main` — merging a PR ships it to `main` and to the next PR's preview, but not
-to `odograph.dev` until a release tag actually gets pushed. This decouples "code is on `main`" from
-"code is live," matching the same reasoning that moved e2e off the PR-blocking path (issue #89): a
-bounded, predictable release cadence instead of every single merge being its own production event.
+to `odograph.iuma.dev` until a release tag actually gets pushed. This decouples "code is on `main`"
+from "code is live," matching the same reasoning that moved e2e off the PR-blocking path (issue
+#89): a bounded, predictable release cadence instead of every single merge being its own production
+event.
 
 Tagging itself is handled by [release-please](https://github.com/googleapis/release-please) (the
 `release-type: simple` mode — there's no `package.json` to bump, just the version tracked in
@@ -96,7 +98,7 @@ Repository/environment configuration:
 | Name                    | Kind                                             | Used by                                                      | Notes                                                                                |
 | ----------------------- | ------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | `CLOUDFLARE_API_TOKEN`  | **environment secret**, `preview` environment    | `deploy-preview.yml` (declares `environment: preview`)       | scoped token, see permissions below — account-level only, no zone access             |
-| `CLOUDFLARE_API_TOKEN`  | **environment secret**, `production` environment | `deploy-production.yml` (declares `environment: production`) | scoped token, see permissions below — account-level + `odograph.dev` zone            |
+| `CLOUDFLARE_API_TOKEN`  | **environment secret**, `production` environment | `deploy-production.yml` (declares `environment: production`) | scoped token, see permissions below — account-level + `iuma.dev` zone                |
 | `CLOUDFLARE_ACCOUNT_ID` | repository variable (`gh variable set`)          | both workflows                                               | `8b655d0dde6d223b9ce11116a014973a` — not sensitive, so it's a variable, not a secret |
 
 **Same secret name, two different values, scoped per
@@ -124,8 +126,8 @@ since preview never touches a custom domain:
 
 ### `production` environment `CLOUDFLARE_API_TOKEN` permissions
 
-Same account resources as above, **plus** one zone resource (zone `odograph.dev`) — required because
-the production route uses `custom_domain = true` in `wrangler.toml`:
+Same account resources as above, **plus** one zone resource (zone `iuma.dev`) — required because the
+production route uses `custom_domain = true` in `wrangler.toml`:
 
 | Permission     | Level |
 | -------------- | ----- |

@@ -3,7 +3,7 @@
 [![CI](https://github.com/iumalabs/odograph/actions/workflows/ci.yml/badge.svg)](https://github.com/iumalabs/odograph/actions/workflows/ci.yml)
 [![E2E](https://github.com/iumalabs/odograph/actions/workflows/e2e.yml/badge.svg)](https://github.com/iumalabs/odograph/actions/workflows/e2e.yml)
 [![Deploy Production](https://github.com/iumalabs/odograph/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/iumalabs/odograph/actions/workflows/deploy-production.yml)
-[![Production](https://img.shields.io/website?url=https%3A%2F%2Fodograph.dev&label=production)](https://odograph.dev)
+[![Production](https://img.shields.io/website?url=https%3A%2F%2Fodograph.iuma.dev&label=production)](https://odograph.iuma.dev)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/workers/)
 [![License: AGPL v3](https://img.shields.io/github/license/iumalabs/odograph)](LICENSE)
 [![Open issues](https://img.shields.io/github/issues/iumalabs/odograph)](https://github.com/iumalabs/odograph/issues)
@@ -64,7 +64,7 @@ by the Spec Kit skills in `.claude/skills/`.
 | Environment | Trigger            | URL                                                |
 | ----------- | ------------------ | -------------------------------------------------- |
 | Preview     | every pull request | per-PR `*.workers.dev` URL, posted as a PR comment |
-| Production  | merge to `main`    | `https://odograph.dev`                             |
+| Production  | merge to `main`    | `https://odograph.iuma.dev`                        |
 
 All deploys happen through GitHub Actions — see [docs/deployment.md](docs/deployment.md). There is
 no local `wrangler deploy` path to either environment.
