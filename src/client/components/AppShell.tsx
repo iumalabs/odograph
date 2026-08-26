@@ -13,6 +13,7 @@ import {
   DocumentIcon,
   FuelIcon,
   GarageIcon,
+  HelpIcon,
   PhotoIcon,
   PlannerIcon,
   ServiceIcon,
@@ -33,7 +34,8 @@ export type AppView =
   | "planner"
   | "documents"
   | "review"
-  | "settings";
+  | "settings"
+  | "help";
 
 type AppShellProps = {
   title: string;
@@ -49,7 +51,7 @@ type AppShellProps = {
   /** Transient save-confirmation message (specs/046) — null when nothing to show. */
   toast: string | null;
   /** Shared error banner (issue #179) — rendered here, once, so it's visible regardless of which
-   * of the ten `view`s is active; previously duplicated only into the Garage view's own JSX, so
+   * `view` is active; previously duplicated only into the Garage view's own JSX, so
    * every setError() call from any other screen (attachment rejections, VIN lookup failures, ...)
    * had nothing to render it against. null when nothing to show. */
   error: string | null;
@@ -76,7 +78,8 @@ const NAV_ITEMS: {
     | "plannerNavLabel"
     | "documentsNavLabel"
     | "syncReviewNavLabel"
-    | "settingsNavLabel";
+    | "settingsNavLabel"
+    | "helpNavLabel";
 }[] = [
   { view: "garage", icon: GarageIcon, labelKey: "garageNavLabel" },
   { view: "dashboard", icon: DashboardIcon, labelKey: "dashboardNavLabel" },
@@ -88,6 +91,7 @@ const NAV_ITEMS: {
   { view: "documents", icon: DocumentIcon, labelKey: "documentsNavLabel" },
   { view: "review", icon: AlertIcon, labelKey: "syncReviewNavLabel" },
   { view: "settings", icon: SettingsIcon, labelKey: "settingsNavLabel" },
+  { view: "help", icon: HelpIcon, labelKey: "helpNavLabel" },
 ];
 
 // Header currency dropdown options (specs/047) — duplicates the same four currencies

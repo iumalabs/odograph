@@ -62,6 +62,7 @@ import { LandingPage } from "./components/LandingPage";
 import { Garage } from "./components/Garage";
 import { SearchBar } from "./components/SearchBar";
 import { LazyViewBoundary } from "./components/LazyViewBoundary";
+import { en as docsEn } from "./docs-content";
 import { SyncStatusIndicator } from "./components/SyncStatusIndicator";
 import {
   mergeFuelRecords,
@@ -112,6 +113,7 @@ const DashboardView = lazy(() =>
 const SyncReviewScreen = lazy(() =>
   import("./components/SyncReviewScreen").then((m) => ({ default: m.SyncReviewScreen }))
 );
+const HelpView = lazy(() => import("./components/HelpView").then((m) => ({ default: m.HelpView })));
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
@@ -1156,6 +1158,30 @@ export function App() {
             currency={currency}
             onCurrencyChange={setCurrency}
           />
+        </LazyViewBoundary>
+      </AppShell>
+    );
+  }
+
+  if (view === "help") {
+    return (
+      <AppShell
+        title={t("helpNavLabel")}
+        view={view}
+        onSelectView={setView}
+        reviewBadgeCount={rejectedActionCount}
+        vehicles={mergedVehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={selectVehicle}
+        toast={toast}
+        error={error}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
+      >
+        <LazyViewBoundary>
+          <HelpView sections={docsEn} />
         </LazyViewBoundary>
       </AppShell>
     );
