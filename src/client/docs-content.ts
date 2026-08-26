@@ -112,7 +112,7 @@ export const en: DocSection[] = [
       {
         kind: "paragraph",
         text:
-          "Every account's data is fully isolated from every other account's — nothing is shared by default. You can permanently delete your account and everything in it from Settings; this is immediate and cannot be undone.",
+          "Every account's data is fully isolated from every other account's — nothing is shared by default. You can permanently delete your account and everything in it from Account; this is immediate and cannot be undone.",
       },
     ],
   },
@@ -177,13 +177,13 @@ export const en: DocSection[] = [
     kicker: "AUTOMATION",
     title: "API access",
     lead:
-      "For scripting or home automation, you can create a scoped API token from Settings and call the same REST API the app itself uses.",
+      "For scripting or home automation, you can create a scoped API token from Account and call the same REST API the app itself uses.",
     blocks: [
       { kind: "heading", text: "Creating a token" },
       {
         kind: "paragraph",
         text:
-          "Give it a label and a scope — read or write — from Settings. The token is shown once at creation time; store it yourself, since it isn't shown again.",
+          "Give it a label and a scope — read or write — from Account. The token is shown once at creation time; store it yourself, since it isn't shown again.",
       },
       { kind: "heading", text: "Using it" },
       {
@@ -194,7 +194,7 @@ export const en: DocSection[] = [
       {
         kind: "note",
         text:
-          "A read-scoped token can't perform writes, even if you construct the request yourself. Revoke a token any time from Settings — it stops working immediately.",
+          "A read-scoped token can't perform writes, even if you construct the request yourself. Revoke a token any time from Account — it stops working immediately.",
       },
     ],
   },
