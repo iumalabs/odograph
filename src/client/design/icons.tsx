@@ -176,3 +176,13 @@ export function SettingsIcon({ size = 20 }: IconProps) {
     </svg>
   );
 }
+
+export function HelpIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...commonProps}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .9-1 1.6v.3" />
+      <path d="M12 17.1h.01" />
+    </svg>
+  );
+}

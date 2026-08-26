@@ -136,6 +136,12 @@
   .landing-hero {
     grid-template-columns: 1fr !important;
   }
+
+  /* The Help viewer's section-list + content two-column layout (specs/057) stacks to one column,
+     same treatment as every other two-column layout at this breakpoint. */
+  .help-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (max-width: 420px) {

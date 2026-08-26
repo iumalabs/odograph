@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Logo } from "./Logo";
 import { SignInCard } from "./SignInCard";
+import { HelpView } from "./HelpView";
 import { useTheme } from "../theme";
 import { t } from "../i18n/strings";
+import { en as docsEn } from "../docs-content";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
@@ -19,11 +22,6 @@ type LandingPageProps = {
   googleSignInUrl: string;
   error: string | null;
 };
-
-// The real public GitHub README — the app has no in-app documentation viewer yet (tracked
-// separately as issue #230), so linking here is the only real, already-working destination
-// (specs/056 research.md Decision 2).
-const DOCS_URL = "https://github.com/iumalabs/odograph";
 
 const SIGN_IN_SECTION_ID = "sign-in";
 
@@ -52,6 +50,9 @@ const docsLinkStyle = {
 // the real SignInCard (Decision 1).
 export function LandingPage(props: LandingPageProps) {
   const [, toggleTheme] = useTheme();
+  // Renders HelpView in place instead of opening an external link (specs/057 research.md Decision
+  // 3) — reuses LandingPage's own header rather than a new signed-out "guest shell" chrome.
+  const [showDocs, setShowDocs] = useState(false);
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--fg)" }}>
@@ -68,14 +69,13 @@ export function LandingPage(props: LandingPageProps) {
       >
         <Logo size={26} withWordmark />
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 9 }}>
-          <a
-            href={DOCS_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => setShowDocs(true)}
             style={docsLinkStyle}
           >
             {t("landingDocsLink")}
-          </a>
+          </button>
           <button
             type="button"
             onClick={toggleTheme}
@@ -115,80 +115,88 @@ export function LandingPage(props: LandingPageProps) {
         </div>
       </header>
 
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "38px 30px",
-        }}
-      >
-        <div
-          className="landing-hero"
-          style={{
-            width: "100%",
-            maxWidth: 1080,
-            display: "grid",
-            gridTemplateColumns: "minmax(0,1.05fr) minmax(0,.95fr)",
-            gap: 44,
-            alignItems: "center",
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 22, minWidth: 0 }}>
-            <div
-              style={{
-                font: "400 10.5px var(--font-mono)",
-                color: "var(--acc)",
-                letterSpacing: ".14em",
-              }}
-            >
-              {t("landingKicker")}
-            </div>
-            <div
-              style={{
-                font: "700 48px/1.06 var(--font-ui)",
-                letterSpacing: "-.035em",
-                textWrap: "pretty",
-              }}
-            >
-              {t("landingHeadlineLine1")}
-              <br />
-              {t("landingHeadlineLine2")}
-              <br />
-              {t("landingHeadlineLine3")}
-            </div>
-            <div
-              style={{
-                font: "400 14px/1.6 var(--font-ui)",
-                color: "var(--dim)",
-                maxWidth: 430,
-                textWrap: "pretty",
-              }}
-            >
-              {t("landingLead")}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 7,
-                font: "400 11px/1.6 var(--font-mono)",
-                color: "var(--dim)",
-                borderTop: "1px solid var(--line)",
-                paddingTop: 17,
-              }}
-            >
-              <div>{t("landingNote1")}</div>
-              <div>{t("landingNote2")}</div>
-            </div>
+      {showDocs
+        ? (
+          <div style={{ padding: "38px 30px" }}>
+            <HelpView sections={docsEn} onBack={() => setShowDocs(false)} />
           </div>
+        )
+        : (
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "38px 30px",
+            }}
+          >
+            <div
+              className="landing-hero"
+              style={{
+                width: "100%",
+                maxWidth: 1080,
+                display: "grid",
+                gridTemplateColumns: "minmax(0,1.05fr) minmax(0,.95fr)",
+                gap: 44,
+                alignItems: "center",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 22, minWidth: 0 }}>
+                <div
+                  style={{
+                    font: "400 10.5px var(--font-mono)",
+                    color: "var(--acc)",
+                    letterSpacing: ".14em",
+                  }}
+                >
+                  {t("landingKicker")}
+                </div>
+                <div
+                  style={{
+                    font: "700 48px/1.06 var(--font-ui)",
+                    letterSpacing: "-.035em",
+                    textWrap: "pretty",
+                  }}
+                >
+                  {t("landingHeadlineLine1")}
+                  <br />
+                  {t("landingHeadlineLine2")}
+                  <br />
+                  {t("landingHeadlineLine3")}
+                </div>
+                <div
+                  style={{
+                    font: "400 14px/1.6 var(--font-ui)",
+                    color: "var(--dim)",
+                    maxWidth: 430,
+                    textWrap: "pretty",
+                  }}
+                >
+                  {t("landingLead")}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 7,
+                    font: "400 11px/1.6 var(--font-mono)",
+                    color: "var(--dim)",
+                    borderTop: "1px solid var(--line)",
+                    paddingTop: 17,
+                  }}
+                >
+                  <div>{t("landingNote1")}</div>
+                  <div>{t("landingNote2")}</div>
+                </div>
+              </div>
 
-          <div id={SIGN_IN_SECTION_ID}>
-            <SignInCard {...props} />
+              <div id={SIGN_IN_SECTION_ID}>
+                <SignInCard {...props} />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        )}
     </div>
   );
 }
