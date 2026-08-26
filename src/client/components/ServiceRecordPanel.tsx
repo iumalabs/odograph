@@ -11,6 +11,7 @@ import {
 import type { ServiceDueEstimate } from "../service-due-estimate";
 import { AddIcon, CameraIcon, ReceiptIcon, ServiceIcon, UploadIcon } from "../design/icons";
 import { t } from "../i18n/strings";
+import { isCameraCapableDevice } from "../device-capabilities";
 
 type ServiceRecordPanelProps = {
   vehicleId: string;
@@ -542,28 +543,30 @@ export function ServiceRecordPanel(props: ServiceRecordPanelProps) {
                           }}
                         />
                       )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUploadTargetId(null);
-                          setCameraTargetId(cameraTargetId === record.id ? null : record.id);
-                        }}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                          background: "transparent",
-                          border: "1px solid var(--line)",
-                          borderRadius: "var(--radius-sm)",
-                          padding: "4px 8px",
-                          color: "var(--dim)",
-                          font: "500 10.5px var(--font-mono)",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <CameraIcon size={12} />
-                        {t("takePhotoLabel")}
-                      </button>
+                      {isCameraCapableDevice() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadTargetId(null);
+                            setCameraTargetId(cameraTargetId === record.id ? null : record.id);
+                          }}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            background: "transparent",
+                            border: "1px solid var(--line)",
+                            borderRadius: "var(--radius-sm)",
+                            padding: "4px 8px",
+                            color: "var(--dim)",
+                            font: "500 10.5px var(--font-mono)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <CameraIcon size={12} />
+                          {t("takePhotoLabel")}
+                        </button>
+                      )}
                       {cameraTargetId === record.id && (
                         <input
                           type="file"
