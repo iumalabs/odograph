@@ -17,8 +17,25 @@ export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function buildVerifyUrl(requestUrl: string, token: string): string {
-  const url = new URL("/api/v1/auth/magic-link/verify", requestUrl);
+// A magic-link email's verify link and INSTANCE field must never trust the incoming request's own
+// hostname in production — during the odograph.dev → odograph.iuma.dev migration, both domains
+// briefly routed to this same Worker in parallel (wrangler.toml's env.production comment), so a
+// request submitted from the old domain produced an email pointing back at it (production
+// incident, 2026-08-26, reported by the user directly). odograph.dev has since been removed from
+// Cloudflare's custom domains entirely, but pinning to the one real production origin stays
+// correct defense-in-depth regardless — nothing about `requestUrl` should ever be trusted as the
+// canonical domain for a security-sensitive email. Preview/development keep using the request's
+// own origin unchanged: preview's URL is a different, dynamic one per PR (env.preview has no fixed
+// custom domain at all), so there is no fixed canonical origin to pin there, and pinning would
+// break every preview/local magic-link test.
+const CANONICAL_PRODUCTION_ORIGIN = "https://odograph.iuma.dev";
+
+function canonicalOrigin(env: Env, requestUrl: string): string {
+  return env.ENVIRONMENT === "production" ? CANONICAL_PRODUCTION_ORIGIN : requestUrl;
+}
+
+function buildVerifyUrl(origin: string, token: string): string {
+  const url = new URL("/api/v1/auth/magic-link/verify", origin);
   url.searchParams.set("token", token);
   return url.toString();
 }
@@ -72,7 +89,8 @@ export async function sendMagicLinkEmail(
   env: Env,
   input: { email: string; token: string; requestUrl: string; purpose: MagicLinkEmailPurpose },
 ): Promise<SendMagicLinkResult> {
-  const verifyUrl = buildVerifyUrl(input.requestUrl, input.token);
+  const origin = canonicalOrigin(env, input.requestUrl);
+  const verifyUrl = buildVerifyUrl(origin, input.token);
   const subject = SUBJECTS[input.purpose];
 
   const content: EmailContent = {
@@ -84,7 +102,7 @@ export async function sendMagicLinkEmail(
     expiryNote: "EXPIRES IN 15 MINUTES — single use, then this link stops working.",
     details: [
       { label: "ACCOUNT", value: input.email },
-      { label: "INSTANCE", value: new URL(input.requestUrl).hostname },
+      { label: "INSTANCE", value: new URL(origin).hostname },
     ],
     fallbackNote: "Didn't request this? Safe to ignore — no account changes were made.",
   };

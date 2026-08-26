@@ -90,13 +90,12 @@ bucket_name = "odograph-preview-attachments"
 
 [env.production]
 name = "odograph"
-# odograph.iuma.dev added alongside the existing odograph.dev during the org/domain migration to
-# iumalabs — both serve production traffic in parallel so passkeys (bound to their registration
-# origin, per WebAuthn) and any bookmarked/cached links keep working while users transition.
-# odograph.dev is only removed once that transition is complete (see the migration plan for this
-# work — not tracked in a spec doc, this is an infra-only change with no user-facing feature).
+# odograph.dev was removed from Cloudflare's custom domains on 2026-08-26, completing the
+# org/domain migration to iumalabs (issue #202) — odograph.iuma.dev is now the sole production
+# domain. Any WebAuthn passkey registered against odograph.dev's origin no longer resolves there;
+# affected users re-register a passkey against odograph.iuma.dev (or use magic-link/Google in the
+# meantime, both origin-independent).
 routes = [
-  { pattern = "odograph.dev", custom_domain = true },
   { pattern = "odograph.iuma.dev", custom_domain = true },
 ]
 
