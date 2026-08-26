@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.15.0](https://github.com/iumalabs/odograph/compare/v1.14.0...v1.15.0) (2026-08-26)
+
+
+### Features
+
+* account page with real credentials, session info, and sign-out ([#249](https://github.com/iumalabs/odograph/issues/249)) ([5b417c6](https://github.com/iumalabs/odograph/commit/5b417c62ad6cc153bcf1aaa2e98062caa21bbe1b))
+* in-app documentation viewer ([#246](https://github.com/iumalabs/odograph/issues/246)) ([e98605b](https://github.com/iumalabs/odograph/commit/e98605b2cf54aac6cdab01745e27bd24a013b9d0))
+
+
+### Bug Fixes
+
+* hide redundant "Take Photo" button on desktop ([#253](https://github.com/iumalabs/odograph/issues/253)) ([baa3ca6](https://github.com/iumalabs/odograph/commit/baa3ca6a0180cdcceb39615759a388b92f45563c))
+* stop Dashboard from flashing zeroed/empty aggregates on every navigation ([#252](https://github.com/iumalabs/odograph/issues/252)) ([867718d](https://github.com/iumalabs/odograph/commit/867718d8afd5d4f589a46e0c97cade353a0047ee))
+
 ## [1.14.0](https://github.com/iumalabs/odograph/compare/v1.13.6...v1.14.0) (2026-08-26)
 
 
