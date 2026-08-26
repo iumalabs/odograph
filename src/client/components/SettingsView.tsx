@@ -1,21 +1,17 @@
 import type { Currency } from "../currency";
-import { AccountDeletion } from "./AccountDeletion";
-import { ApiTokens } from "./ApiTokens";
 import { PushNotifications } from "./PushNotifications";
 import { t } from "../i18n/strings";
 
 type SettingsViewProps = {
   onError: () => void;
-  onConfirmDelete: () => void;
   currency: Currency;
   onCurrencyChange: (value: Currency) => void;
 };
 
-// Consolidates the account-level controls that used to sit inline in the garage screen's
-// account-controls row (specs/029-settings-screen) — a pure relocation, each component's own
-// logic/state/API calls are untouched.
+// App-level preferences only (currency, push notifications) — credentials, API tokens, and
+// account deletion moved to the new Account page (specs/058 research.md Decision 3).
 export function SettingsView(
-  { onError, onConfirmDelete, currency, onCurrencyChange }: SettingsViewProps,
+  { onError, currency, onCurrencyChange }: SettingsViewProps,
 ) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -50,9 +46,7 @@ export function SettingsView(
             <option value="GBP">{t("currencyGbpLabel")}</option>
           </select>
         </label>
-        <ApiTokens onError={onError} />
         <PushNotifications onError={onError} />
-        <AccountDeletion onConfirmDelete={onConfirmDelete} />
       </div>
     </div>
   );

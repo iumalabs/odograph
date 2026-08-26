@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import {
   deleteOutstandingMagicLinkTokensForTenant,
   deleteTenantAccount,
+  getAccountProfile,
   listAttachmentKeysForTenant,
   listAttachmentKeysForTenantDocuments,
   listAttachmentKeysForTenantFuelRecords,
@@ -9,7 +10,11 @@ import {
   listVehiclePhotoKeysForTenant,
 } from "../../db/repository";
 import { deleteAttachments } from "../../attachments/storage";
-import { clearSessionCache, serializeExpiredSessionCookie } from "../../auth/session";
+import {
+  clearSessionCache,
+  invalidateSession,
+  serializeExpiredSessionCookie,
+} from "../../auth/session";
 import { rateLimitBySession } from "../../auth/rate-limit";
 import { tenantContext } from "../../middleware/tenant-context";
 import type { AppEnv } from "../../types";
@@ -17,6 +22,29 @@ import type { AppEnv } from "../../types";
 export const account = new Hono<AppEnv>();
 
 account.use("*", tenantContext);
+
+// Real profile data only (specs/058 research.md Decision 1) — cookie-only tenantContext, never
+// tenantContextOrToken: an API token must not be able to read account profile data (Constitution
+// Principle VI), same boundary account deletion below already established.
+account.get("/", async (c) => {
+  const profile = await getAccountProfile(c.env.DB, c.get("tenant"), c.get("sessionTokenHash"));
+  return c.json(profile);
+});
+
+// This app's first production sign-out route (specs/058 research.md Decision 2) — mirrors the
+// dev-only /_dev/session/invalidate route's exact logic, without its notFoundOutsideDev guard.
+account.post("/sign-out", rateLimitBySession, async (c) => {
+  const invalidated = await invalidateSession(
+    c.env.DB,
+    c.env.SESSION_CACHE,
+    c.req.header("Cookie") ?? null,
+  );
+  if (!invalidated) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  c.header("Set-Cookie", serializeExpiredSessionCookie());
+  return c.json({ signedOut: true });
+});
 
 const REQUIRED_CONFIRMATION = "DELETE MY ACCOUNT";
 

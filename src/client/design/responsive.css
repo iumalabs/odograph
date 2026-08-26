@@ -142,6 +142,12 @@
   .help-grid {
     grid-template-columns: 1fr !important;
   }
+
+  /* The Account page's credentials + session two-column layout (specs/058) stacks to one column,
+     same treatment as every other two-column layout at this breakpoint. */
+  .account-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (max-width: 420px) {

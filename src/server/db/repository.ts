@@ -3794,3 +3794,52 @@ export async function searchTenantData(
     documents: documentRows.results,
   };
 }
+
+// --- Account profile ---------------------------------------------------------
+
+export type AccountProfile = {
+  email: string;
+  sessionExpiresAt: string | null;
+  passkeyCount: number;
+  hasGoogle: boolean;
+  linkedEmails: string[];
+};
+
+/**
+ * Every field here is read from a table that already exists for another reason (users, sessions,
+ * webauthn_credentials, oidc_identities, magic_link_identities) — computed fresh on every call,
+ * nothing new stored, same precedent as computeVehicleAggregates (specs/058 research.md Decision
+ * 1). Deliberately has no `role` field — this app has no roles/permissions system, so there is
+ * nothing real to put there (spec.md Edge Cases).
+ */
+export async function getAccountProfile(
+  db: D1Database,
+  ctx: TenantContext,
+  tokenHash: string,
+): Promise<AccountProfile> {
+  const [user, session, passkeyCount, google, magicLinks] = await Promise.all([
+    db.prepare("SELECT email FROM users WHERE id = ?").bind(ctx.userId).first<
+      { email: string }
+    >(),
+    db.prepare("SELECT expires_at AS expiresAt FROM sessions WHERE token_hash = ?").bind(
+      tokenHash,
+    ).first<{ expiresAt: string }>(),
+    db.prepare("SELECT COUNT(*) AS count FROM webauthn_credentials WHERE user_id = ?").bind(
+      ctx.userId,
+    ).first<{ count: number }>(),
+    db.prepare(
+      "SELECT 1 AS present FROM oidc_identities WHERE user_id = ? AND provider = 'google'",
+    ).bind(ctx.userId).first<{ present: number }>(),
+    db.prepare("SELECT email FROM magic_link_identities WHERE user_id = ?").bind(ctx.userId).all<
+      { email: string }
+    >(),
+  ]);
+
+  return {
+    email: user?.email ?? "",
+    sessionExpiresAt: session?.expiresAt ?? null,
+    passkeyCount: passkeyCount?.count ?? 0,
+    hasGoogle: google !== null,
+    linkedEmails: magicLinks.results.map((row) => row.email),
+  };
+}
