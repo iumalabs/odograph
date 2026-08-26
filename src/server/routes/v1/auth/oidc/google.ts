@@ -82,7 +82,7 @@ googleOidcAuth.get("/callback", async (c) => {
       return errorRedirect(c.req.url);
     }
     c.header("Set-Cookie", linkResult.cookie);
-    return c.redirect(new URL("/?oidc=linked", c.req.url).toString());
+    return c.redirect(new URL("/app?oidc=linked", c.req.url).toString());
   }
 
   const result = await completeGoogleSignIn(c.env.DB, exchange.idToken, {
@@ -94,5 +94,5 @@ googleOidcAuth.get("/callback", async (c) => {
   }
 
   c.header("Set-Cookie", result.cookie);
-  return c.redirect(new URL("/?oidc=ok", c.req.url).toString());
+  return c.redirect(new URL("/app?oidc=ok", c.req.url).toString());
 });

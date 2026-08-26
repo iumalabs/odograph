@@ -79,7 +79,7 @@ describe("magic link lifecycle (User Story 1)", () => {
     const token = await tokenFor(email);
     const verifyRes = await verify(token);
     expect(verifyRes.status).toBe(302);
-    expect(verifyRes.headers.get("location")).toBe("https://example.com/?magicLink=ok");
+    expect(verifyRes.headers.get("location")).toBe("https://example.com/app?magicLink=ok");
 
     const cookie = cookieValue(verifyRes.headers.get("set-cookie"));
     const tenantId = await probeTenantId(cookie);
@@ -111,7 +111,7 @@ describe("magic link lifecycle (User Story 1)", () => {
 
     const firstVerify = await verify(token);
     expect(firstVerify.status).toBe(302);
-    expect(firstVerify.headers.get("location")).toBe("https://example.com/?magicLink=ok");
+    expect(firstVerify.headers.get("location")).toBe("https://example.com/app?magicLink=ok");
 
     const secondVerify = await verify(token);
     expect(secondVerify.status).toBe(302);
@@ -146,7 +146,7 @@ describe("magic link lifecycle (User Story 1)", () => {
 
     // The still-current second token still works.
     const freshVerify = await verify(secondToken);
-    expect(freshVerify.headers.get("location")).toBe("https://example.com/?magicLink=ok");
+    expect(freshVerify.headers.get("location")).toBe("https://example.com/app?magicLink=ok");
   });
 
   it("rejects an unknown/forged token the same way as an already-consumed one (SC-003)", async () => {
@@ -190,7 +190,7 @@ describe("magic link response parity and cross-method isolation (User Story 2)",
     const token = await tokenFor(email);
     const verifyRes = await verify(token);
     expect(verifyRes.status).toBe(302);
-    expect(verifyRes.headers.get("location")).toBe("https://example.com/?magicLink=ok");
+    expect(verifyRes.headers.get("location")).toBe("https://example.com/app?magicLink=ok");
 
     const cookie = cookieValue(verifyRes.headers.get("set-cookie"));
     const magicLinkTenantId = await probeTenantId(cookie);
@@ -210,7 +210,7 @@ describe("account linking (specs/005 User Story 1)", () => {
     const token = await tokenFor(email);
     const verifyRes = await verify(token);
     expect(verifyRes.status).toBe(302);
-    expect(verifyRes.headers.get("location")).toBe("https://example.com/?magicLink=linked");
+    expect(verifyRes.headers.get("location")).toBe("https://example.com/app?magicLink=linked");
 
     const linkedCookie = cookieValue(verifyRes.headers.get("set-cookie"));
     const linkedTenantId = await probeTenantId(linkedCookie);
@@ -231,7 +231,7 @@ describe("account linking (specs/005 User Story 1)", () => {
     await requestMagicLink(email);
     const signInToken = await tokenFor(email);
     const signInRes = await verify(signInToken);
-    expect(signInRes.headers.get("location")).toBe("https://example.com/?magicLink=ok");
+    expect(signInRes.headers.get("location")).toBe("https://example.com/app?magicLink=ok");
 
     const signInCookie = cookieValue(signInRes.headers.get("set-cookie"));
     const signInTenantId = await probeTenantId(signInCookie);
