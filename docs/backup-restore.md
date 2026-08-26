@@ -1,7 +1,7 @@
 # Backup and restore
 
 Odograph stores data in three Cloudflare services with three different backup stories. This applies
-to both a self-hosted instance and this project's own `odograph.dev` (substitute your own
+to both a self-hosted instance and this project's own `odograph.iuma.dev` (substitute your own
 database/bucket/namespace names throughout).
 
 ## D1 (vehicles, records, reminders, sessions, credentials, tokens)
