@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.17.0](https://github.com/iumalabs/odograph/compare/v1.16.1...v1.17.0) (2026-08-26)
+
+
+### Features
+
+* add RU/EN interface language toggle ([#260](https://github.com/iumalabs/odograph/issues/260)) ([3b24025](https://github.com/iumalabs/odograph/commit/3b24025be6493ae70dc028d67d3d7ccadef693c1))
+
+
+### Bug Fixes
+
+* close header dropdowns on Escape and prevent them from stacking ([#262](https://github.com/iumalabs/odograph/issues/262)) ([3003be6](https://github.com/iumalabs/odograph/commit/3003be61c3d030cac92e4c15e406da12e23c3312))
+* navigate to the record's own screen from search results ([#264](https://github.com/iumalabs/odograph/issues/264)) ([acf4afe](https://github.com/iumalabs/odograph/commit/acf4afe83640bb74ca05792676a122c3ebe92847))
+
 ## [1.16.1](https://github.com/iumalabs/odograph/compare/v1.16.0...v1.16.1) (2026-08-26)
 
 
