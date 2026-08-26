@@ -3,8 +3,11 @@ import { search } from "../search";
 import type { RecordMatch, SearchResults, VehicleMatch } from "../search";
 import { t } from "../i18n/strings";
 
+type RecordResultKind = "service" | "fuel" | "documents";
+
 type SearchBarProps = {
   onSelectVehicle: (vehicleId: string) => void;
+  onSelectRecord: (vehicleId: string, kind: RecordResultKind) => void;
 };
 
 const MIN_QUERY_LENGTH = 2;
@@ -31,7 +34,7 @@ function resultRowStyle() {
 // Mounted at the garage level, not inside a selected vehicle's panels — the point of search is
 // finding which vehicle to select next (specs/028 plan.md), unlike every other panel in this app.
 export function SearchBar(props: SearchBarProps) {
-  const { onSelectVehicle } = props;
+  const { onSelectVehicle, onSelectRecord } = props;
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
 
@@ -77,12 +80,15 @@ export function SearchBar(props: SearchBarProps) {
     );
   }
 
-  function renderRecord(match: RecordMatch) {
+  // Unlike renderVehicle, a record result's useful landing place is its own history screen
+  // (Fuel/Service/Documents), not the vehicle's Dashboard — the whole point of matching a
+  // specific record is to jump to where it lives (#263).
+  function renderRecord(match: RecordMatch, kind: RecordResultKind) {
     return (
       <button
         key={match.id}
         type="button"
-        onClick={() => onSelectVehicle(match.vehicleId)}
+        onClick={() => onSelectRecord(match.vehicleId, kind)}
         style={resultRowStyle()}
       >
         <span>{match.title || match.vehicleName}</span>
@@ -137,19 +143,19 @@ export function SearchBar(props: SearchBarProps) {
           {results.serviceRecords.length > 0 && (
             <div style={groupStyle}>
               <span style={mono9}>{t("searchServiceRecordsGroup")}</span>
-              {results.serviceRecords.map(renderRecord)}
+              {results.serviceRecords.map((match) => renderRecord(match, "service"))}
             </div>
           )}
           {results.fuelRecords.length > 0 && (
             <div style={groupStyle}>
               <span style={mono9}>{t("searchFuelRecordsGroup")}</span>
-              {results.fuelRecords.map(renderRecord)}
+              {results.fuelRecords.map((match) => renderRecord(match, "fuel"))}
             </div>
           )}
           {results.documents.length > 0 && (
             <div style={groupStyle}>
               <span style={mono9}>{t("searchDocumentsGroup")}</span>
-              {results.documents.map(renderRecord)}
+              {results.documents.map((match) => renderRecord(match, "documents"))}
             </div>
           )}
         </div>

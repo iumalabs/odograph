@@ -1339,6 +1339,10 @@ export function App() {
             selectVehicle(id);
             setView("dashboard");
           }}
+          onSelectRecord={(id, kind) => {
+            selectVehicle(id);
+            setView(kind);
+          }}
         />
 
         <Garage
