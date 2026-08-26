@@ -1,9 +1,11 @@
+import { useSyncExternalStore } from "react";
+
 // Minimal i18n infrastructure (constitution Principle IX): no user-facing
-// string is written inline at its usage site, even though only `en` ships
-// in v1. A single locale table + key lookup now is deliberately small — the
-// real UI (once the Claude-design mockups land) can swap this for a proper
-// library without changing how call sites reference strings, since they
-// already go through `t()` and a key, not a literal.
+// string is written inline at its usage site. A single locale table + key
+// lookup now is deliberately small — the real UI (once the Claude-design
+// mockups land) can swap this for a proper library without changing how
+// call sites reference strings, since they already go through `t()` and a
+// key, not a literal.
 
 const en = {
   appTitle: "Odograph",
@@ -292,12 +294,340 @@ const en = {
   viewLoadingLabel: "Loading…",
   viewLoadErrorLabel: "This screen couldn't load. Check your connection and try again.",
   viewLoadRetryLabel: "Retry",
+  languageToggleToEn: "EN",
+  languageToggleToRu: "RU",
+} as const;
+
+const ru = {
+  appTitle: "Odograph",
+  appTagline: "Трекер обслуживания автомобиля",
+  landingKicker: "ЖУРНАЛ ОБСЛУЖИВАНИЯ АВТОМОБИЛЯ",
+  landingHeadlineLine1: "Каждый литр,",
+  landingHeadlineLine2: "каждый километр,",
+  landingHeadlineLine3: "каждый чек.",
+  landingLead:
+    "Заправки, обслуживание, напоминания, планировщик работ, галерея и документы — для каждого автомобиля в вашем гараже.",
+  landingNote1: "Passkey, ссылка для входа или Google — пароль не нужен.",
+  landingNote2: "Регистрация бесплатна — у каждого нового аккаунта свой личный гараж.",
+  landingDocsLink: "Документация",
+  landingSignInButton: "Войти",
+  helpNavLabel: "Помощь",
+  helpSectionsHeading: "РАЗДЕЛЫ",
+  helpPrevLabel: "Назад",
+  helpNextLabel: "Далее",
+  helpBackLabel: "Назад",
+  accountNavLabel: "Учётные данные",
+  accountPageHeading: "Аккаунт",
+  accountSoleOwnerNote: "Единственный владелец этого гаража — участников пока нет",
+  accountSessionHeading: "Сессия",
+  accountSessionExpiresLabel: "Сессия истекает",
+  accountCredentialsHeading: "Учётные данные",
+  accountMultiHeading: "Несколько аккаунтов",
+  accountMultiNote:
+    "Приглашения и общий доступ появятся позже — пока у каждого аккаунта свой личный гараж.",
+  accountSignUpSoon: "Регистрация · скоро",
+  accountInviteSoon: "Приглашение · скоро",
+  accountMenuLabel: "Аккаунт",
+  accountPasskeyCountLabel: "Passkey-ключи",
+  accountGoogleLinkedLabel: "Google",
+  accountGoogleLinkedYes: "Привязан",
+  accountGoogleLinkedNo: "Не привязан",
+  accountLinkedEmailsLabel: "Привязанные email",
+  signOutLabel: "Выйти",
+  emailLabel: "Email",
+  signUpWithPasskey: "Зарегистрироваться с passkey",
+  signInWithPasskey: "Войти с passkey",
+  addAnotherPasskey: "Добавить ещё один passkey",
+  signedInAs: "Вы вошли — тенант {tenantId}",
+  sendMagicLink: "Прислать ссылку для входа на email",
+  magicLinkSentBanner: "Проверьте почту — там ссылка для входа.",
+  magicLinkOkBanner: "Вход выполнен по ссылке из письма.",
+  magicLinkErrorBanner: "Эта ссылка для входа недействительна или истекла.",
+  continueWithGoogle: "Продолжить с Google",
+  oidcOkBanner: "Вход выполнен через Google.",
+  oidcErrorBanner: "Вход через Google не завершился. Попробуйте ещё раз.",
+  linkEmailLabel: "Email для привязки",
+  linkEmail: "Привязать email",
+  linkEmailSentBanner: "Проверьте почту, чтобы подтвердить привязку.",
+  magicLinkLinkedBanner: "Email привязан к вашему аккаунту.",
+  linkGoogleAccount: "Привязать аккаунт Google",
+  oidcLinkedBanner: "Аккаунт Google привязан.",
+  vehiclesHeading: "Ваши автомобили",
+  vehicleNameLabel: "Название",
+  vehicleOdometerUnitLabel: "Единица одометра",
+  vehicleVinLabel: "VIN",
+  vehicleMakeLabel: "Марка",
+  vehicleModelLabel: "Модель",
+  vehicleYearLabel: "Год",
+  lookupVinButton: "Найти",
+  vinLookupInProgress: "Ищем…",
+  vinLookupNotFound: "Не удалось найти данные по этому VIN — введите вручную.",
+  vehiclePhotoPlaceholder: "ДОБАВИТЬ ФОТО",
+  vehiclePhotoAlt: "Фото {name}",
+  uploadVehiclePhotoLabel: "Загрузите или перетащите фото",
+  photoGalleryHeading: "Галерея",
+  photoCountLabel: "{count} фото",
+  photoCategoryAll: "ВСЕ",
+  photoCategoryGeneral: "ОБЩЕЕ",
+  photoCategoryRepair: "РЕМОНТ",
+  photoCategoryDamage: "ПОВРЕЖДЕНИЯ",
+  photoCategoryParts: "ЗАПЧАСТИ",
+  addPhoto: "Добавить фото",
+  photoCaptionLabel: "Подпись",
+  photoDateLabel: "Дата",
+  photoOdometerLabel: "Одометр",
+  photoLinkServiceRecordLabel: "Связанная запись обслуживания",
+  photoLinkServiceRecordNone: "—",
+  choosePhotoFile: "Выбрать файл",
+  noPhotosYet: "В этой категории пока нет фото.",
+  photoEmptyTileHint: "Нажмите, чтобы добавить фото",
+  deletePhoto: "Удалить",
+  viewPhotoGallery: "Смотреть галерею",
+  addVehicle: "Добавить автомобиль",
+  vehicleAddedToast: "Автомобиль добавлен",
+  noVehiclesYet: "Пока нет автомобилей.",
+  serviceRecordsHeading: "История обслуживания",
+  noServiceRecordsYet: "Пока нет записей обслуживания.",
+  serviceDateLabel: "Дата",
+  serviceDescriptionLabel: "Описание",
+  addServiceRecord: "Добавить запись обслуживания",
+  serviceRecordAddedToast: "Запись обслуживания добавлена",
+  serviceDueEstimateHint:
+    "Оценка по вашей истории ({count} записей) — «{description}», вероятно, потребуется около {value} {unit}",
+  acceptServiceDueEstimateAction: "Сделать напоминанием",
+  serviceDueEstimateUnavailableError: "Эта оценка больше недоступна.",
+  performedByLabel: "Кто выполнял",
+  performedBySelf: "Сам",
+  performedByShop: "Сервис",
+  odometerLabel: "Одометр",
+  costLabel: "Стоимость",
+  notesLabel: "Заметки",
+  attachmentUploadLabel: "Прикрепить фото или чек",
+  takePhotoLabel: "Сделать фото",
+  uploadAttachment: "Загрузить",
+  attachmentsLabel: "Вложения",
+  attachmentTooLargeError: "Это фото слишком большое для вложения (максимум 10 МБ).",
+  attachmentUnsupportedTypeError:
+    "Этот тип файла не поддерживается. Используйте фото (JPEG/PNG/WebP) или PDF.",
+  closeVehicle: "Закрыть",
+  fuelRecordsHeading: "История заправок",
+  noFuelRecordsYet: "Пока нет заправок.",
+  fuelDateLabel: "Дата",
+  fuelOdometerLabel: "Одометр",
+  fuelVolumeLabel: "Объём",
+  fuelCostLabel: "Стоимость",
+  fuelStationLabel: "Заправка",
+  addFuelRecord: "Добавить заправку",
+  fuelRecordAddedToast: "Заправка добавлена",
+  quickFuelLabel: "Топливо",
+  fuelEconomyPreviewLabel: "Расход (оценка)",
+  fuelCostPerDistancePreviewLabel: "Стоимость/расстояние (оценка)",
+  fuelEconomyNotEnoughData: "—",
+  possibleDuplicateLabel: "Возможный дубликат",
+  dismissDuplicate: "Отклонить",
+  editRecord: "Изменить",
+  deleteRecord: "Удалить",
+  renewRecord: "Продлить",
+  saveEdit: "Сохранить",
+  cancelEdit: "Отмена",
+  reminderRulesHeading: "Напоминания",
+  noReminderRulesYet: "Пока нет напоминаний.",
+  reminderLabelLabel: "Напоминание",
+  reminderIntervalDaysLabel: "Каждые (дней)",
+  reminderIntervalDistanceLabel: "Каждые (расстояние)",
+  reminderLastDoneDateLabel: "Последний раз (дата)",
+  reminderLastDoneOdometerLabel: "Последний раз (одометр)",
+  addReminderRule: "Добавить напоминание",
+  reminderAddedToast: "Напоминание добавлено",
+  markReminderDone: "Отметить выполненным",
+  deleteReminderRule: "Удалить",
+  reminderStatusOnTrack: "По графику",
+  reminderStatusComingUp: "Скоро",
+  reminderStatusOverdue: "Просрочено",
+  reminderStatusNotEnoughData: "Недостаточно данных",
+  reminderDueInDaysLabel: "Через {value} дн.",
+  reminderOverdueDaysLabel: "Просрочено на {value} дн.",
+  reminderDueInDistanceLabel: "Через {value} {unit}",
+  reminderOverdueDistanceLabel: "Просрочено на {value} {unit}",
+  remindersExplainerHeading: "Как это считается",
+  remindersExplainerBody:
+    "Напоминание срабатывает по тому условию, которое наступит раньше — по времени с последнего выполнения или по пройденному с тех пор расстоянию.",
+  remindersLegendOverdue: "Просрочено",
+  remindersLegendComingUp: "Скоро понадобится",
+  remindersLegendOnTrack: "По графику",
+  recentlyCompletedHeading: "Недавно выполнено",
+  noRecentlyCompletedReminders: "Пока ничего не отмечено выполненным.",
+  documentsHeading: "Документы",
+  noDocumentsYet: "Пока нет документов.",
+  documentTitleLabel: "Название",
+  documentCategoryLabel: "Категория",
+  documentCategoryRegistration: "Регистрация",
+  documentCategoryInsurance: "Страховка",
+  documentCategoryWarranty: "Гарантия",
+  documentCategoryInspection: "Техосмотр",
+  documentCategoryOther: "Другое",
+  documentExpiryDateLabel: "Дата окончания",
+  addDocument: "Добавить документ",
+  documentAddedToast: "Документ добавлен",
+  documentExpiredLabel: "Истёк",
+  documentComingUpLabel: "Скоро нужно продлить",
+  planBoardHeading: "Планировщик обслуживания",
+  planStageIdea: "Идея",
+  planStageBuy: "Купить",
+  planStageDoing: "В работе",
+  planStageDone: "Готово",
+  noPlanCardsYet: "Пока нет карточек плана.",
+  planCardTitleLabel: "Название",
+  planCardTargetDateLabel: "Целевая дата",
+  planCardEstimatedCostLabel: "Ориентировочная стоимость",
+  planCardUrgentLabel: "Срочно",
+  addPlanCard: "Добавить карточку",
+  planCardAddedToast: "Карточка плана добавлена",
+  advancePlanCard: "Переместить в «{stage}»",
+  deletePlanCard: "Удалить",
+  expenseBreakdownHeading: "Расходы по периодам",
+  expenseGroupByMonth: "По месяцам",
+  expenseGroupByYear: "По годам",
+  expensePeriodLabel: "Период",
+  expenseMaintenanceLabel: "Обслуживание",
+  expenseFuelLabel: "Топливо",
+  expenseTotalLabel: "Итого",
+  noExpenseDataYet: "Расходы пока не записаны.",
+  downloadReportLabel: "Скачать историю обслуживания (PDF)",
+  searchPlaceholder: "Поиск по автомобилям и записям…",
+  searchTooShort: "Введите не менее 2 символов для поиска.",
+  searchNoResults: "Совпадений не найдено.",
+  searchVehiclesGroup: "Автомобили",
+  searchServiceRecordsGroup: "Записи обслуживания",
+  searchFuelRecordsGroup: "Записи заправок",
+  searchDocumentsGroup: "Документы",
+  genericError: "Что-то пошло не так. Попробуйте ещё раз.",
+  garageNavLabel: "ГАРАЖ",
+  dashboardNavLabel: "ПАНЕЛЬ",
+  dashboardHeading: "Панель",
+  fuelNavLabel: "ТОПЛИВО",
+  serviceNavLabel: "ОБСЛУЖИВАНИЕ",
+  photosNavLabel: "ФОТО",
+  remindersNavLabel: "НАПОМИНАНИЯ",
+  plannerNavLabel: "ПЛАНИРОВЩИК",
+  documentsNavLabel: "ДОКУМЕНТЫ",
+  selectVehiclePrompt: "Выберите автомобиль в Гараже, чтобы увидеть этот экран.",
+  settingsNavLabel: "НАСТРОЙКИ",
+  settingsScreenHeading: "Настройки",
+  currencySettingLabel: "Валюта",
+  currencyUsdLabel: "Доллар США",
+  currencyEurLabel: "Евро",
+  currencyKgsLabel: "Киргизский сом",
+  currencyGbpLabel: "Фунт стерлингов",
+  selectVehicleForDashboard: "Выберите автомобиль в Гараже, чтобы увидеть его панель.",
+  upcomingRemindersHeading: "Предстоящее",
+  recentActivityHeading: "Недавняя активность",
+  noUpcomingReminders: "Ничего не предстоит.",
+  noRecentActivityYet: "Пока нет активности.",
+  costPerDistanceLabel: "Стоимость / расстояние",
+  costPerTimeLabel: "Стоимость / время",
+  costPer100DistanceLabel: "$ / 100 {unit}",
+  averageFuelEconomyLabel: "Средний расход",
+  needsAttention: "Требует внимания",
+  allGood: "Всё в порядке",
+  deleteAccountToggle: "Удалить аккаунт",
+  deleteAccountWarning:
+    "Это навсегда удалит ваш аккаунт и все автомобили, записи, вложения и напоминания в нём. Отменить это нельзя.",
+  deleteAccountConfirmPrompt: "Введите «{phrase}», чтобы подтвердить",
+  deleteAccountConfirmButton: "Навсегда удалить мой аккаунт",
+  deleteAccountCancel: "Отмена",
+  apiTokensToggle: "API-токены",
+  apiTokensIntro: "Создавайте токены для программного доступа к данным вашего аккаунта.",
+  apiTokenLabelLabel: "Метка",
+  apiTokenScopeLabel: "Доступ",
+  apiTokenScopeRead: "Только чтение",
+  apiTokenScopeWrite: "Чтение и запись",
+  createApiToken: "Создать токен",
+  apiTokenCreatedWarning: "Скопируйте токен сейчас — повторно он не отобразится.",
+  apiTokenCreatedCopy: "Копировать",
+  apiTokenCreatedCopied: "Скопировано",
+  apiTokenCreatedDone: "Готово",
+  noApiTokensYet: "Пока нет API-токенов.",
+  apiTokenCreatedAt: "Создан {date}",
+  apiTokenLastUsedNever: "Не использовался",
+  apiTokenLastUsedAt: "Использован {date}",
+  apiTokenRevoked: "Отозван",
+  revokeApiToken: "Отозвать",
+  offlineIndicatorLabel: "Офлайн",
+  pendingSyncLabel: "Ожидает синхронизации",
+  pendingSyncCountLabel: "{count} в ожидании",
+  rejectedSyncLabel: "Отклонено",
+  rejectedSyncCountLabel: "{count} требуют внимания",
+  syncNeedsReauthLabel: "Войдите снова, чтобы синхронизировать",
+  syncReviewNavLabel: "ПРОВЕРКА",
+  syncReviewHeading: "Проблемы синхронизации",
+  syncReviewEmpty: "Сейчас ничего не требует внимания.",
+  syncReviewReasonLabel: "Причина",
+  discardAction: "Отклонить",
+  retryAction: "Повторить",
+  entityVehicleLabel: "Автомобиль",
+  entityServiceRecordLabel: "Запись обслуживания",
+  entityFuelRecordLabel: "Запись заправки",
+  entityReminderRuleLabel: "Напоминание",
+  entityPlanCardLabel: "Карточка плана",
+  actionCreateLabel: "Создать",
+  actionUpdateLabel: "Изменить",
+  actionDeleteLabel: "Удалить",
+  actionDismissDuplicateLabel: "Отклонить дубликат",
+  actionMarkDoneLabel: "Отметить выполненным",
+  rejectReasonInvalidRequest: "Отправленные данные были некорректны.",
+  rejectReasonUnknown: "Дополнительные детали недоступны.",
+  pushEnableLabel: "Включить push-уведомления",
+  pushDisableLabel: "Отключить push-уведомления",
+  pushUnsupportedLabel: "Push-уведомления недоступны на этом устройстве",
+  pushPermissionDeniedLabel:
+    "В разрешении на уведомления отказано — включите его в настройках браузера, чтобы это заработало.",
+  viewLoadingLabel: "Загрузка…",
+  viewLoadErrorLabel: "Не удалось загрузить экран. Проверьте соединение и попробуйте снова.",
+  viewLoadRetryLabel: "Повторить",
+  languageToggleToEn: "EN",
+  languageToggleToRu: "RU",
 } as const;
 
 export type StringKey = keyof typeof en;
 
-const locales = { en } as const;
-const activeLocale: keyof typeof locales = "en";
+export type Language = "en" | "ru";
+
+const STORAGE_KEY = "odograph:language";
+
+function readStoredLanguage(): Language {
+  const stored = globalThis.localStorage?.getItem(STORAGE_KEY);
+  return stored === "ru" ? "ru" : "en";
+}
+
+export const locales = { en, ru } as const;
+let activeLocale: Language = readStoredLanguage();
+
+// Module-level store mirroring src/client/offline/queue.ts's subscribe/getSnapshot pattern —
+// useSyncExternalStore requires getSnapshot() to return a referentially stable value between
+// notifications, which a plain string trivially satisfies (primitives compare by value, so no
+// cached-object indirection is needed here unlike queue.ts's object snapshot).
+const listeners = new Set<() => void>();
+
+export function subscribeLanguage(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function getLanguageSnapshot(): Language {
+  return activeLocale;
+}
+
+export function setLanguage(lang: Language): void {
+  activeLocale = lang;
+  globalThis.localStorage?.setItem(STORAGE_KEY, lang);
+  for (const listener of listeners) listener();
+}
+
+export function useLanguage(): [Language, (lang: Language) => void] {
+  const language = useSyncExternalStore(subscribeLanguage, getLanguageSnapshot);
+  return [language, setLanguage];
+}
 
 export function t(key: StringKey, params?: Record<string, string>): string {
   let value: string = locales[activeLocale][key];

@@ -21,7 +21,7 @@ import {
   SettingsIcon,
 } from "../design/icons";
 import { useTheme } from "../theme";
-import { t } from "../i18n/strings";
+import { t, useLanguage } from "../i18n/strings";
 import type { StringKey } from "../i18n/strings";
 import { APP_VERSION } from "../version";
 
@@ -135,6 +135,7 @@ export function AppShell(
   }: AppShellProps,
 ) {
   const [, toggleTheme] = useTheme();
+  const [language, setLanguage] = useLanguage();
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [acctOpen, setAcctOpen] = useState(false);
 
@@ -425,6 +426,24 @@ export function AppShell(
               }}
             >
               ◐
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage(language === "en" ? "ru" : "en")}
+              style={{
+                height: 32,
+                padding: "0 10px",
+                display: "grid",
+                placeItems: "center",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--radius-md)",
+                background: "transparent",
+                cursor: "pointer",
+                font: "600 11.5px var(--font-ui)",
+                color: "var(--dim)",
+              }}
+            >
+              {language === "en" ? t("languageToggleToRu") : t("languageToggleToEn")}
             </button>
 
             <div style={{ position: "relative" }}>
