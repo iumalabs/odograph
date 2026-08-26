@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/iumalabs/odograph/compare/v1.15.0...v1.16.0) (2026-08-26)
+
+
+### Features
+
+* real client-side routing — /app shell, stable / landing URL ([#254](https://github.com/iumalabs/odograph/issues/254)) ([7f87074](https://github.com/iumalabs/odograph/commit/7f870746853de70e992f635b9795e2eb309c0424))
+
 ## [1.15.0](https://github.com/iumalabs/odograph/compare/v1.14.0...v1.15.0) (2026-08-26)
 
 
