@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { Vehicle } from "../vehicles";
 import type { Currency } from "../currency";
@@ -136,8 +136,17 @@ export function AppShell(
 ) {
   const [, toggleTheme] = useTheme();
   const [language, setLanguage] = useLanguage();
-  const [currencyOpen, setCurrencyOpen] = useState(false);
-  const [acctOpen, setAcctOpen] = useState(false);
+  // A single value (rather than one boolean per dropdown) makes opening one header dropdown
+  // close any other automatically, instead of both rendering at once and overlapping (#259).
+  const [openMenu, setOpenMenu] = useState<"currency" | "account" | null>(null);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpenMenu(null);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <div
@@ -320,7 +329,7 @@ export function AppShell(
             <div style={{ position: "relative" }}>
               <button
                 type="button"
-                onClick={() => setCurrencyOpen((open) => !open)}
+                onClick={() => setOpenMenu((open) => open === "currency" ? null : "currency")}
                 style={{
                   font: "500 10.5px var(--font-mono)",
                   color: "var(--dim)",
@@ -333,7 +342,7 @@ export function AppShell(
               >
                 {currencySymbol(currency)} {currency}
               </button>
-              {currencyOpen && (
+              {openMenu === "currency" && (
                 <div
                   style={{
                     position: "absolute",
@@ -360,7 +369,7 @@ export function AppShell(
                         type="button"
                         onClick={() => {
                           onCurrencyChange(option.value);
-                          setCurrencyOpen(false);
+                          setOpenMenu(null);
                         }}
                         style={{
                           display: "flex",
@@ -449,7 +458,7 @@ export function AppShell(
             <div style={{ position: "relative" }}>
               <button
                 type="button"
-                onClick={() => setAcctOpen((open) => !open)}
+                onClick={() => setOpenMenu((open) => open === "account" ? null : "account")}
                 style={{
                   width: 32,
                   height: 32,
@@ -465,7 +474,7 @@ export function AppShell(
               >
                 {(accountProfile?.email ?? "").slice(0, 2).toUpperCase()}
               </button>
-              {acctOpen && (
+              {openMenu === "account" && (
                 <div
                   style={{
                     position: "absolute",
@@ -513,7 +522,7 @@ export function AppShell(
                     <div
                       onClick={() => {
                         onSelectView("account");
-                        setAcctOpen(false);
+                        setOpenMenu(null);
                       }}
                       style={{
                         padding: "8px 9px",
@@ -527,7 +536,7 @@ export function AppShell(
                     <div
                       onClick={() => {
                         onSelectView("help");
-                        setAcctOpen(false);
+                        setOpenMenu(null);
                       }}
                       style={{
                         padding: "8px 9px",
@@ -540,7 +549,7 @@ export function AppShell(
                     </div>
                     <div
                       onClick={() => {
-                        setAcctOpen(false);
+                        setOpenMenu(null);
                         onSignOut();
                       }}
                       style={{
