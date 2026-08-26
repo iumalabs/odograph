@@ -130,6 +130,12 @@
   .reminders-panel-grid {
     grid-template-columns: 1fr !important;
   }
+
+  /* The landing page's two-column hero (copy + sign-in card, specs/056) stacks to one column —
+     same treatment as every other two-column layout at this breakpoint. */
+  .landing-hero {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (max-width: 420px) {

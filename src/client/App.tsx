@@ -58,7 +58,7 @@ import { currencySymbol, useCurrency } from "./currency";
 import { useDistanceUnit } from "./distance";
 import type { AppView } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
-import { AuthScreen } from "./components/AuthScreen";
+import { LandingPage } from "./components/LandingPage";
 import { Garage } from "./components/Garage";
 import { SearchBar } from "./components/SearchBar";
 import { LazyViewBoundary } from "./components/LazyViewBoundary";
@@ -79,8 +79,8 @@ import {
 import type { PendingActionType } from "./offline/types";
 
 // Lazily loaded: none of these render on the initial screen (specs/051) — Garage/SearchBar
-// (post-login) and AuthScreen (pre-login) are the only "first paint" content and stay statically
-// imported above. Adapts each named export to React.lazy's { default } contract (research.md)
+// (post-login) and LandingPage (pre-login, specs/056) are the only "first paint" content and stay
+// statically imported above. Adapts each named export to React.lazy's { default } contract (research.md)
 // rather than adding an `export default` to 9 files just for this.
 const SettingsView = lazy(() =>
   import("./components/SettingsView").then((m) => ({ default: m.SettingsView }))
@@ -127,7 +127,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Guards the three AuthScreen actions (passkey sign-up/sign-in, magic link) against a
+  // Guards the three SignInCard actions (passkey sign-up/sign-in, magic link) against a
   // double-click firing two concurrent ceremonies — a slow WebAuthn prompt (Touch ID/Windows
   // Hello) left the buttons clickable the whole time, and a second navigator.credentials.create()
   // call implicitly aborts the first while consuming a *different* server-issued challenge,
@@ -342,9 +342,9 @@ export function App() {
 
     return onSyncEvent((event) => {
       if (event.type === "needsReauth") {
-        // This app has no separate sign-out/session-expired screen — reusing AuthScreen (already
-        // shown whenever `identity` is null) is the smallest correct way to get the user back to
-        // a working sign-in flow (FR-011), rather than building a second one.
+        // This app has no separate sign-out/session-expired screen — reusing LandingPage (already
+        // shown whenever `identity` is null, specs/056) is the smallest correct way to get the
+        // user back to a working sign-in flow (FR-011), rather than building a second one.
         setIdentity(null);
         return;
       }
@@ -639,7 +639,7 @@ export function App() {
 
   if (!identity) {
     return (
-      <AuthScreen
+      <LandingPage
         email={email}
         onEmailChange={setEmail}
         onSignUpPasskey={() => handleAuthAction(() => registerWithPasskey(email), setIdentity)}
