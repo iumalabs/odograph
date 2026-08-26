@@ -59,6 +59,7 @@ import { currencySymbol, useCurrency } from "./currency";
 import { useDistanceUnit } from "./distance";
 import type { AppView } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
+import { navigate, pathForView, useRoute } from "./router";
 import { LandingPage } from "./components/LandingPage";
 import { Garage } from "./components/Garage";
 import { SearchBar } from "./components/SearchBar";
@@ -126,10 +127,16 @@ export function App() {
   const [currency, setCurrency] = useCurrency();
   const symbol = currencySymbol(currency);
   const [distanceUnit, setDistanceUnit] = useDistanceUnit();
-  const [view, setView] = useState<AppView>("garage");
+  const route = useRoute();
+  const view: AppView = route.kind === "app" ? route.view : "garage";
   const [email, setEmail] = useState("");
   const [linkEmail, setLinkEmail] = useState("");
   const [identity, setIdentity] = useState<PasskeyIdentity | null>(null);
+  // Distinct from `identity === null`: that's also true for the entire initial session-check
+  // window, which the redirect guard below must not act on yet — otherwise a bookmarked
+  // `/app/dashboard` link for an actually-authenticated visitor would flash-redirect to `/` and
+  // back (specs/059 research.md Decision 2, FR-004).
+  const [authChecked, setAuthChecked] = useState(false);
   const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -240,8 +247,21 @@ export function App() {
   useEffect(() => {
     getCurrentIdentity().then((found) => {
       if (found) setIdentity(found);
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => setAuthChecked(true));
   }, []);
+
+  // Keeps `/` and `/app` in sync with the real session state (specs/059 FR-002/FR-003) — waits
+  // for authChecked so a valid deep link never flash-redirects before settling (FR-004), and
+  // preserves the query string across the redirect so `?magicLink=`/`?oidc=` outcome banners keep
+  // working regardless of which of the two paths they land on (FR-007).
+  useEffect(() => {
+    if (!authChecked) return;
+    if (route.kind === "app" && !identity) {
+      navigate("/" + location.search, { replace: true });
+    } else if (route.kind === "landing" && identity) {
+      navigate("/app" + location.search, { replace: true });
+    }
+  }, [authChecked, route.kind, identity]);
 
   useEffect(() => {
     if (!identity) return;
@@ -264,6 +284,12 @@ export function App() {
   function selectVehicle(id: string) {
     storeSelectedVehicleId(id);
     setSelectedVehicleId(id);
+  }
+
+  // Nav-rail clicks push a real history entry instead of only updating in-memory state (specs/059
+  // FR-005) — every existing `onSelectView={setView}` call site is unchanged.
+  function setView(next: AppView) {
+    navigate(pathForView(next));
   }
 
   // Never leave the picker unselected once at least one vehicle exists: with exactly one

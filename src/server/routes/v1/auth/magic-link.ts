@@ -82,7 +82,7 @@ magicLinkAuth.get("/verify", async (c) => {
 
     const { cookie } = await issueSession(c.env.DB, consumed.linkingUserId);
     c.header("Set-Cookie", cookie);
-    return c.redirect(new URL("/?magicLink=linked", c.req.url).toString());
+    return c.redirect(new URL("/app?magicLink=linked", c.req.url).toString());
   }
 
   const existing = await findMagicLinkIdentityByEmail(c.env.DB, consumed.email);
@@ -92,5 +92,5 @@ magicLinkAuth.get("/verify", async (c) => {
 
   const { cookie } = await issueSession(c.env.DB, userId);
   c.header("Set-Cookie", cookie);
-  return c.redirect(new URL("/?magicLink=ok", c.req.url).toString());
+  return c.redirect(new URL("/app?magicLink=ok", c.req.url).toString());
 });
