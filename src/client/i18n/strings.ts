@@ -8,6 +8,16 @@
 const en = {
   appTitle: "Odograph",
   appTagline: "Vehicle maintenance tracker",
+  landingKicker: "VEHICLE MAINTENANCE LOG",
+  landingHeadlineLine1: "Every litre,",
+  landingHeadlineLine2: "every kilometre,",
+  landingHeadlineLine3: "every receipt.",
+  landingLead:
+    "Fill-ups, service, reminders, a work planner, a gallery and documents — for every vehicle in your garage.",
+  landingNote1: "Passkey, magic link, or Google — no password required.",
+  landingNote2: "Free to sign up — every new account gets its own private garage.",
+  landingDocsLink: "Documentation",
+  landingSignInButton: "Sign in",
   emailLabel: "Email",
   signUpWithPasskey: "Sign up with passkey",
   signInWithPasskey: "Sign in with passkey",
