@@ -4,6 +4,7 @@ import type { Vehicle } from "../vehicles";
 import type { Currency } from "../currency";
 import { currencySymbol } from "../currency";
 import type { DistanceUnit } from "../distance";
+import type { AccountProfile } from "../account";
 import { Logo } from "./Logo";
 import {
   AddIcon,
@@ -35,7 +36,8 @@ export type AppView =
   | "documents"
   | "review"
   | "settings"
-  | "help";
+  | "help"
+  | "account";
 
 type AppShellProps = {
   title: string;
@@ -62,6 +64,10 @@ type AppShellProps = {
   onCurrencyChange: (value: Currency) => void;
   distanceUnit: DistanceUnit;
   onDistanceUnitChange: (value: DistanceUnit) => void;
+  /** Header account dropdown (specs/058) — null until loaded, same shape every other
+   * possibly-not-loaded-yet prop here already uses. */
+  accountProfile: AccountProfile | null;
+  onSignOut: () => void;
   children: ReactNode;
 };
 
@@ -123,11 +129,14 @@ export function AppShell(
     onCurrencyChange,
     distanceUnit,
     onDistanceUnitChange,
+    accountProfile,
+    onSignOut,
     children,
   }: AppShellProps,
 ) {
   const [, toggleTheme] = useTheme();
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [acctOpen, setAcctOpen] = useState(false);
 
   return (
     <div
@@ -417,6 +426,118 @@ export function AppShell(
             >
               ◐
             </button>
+
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                onClick={() => setAcctOpen((open) => !open)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  display: "grid",
+                  placeItems: "center",
+                  border: "1px solid var(--line)",
+                  background: "var(--panel2)",
+                  cursor: "pointer",
+                  font: "600 10.5px var(--font-mono)",
+                  color: "var(--fg)",
+                }}
+              >
+                {(accountProfile?.email ?? "").slice(0, 2).toUpperCase()}
+              </button>
+              {acctOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 40,
+                    right: 0,
+                    zIndex: 30,
+                    width: 260,
+                    background: "var(--panel2)",
+                    border: "1px solid var(--line)",
+                    borderRadius: "var(--radius-lg)",
+                    padding: 14,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                    boxShadow: "0 16px 38px rgba(0,0,0,.5)",
+                    animation: "tin .14s ease",
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        font: "600 12.5px var(--font-ui)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {accountProfile?.email ?? ""}
+                    </div>
+                    <div style={{ font: "400 10px var(--font-mono)", color: "var(--dim)" }}>
+                      {t("accountSessionExpiresLabel")}: {accountProfile?.sessionExpiresAt
+                        ? new Date(accountProfile.sessionExpiresAt).toLocaleString()
+                        : "—"}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 4,
+                      borderTop: "1px solid var(--line)",
+                      paddingTop: 10,
+                    }}
+                  >
+                    <div
+                      onClick={() => {
+                        onSelectView("account");
+                        setAcctOpen(false);
+                      }}
+                      style={{
+                        padding: "8px 9px",
+                        borderRadius: "var(--radius-sm)",
+                        cursor: "pointer",
+                        font: "500 11.5px var(--font-ui)",
+                      }}
+                    >
+                      {t("accountMenuLabel")}
+                    </div>
+                    <div
+                      onClick={() => {
+                        onSelectView("help");
+                        setAcctOpen(false);
+                      }}
+                      style={{
+                        padding: "8px 9px",
+                        borderRadius: "var(--radius-sm)",
+                        cursor: "pointer",
+                        font: "500 11.5px var(--font-ui)",
+                      }}
+                    >
+                      {t("landingDocsLink")}
+                    </div>
+                    <div
+                      onClick={() => {
+                        setAcctOpen(false);
+                        onSignOut();
+                      }}
+                      style={{
+                        padding: "8px 9px",
+                        borderRadius: "var(--radius-sm)",
+                        cursor: "pointer",
+                        font: "500 11.5px var(--font-ui)",
+                        color: "var(--warn)",
+                      }}
+                    >
+                      {t("signOutLabel")}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

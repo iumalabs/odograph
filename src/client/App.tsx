@@ -4,7 +4,8 @@ import type { PasskeyIdentity } from "./auth/passkey";
 import { requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
 import { GOOGLE_LINK_URL, GOOGLE_SIGN_IN_URL } from "./auth/oidc";
 import { getCurrentIdentity } from "./auth/session";
-import { deleteAccount, REQUIRED_CONFIRMATION_PHRASE } from "./account";
+import { deleteAccount, getAccountProfile, REQUIRED_CONFIRMATION_PHRASE, signOut } from "./account";
+import type { AccountProfile } from "./account";
 import { createVehicle, listVehicles, uploadVehicleCoverPhoto } from "./vehicles";
 import { AttachmentUploadError as VehicleAttachmentUploadError } from "./vehicles";
 import type { Vehicle } from "./vehicles";
@@ -114,6 +115,9 @@ const SyncReviewScreen = lazy(() =>
   import("./components/SyncReviewScreen").then((m) => ({ default: m.SyncReviewScreen }))
 );
 const HelpView = lazy(() => import("./components/HelpView").then((m) => ({ default: m.HelpView })));
+const AccountView = lazy(() =>
+  import("./components/AccountView").then((m) => ({ default: m.AccountView }))
+);
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
@@ -126,6 +130,7 @@ export function App() {
   const [email, setEmail] = useState("");
   const [linkEmail, setLinkEmail] = useState("");
   const [identity, setIdentity] = useState<PasskeyIdentity | null>(null);
+  const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -242,6 +247,19 @@ export function App() {
     if (!identity) return;
     listVehicles().then(setVehicles).catch(() => setError(t("genericError")));
   }, [identity]);
+
+  // Header account dropdown + Account page (specs/058).
+  useEffect(() => {
+    if (!identity) {
+      setAccountProfile(null);
+      return;
+    }
+    refetchAccountProfile();
+  }, [identity]);
+
+  function refetchAccountProfile() {
+    getAccountProfile().then(setAccountProfile).catch(() => {});
+  }
 
   function selectVehicle(id: string) {
     storeSelectedVehicleId(id);
@@ -416,6 +434,16 @@ export function App() {
     setError(null);
     try {
       await deleteAccount(REQUIRED_CONFIRMATION_PHRASE);
+      setIdentity(null);
+    } catch {
+      setError(t("genericError"));
+    }
+  }
+
+  async function handleSignOut() {
+    setError(null);
+    try {
+      await signOut();
       setIdentity(null);
     } catch {
       setError(t("genericError"));
@@ -674,6 +702,8 @@ export function App() {
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
+        accountProfile={accountProfile}
+        onSignOut={handleSignOut}
       >
         <LazyViewBoundary>
           <DashboardView
@@ -705,6 +735,8 @@ export function App() {
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
+        accountProfile={accountProfile}
+        onSignOut={handleSignOut}
       >
         {!selectedVehicleId
           ? (
@@ -783,6 +815,8 @@ export function App() {
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
+        accountProfile={accountProfile}
+        onSignOut={handleSignOut}
       >
         {!selectedVehicleId
           ? (
@@ -857,6 +891,8 @@ export function App() {
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
+        accountProfile={accountProfile}
+        onSignOut={handleSignOut}
       >
         {!selectedVehicleId
           ? (
@@ -904,6 +940,8 @@ export function App() {
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
+        accountProfile={accountProfile}
+        onSignOut={handleSignOut}
       >
         {!selectedVehicleId
           ? (
@@ -989,6 +1027,8 @@ export function App() {
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
+        accountProfile={accountProfile}
+        onSignOut={handleSignOut}
       >
         {!selectedVehicleId
           ? (
@@ -1062,6 +1102,8 @@ export function App() {
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
+        accountProfile={accountProfile}
+        onSignOut={handleSignOut}
       >
         {!selectedVehicleId
           ? (
@@ -1126,6 +1168,8 @@ export function App() {
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
+        accountProfile={accountProfile}
+        onSignOut={handleSignOut}
       >
         <LazyViewBoundary>
           <SyncReviewScreen actions={queueSnapshot.actions} />
@@ -1150,11 +1194,12 @@ export function App() {
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
+        accountProfile={accountProfile}
+        onSignOut={handleSignOut}
       >
         <LazyViewBoundary>
           <SettingsView
             onError={() => setError(t("genericError"))}
-            onConfirmDelete={handleDeleteAccount}
             currency={currency}
             onCurrencyChange={setCurrency}
           />
@@ -1179,9 +1224,51 @@ export function App() {
         onCurrencyChange={setCurrency}
         distanceUnit={distanceUnit}
         onDistanceUnitChange={setDistanceUnit}
+        accountProfile={accountProfile}
+        onSignOut={handleSignOut}
       >
         <LazyViewBoundary>
           <HelpView sections={docsEn} />
+        </LazyViewBoundary>
+      </AppShell>
+    );
+  }
+
+  if (view === "account") {
+    return (
+      <AppShell
+        title={t("accountPageHeading")}
+        view={view}
+        onSelectView={setView}
+        reviewBadgeCount={rejectedActionCount}
+        vehicles={mergedVehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={selectVehicle}
+        toast={toast}
+        error={error}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
+        accountProfile={accountProfile}
+        onSignOut={handleSignOut}
+      >
+        <LazyViewBoundary>
+          <AccountView
+            profile={accountProfile}
+            linkEmail={linkEmail}
+            onLinkEmailChange={setLinkEmail}
+            onAddPasskey={() => handle(addPasskey, refetchAccountProfile)}
+            onLinkEmail={() =>
+              handle(() => requestMagicLinkLink(linkEmail), () => {
+                setLinkEmailSent(true);
+                refetchAccountProfile();
+              })}
+            linkEmailSent={linkEmailSent}
+            googleLinkUrl={GOOGLE_LINK_URL}
+            onError={() => setError(t("genericError"))}
+            onConfirmDelete={handleDeleteAccount}
+          />
         </LazyViewBoundary>
       </AppShell>
     );
@@ -1202,6 +1289,8 @@ export function App() {
       onCurrencyChange={setCurrency}
       distanceUnit={distanceUnit}
       onDistanceUnitChange={setDistanceUnit}
+      accountProfile={accountProfile}
+      onSignOut={handleSignOut}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -1212,74 +1301,6 @@ export function App() {
             snapshot={queueSnapshot}
             onOpenReview={() => setView("review")}
           />
-          <button
-            type="button"
-            onClick={() => handle(addPasskey, () => {})}
-            style={{
-              background: "transparent",
-              border: "1px solid var(--line)",
-              borderRadius: "var(--radius-md)",
-              padding: "6px 10px",
-              color: "var(--dim)",
-              font: "500 10.5px var(--font-mono)",
-              cursor: "pointer",
-            }}
-          >
-            {t("addAnotherPasskey")}
-          </button>
-          <a
-            href={GOOGLE_LINK_URL}
-            style={{
-              border: "1px solid var(--line)",
-              borderRadius: "var(--radius-md)",
-              padding: "6px 10px",
-              color: "var(--dim)",
-              font: "500 10.5px var(--font-mono)",
-              textDecoration: "none",
-            }}
-          >
-            {t("linkGoogleAccount")}
-          </a>
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ font: "400 10.5px var(--font-mono)", color: "var(--dim)" }}>
-              {t("linkEmailLabel")}
-            </span>
-            <input
-              type="email"
-              value={linkEmail}
-              onChange={(event) => setLinkEmail(event.target.value)}
-              style={{
-                background: "var(--panel2)",
-                border: "1px solid var(--line)",
-                borderRadius: "var(--radius-md)",
-                padding: "6px 8px",
-                color: "var(--fg)",
-                font: "400 12px var(--font-ui)",
-                outline: "none",
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() =>
-              handle(() => requestMagicLinkLink(linkEmail), () => setLinkEmailSent(true))}
-            style={{
-              background: "transparent",
-              border: "1px solid var(--line)",
-              borderRadius: "var(--radius-md)",
-              padding: "6px 10px",
-              color: "var(--dim)",
-              font: "500 10.5px var(--font-mono)",
-              cursor: "pointer",
-            }}
-          >
-            {t("linkEmail")}
-          </button>
-          {linkEmailSent && (
-            <span style={{ font: "400 11px var(--font-mono)", color: "var(--acc)" }}>
-              {t("linkEmailSentBanner")}
-            </span>
-          )}
         </div>
 
         <SearchBar
