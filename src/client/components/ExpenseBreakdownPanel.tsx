@@ -34,13 +34,22 @@ export function ExpenseBreakdownPanel(props: ExpenseBreakdownPanelProps) {
   const { vehicleId, currencySymbol } = props;
   const [groupBy, setGroupBy] = useState<ExpenseGroupBy>("month");
   const [periods, setPeriods] = useState<ExpensePeriod[]>([]);
+  // Distinct from `periods.length === 0`: that's also true for the entire fetch's pending
+  // window, which would otherwise flash "No spending recorded yet." on every navigation, not
+  // just a genuinely empty account (issue #248).
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setLoaded(false);
     getVehicleExpenseBreakdown(vehicleId, groupBy).then((result) => {
-      if (!cancelled) setPeriods(result);
+      if (cancelled) return;
+      setPeriods(result);
+      setLoaded(true);
     }).catch(() => {
-      if (!cancelled) setPeriods([]);
+      if (cancelled) return;
+      setPeriods([]);
+      setLoaded(true);
     });
     return () => {
       cancelled = true;
@@ -68,7 +77,21 @@ export function ExpenseBreakdownPanel(props: ExpenseBreakdownPanelProps) {
         </button>
       </div>
 
-      {periods.length === 0
+      {!loaded
+        ? (
+          <div
+            style={{
+              border: "1px dashed var(--line)",
+              borderRadius: "var(--radius-lg)",
+              padding: 18,
+              color: "var(--dim)",
+              font: "500 12.5px var(--font-ui)",
+            }}
+          >
+            {t("viewLoadingLabel")}
+          </div>
+        )
+        : periods.length === 0
         ? (
           <div
             style={{
