@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.14.0](https://github.com/iumalabs/odograph/compare/v1.13.6...v1.14.0) (2026-08-26)
+
+
+### Features
+
+* public landing page for unauthenticated visitors ([#245](https://github.com/iumalabs/odograph/issues/245)) ([404b384](https://github.com/iumalabs/odograph/commit/404b38485d2a2c1e64e66c9f2f38e558700d527c))
+
+
+### Bug Fixes
+
+* cap shared content area at max-width:1180px, centered ([#243](https://github.com/iumalabs/odograph/issues/243)) ([382b7ba](https://github.com/iumalabs/odograph/commit/382b7ba8e423ec45ce2248cd2f9aa35202938f61))
+
 ## [1.13.6](https://github.com/iumalabs/odograph/compare/v1.13.5...v1.13.6) (2026-08-25)
 
 
