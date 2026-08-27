@@ -88,7 +88,9 @@ function intervalSummary(
   distanceUnit: DistanceUnit,
 ): string {
   const parts: string[] = [];
-  if (rule.intervalDays != null) parts.push(`${rule.intervalDays}d`);
+  if (rule.intervalDays != null) {
+    parts.push(`${rule.intervalDays}${t("reminderIntervalDaysSuffix")}`);
+  }
   if (rule.intervalDistance != null) {
     const converted = Math.round(
       convertDistance(rule.intervalDistance, vehicleOdometerUnit, distanceUnit),
