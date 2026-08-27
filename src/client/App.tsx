@@ -69,7 +69,7 @@ import { LandingPage } from "./components/LandingPage";
 import { Garage } from "./components/Garage";
 import { SearchBar } from "./components/SearchBar";
 import { LazyViewBoundary } from "./components/LazyViewBoundary";
-import { en as docsEn } from "./docs-content";
+import { en as docsEn, ru as docsRu } from "./docs-content";
 import { SyncStatusIndicator } from "./components/SyncStatusIndicator";
 import {
   mergeFuelRecords,
@@ -216,8 +216,10 @@ export function App() {
 
   // Subscribing here (spec 060) forces this un-memoized tree to re-render on language change —
   // every t() call below re-evaluates automatically, so no other component needs its own
-  // subscription (research.md Decision 1). The returned value itself isn't read here.
-  useLanguage();
+  // subscription (research.md Decision 1). The value itself is read below only to pick the right
+  // docs-content locale (issue #267) — every t() call site still just needs the subscription.
+  const [language] = useLanguage();
+  const docSections = language === "ru" ? docsRu : docsEn;
 
   // Offline write queue (spec 020): re-renders whenever a pending/rejected action changes, so the
   // lists below always reflect the queue's current state without a manual refetch.
@@ -1272,7 +1274,7 @@ export function App() {
         onSignOut={handleSignOut}
       >
         <LazyViewBoundary>
-          <HelpView sections={docsEn} />
+          <HelpView sections={docSections} />
         </LazyViewBoundary>
       </AppShell>
     );
