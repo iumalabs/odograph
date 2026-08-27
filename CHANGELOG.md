@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.0](https://github.com/iumalabs/odograph/compare/v1.17.0...v1.18.0) (2026-08-27)
+
+
+### Features
+
+* add Cloudflare OIDC as a fourth sign-in method ([#269](https://github.com/iumalabs/odograph/issues/269)) ([99d6e19](https://github.com/iumalabs/odograph/commit/99d6e19d0dee0a8bfd75149f41ef3f393c7265f4))
+
 ## [1.17.0](https://github.com/iumalabs/odograph/compare/v1.16.1...v1.17.0) (2026-08-26)
 
 
