@@ -4,7 +4,7 @@ import { SignInCard } from "./SignInCard";
 import { HelpView } from "./HelpView";
 import { useTheme } from "../theme";
 import { t, useLanguage } from "../i18n/strings";
-import { en as docsEn } from "../docs-content";
+import { en as docsEn, ru as docsRu } from "../docs-content";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
@@ -57,6 +57,7 @@ export function LandingPage(props: LandingPageProps) {
   // Renders HelpView in place instead of opening an external link (specs/057 research.md Decision
   // 3) — reuses LandingPage's own header rather than a new signed-out "guest shell" chrome.
   const [showDocs, setShowDocs] = useState(false);
+  const docSections = language === "ru" ? docsRu : docsEn;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--fg)" }}>
@@ -140,7 +141,7 @@ export function LandingPage(props: LandingPageProps) {
       {showDocs
         ? (
           <div style={{ padding: "38px 30px" }}>
-            <HelpView sections={docsEn} onBack={() => setShowDocs(false)} />
+            <HelpView sections={docSections} onBack={() => setShowDocs(false)} />
           </div>
         )
         : (
