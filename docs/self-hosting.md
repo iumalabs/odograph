@@ -64,6 +64,23 @@ deno run -A npm:wrangler@<pinned version> secret put GOOGLE_CLIENT_SECRET --env 
 If you skip this, leave the "Continue with Google" button unused — clicking it will fail against
 Google's own authorization endpoint rather than break the rest of the app.
 
+Cloudflare sign-in is optional too, the same way. It uses Cloudflare Access (Zero Trust) as an OIDC
+identity provider — not the app sitting behind Cloudflare Access, just consuming it as a standard
+OIDC login the way "Continue with Google" consumes Google's. In your own Cloudflare account's Zero
+Trust dashboard, add a "Generic OIDC" SaaS application, set its redirect URL to
+`https://<your-domain>/api/v1/auth/oidc/cloudflare/callback`, and define an Access policy for who's
+allowed to actually sign in through it (Cloudflare Access is deny-by-default, so this is what
+controls the audience — it can be as open or as restricted as you want). Then:
+
+```sh
+deno run -A npm:wrangler@<pinned version> secret put CLOUDFLARE_ACCESS_TEAM_DOMAIN --env <your-env-name>
+deno run -A npm:wrangler@<pinned version> secret put CLOUDFLARE_ACCESS_CLIENT_ID --env <your-env-name>
+deno run -A npm:wrangler@<pinned version> secret put CLOUDFLARE_ACCESS_CLIENT_SECRET --env <your-env-name>
+```
+
+If you skip this, leave the "Continue with Cloudflare" button unused — same degrade-gracefully
+behavior as an unconfigured Google button.
+
 ## 5. Email sending (magic-link sign-in and reminder notifications)
 
 Both features send email through Cloudflare's

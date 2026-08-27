@@ -2,17 +2,20 @@ import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { createCredentialedUser, linkOidcIdentity } from "../../src/server/db/repository";
 import {
-  completeGoogleLink,
-  completeGoogleSignIn,
-  GOOGLE_PROVIDER,
-} from "../../src/server/auth/oidc/google";
+  buildCloudflareConfig,
+  CLOUDFLARE_PROVIDER,
+  completeCloudflareLink,
+  completeCloudflareSignIn,
+} from "../../src/server/auth/oidc/cloudflare";
 import { FIXTURE_AUDIENCE, fixtureJwks, signFixtureIdToken } from "./fixtures/oidc";
 
-// Cases reaching completeGoogleSignIn call it directly with a fixture ID token rather than via
-// SELF.fetch — reaching it through the real /callback route would require a real network call to
-// Google's token endpoint, which research.md rules out for the automated suite (analyze finding
-// C1). Cases that short-circuit before the code exchange (bad/missing state, Google's own
-// ?error=) are tested via the full HTTP route as usual.
+// Mirrors tests/server/oidc-auth.test.ts's full case list one-for-one (analyze finding C1/SC-002 —
+// full parity, not a subset) — the only real difference is which config/complete* functions get
+// called and the fixture token's issuer, since verification/resolution logic itself is fully
+// shared (src/server/auth/oidc/client.ts) between both providers.
+
+const TEST_CONFIG = buildCloudflareConfig("test-team", "test-client-id");
+const CLOUDFLARE_ISSUER = TEST_CONFIG.issuers[0]!;
 
 function uniqueSub(label: string): string {
   return `${label}-${crypto.randomUUID()}`;
@@ -20,13 +23,14 @@ function uniqueSub(label: string): string {
 
 async function signIn(
   overrides: Partial<Parameters<typeof signFixtureIdToken>[0]>,
-): ReturnType<typeof completeGoogleSignIn> {
+): ReturnType<typeof completeCloudflareSignIn> {
   const idToken = await signFixtureIdToken({
     sub: uniqueSub("subject"),
     email: `${crypto.randomUUID()}@example.invalid`,
+    issuer: CLOUDFLARE_ISSUER,
     ...overrides,
   });
-  return completeGoogleSignIn(env.DB, idToken, {
+  return completeCloudflareSignIn(env.DB, TEST_CONFIG, idToken, {
     jwks: await fixtureJwks(),
     audience: FIXTURE_AUDIENCE,
   });
@@ -54,13 +58,13 @@ async function createDevSession(): Promise<{ userId: string; cookie: string }> {
 }
 
 function requestLink(cookie?: string): Promise<Response> {
-  return SELF.fetch("https://example.com/api/v1/auth/oidc/google/link", {
+  return SELF.fetch("https://example.com/api/v1/auth/oidc/cloudflare/link", {
     redirect: "manual",
     headers: cookie ? { Cookie: cookie } : undefined,
   });
 }
 
-describe("Google OIDC lifecycle (User Story 1)", () => {
+describe("Cloudflare OIDC lifecycle (User Story 1)", () => {
   it("a fixture ID token for a subject never seen before creates exactly one tenant/user/identity and returns a working session", async () => {
     const result = await signIn({});
     expect(result.ok).toBe(true);
@@ -89,21 +93,25 @@ describe("Google OIDC lifecycle (User Story 1)", () => {
 
   it("a callback with a state value never issued by /start redirects to /?oidc=error with no cookie", async () => {
     const res = await SELF.fetch(
-      "https://example.com/api/v1/auth/oidc/google/callback?state=never-issued&code=abc",
+      "https://example.com/api/v1/auth/oidc/cloudflare/callback?state=never-issued&code=abc",
       { redirect: "manual" },
     );
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("https://example.com/?oidc=error&provider=google");
+    expect(res.headers.get("location")).toBe(
+      "https://example.com/?oidc=error&provider=cloudflare",
+    );
     expect(res.headers.get("set-cookie")).toBeNull();
   });
 
   it("a callback carrying ?error=access_denied redirects to /?oidc=error before any state lookup", async () => {
     const res = await SELF.fetch(
-      "https://example.com/api/v1/auth/oidc/google/callback?error=access_denied",
+      "https://example.com/api/v1/auth/oidc/cloudflare/callback?error=access_denied",
       { redirect: "manual" },
     );
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("https://example.com/?oidc=error&provider=google");
+    expect(res.headers.get("location")).toBe(
+      "https://example.com/?oidc=error&provider=cloudflare",
+    );
     expect(res.headers.get("set-cookie")).toBeNull();
   });
 
@@ -117,7 +125,7 @@ describe("Google OIDC lifecycle (User Story 1)", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("a fixture ID token with email_verified: false still resolves/creates an account like any other (FR-009)", async () => {
+  it("a fixture ID token with email_verified: false still resolves/creates an account like any other", async () => {
     const result = await signIn({ email_verified: false });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("unreachable");
@@ -126,8 +134,8 @@ describe("Google OIDC lifecycle (User Story 1)", () => {
   });
 });
 
-describe("Google OIDC cross-method isolation (User Story 2)", () => {
-  it("a Google sign-in for an email already used by a passkey account creates its own distinct account (D-004)", async () => {
+describe("Cloudflare OIDC cross-method isolation (User Story 1)", () => {
+  it("a Cloudflare sign-in for an email already used by a passkey account creates its own distinct account (D-004)", async () => {
     const email = `${crypto.randomUUID()}@example.invalid`;
     const { tenantId: passkeyTenantId } = await createCredentialedUser(env.DB, {
       email,
@@ -140,21 +148,22 @@ describe("Google OIDC cross-method isolation (User Story 2)", () => {
     const result = await signIn({ email });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("unreachable");
-    const googleTenantId = await probeTenantId(result.cookie);
+    const cloudflareTenantId = await probeTenantId(result.cookie);
 
-    expect(googleTenantId).not.toBe(passkeyTenantId);
+    expect(cloudflareTenantId).not.toBe(passkeyTenantId);
   });
 });
 
-describe("account linking (specs/005 User Story 2)", () => {
-  it("an authenticated user links a Google identity, and the resulting session is for the linking user, not a new tenant", async () => {
+describe("account linking (specs/061 User Story 2)", () => {
+  it("an authenticated user links a Cloudflare identity, and the resulting session is for the linking user, not a new tenant", async () => {
     const { userId, cookie } = await createDevSession();
     const idToken = await signFixtureIdToken({
       sub: uniqueSub("link-subject"),
       email: `${crypto.randomUUID()}@example.invalid`,
+      issuer: CLOUDFLARE_ISSUER,
     });
 
-    const result = await completeGoogleLink(env.DB, idToken, {
+    const result = await completeCloudflareLink(env.DB, TEST_CONFIG, idToken, {
       jwks: await fixtureJwks(),
       audience: FIXTURE_AUDIENCE,
       linkingUserId: userId,
@@ -167,18 +176,19 @@ describe("account linking (specs/005 User Story 2)", () => {
     expect(linkedTenantId).toBe(originalTenantId);
   });
 
-  it("rejects linking an identity already linked to a different account (FR-005)", async () => {
+  it("rejects linking an identity already linked to a different account", async () => {
     const other = await createDevSession();
     const sub = uniqueSub("already-linked-different");
-    await linkOidcIdentity(env.DB, GOOGLE_PROVIDER, sub, other.userId);
+    await linkOidcIdentity(env.DB, CLOUDFLARE_PROVIDER, sub, other.userId);
 
     const { userId } = await createDevSession();
     const idToken = await signFixtureIdToken({
       sub,
       email: `${crypto.randomUUID()}@example.invalid`,
+      issuer: CLOUDFLARE_ISSUER,
     });
 
-    const result = await completeGoogleLink(env.DB, idToken, {
+    const result = await completeCloudflareLink(env.DB, TEST_CONFIG, idToken, {
       jwks: await fixtureJwks(),
       audience: FIXTURE_AUDIENCE,
       linkingUserId: userId,
@@ -186,16 +196,17 @@ describe("account linking (specs/005 User Story 2)", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("rejects linking an identity already linked to the caller's own account, same as any other (FR-005)", async () => {
+  it("rejects linking an identity already linked to the caller's own account, same as any other", async () => {
     const { userId } = await createDevSession();
     const sub = uniqueSub("already-linked-own");
-    await linkOidcIdentity(env.DB, GOOGLE_PROVIDER, sub, userId);
+    await linkOidcIdentity(env.DB, CLOUDFLARE_PROVIDER, sub, userId);
 
     const idToken = await signFixtureIdToken({
       sub,
       email: `${crypto.randomUUID()}@example.invalid`,
+      issuer: CLOUDFLARE_ISSUER,
     });
-    const result = await completeGoogleLink(env.DB, idToken, {
+    const result = await completeCloudflareLink(env.DB, TEST_CONFIG, idToken, {
       jwks: await fixtureJwks(),
       audience: FIXTURE_AUDIENCE,
       linkingUserId: userId,
@@ -203,7 +214,7 @@ describe("account linking (specs/005 User Story 2)", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("refuses /link without a session, before any state row is created (FR-004)", async () => {
+  it("refuses /link without a session, before any state row is created", async () => {
     const res = await requestLink();
     expect(res.status).toBe(401);
   });

@@ -11,6 +11,7 @@ type AccountViewProps = {
   onLinkEmail: () => void;
   linkEmailSent: boolean;
   googleLinkUrl: string;
+  cloudflareLinkUrl: string;
   onError: () => void;
   onConfirmDelete: () => void;
 };
@@ -56,6 +57,7 @@ export function AccountView(
     onLinkEmail,
     linkEmailSent,
     googleLinkUrl,
+    cloudflareLinkUrl,
     onError,
     onConfirmDelete,
   }: AccountViewProps,
@@ -98,6 +100,9 @@ export function AccountView(
             </button>
             <a href={googleLinkUrl} style={{ ...toggleStyle, textDecoration: "none" }}>
               {t("linkGoogleAccount")}
+            </a>
+            <a href={cloudflareLinkUrl} style={{ ...toggleStyle, textDecoration: "none" }}>
+              {t("linkCloudflareAccount")}
             </a>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>

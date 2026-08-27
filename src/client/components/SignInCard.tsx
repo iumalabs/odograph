@@ -3,6 +3,7 @@ import { t } from "../i18n/strings";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
+type OidcProvider = "google" | "cloudflare" | null;
 
 type SignInCardProps = {
   email: string;
@@ -16,7 +17,9 @@ type SignInCardProps = {
   magicLinkSent: boolean;
   magicLinkOutcome: MagicLinkOutcome;
   oidcOutcome: OidcOutcome;
+  oidcProvider: OidcProvider;
   googleSignInUrl: string;
+  cloudflareSignInUrl: string;
   error: string | null;
 };
 
@@ -87,18 +90,30 @@ export function SignInCard(props: SignInCardProps) {
     magicLinkSent,
     magicLinkOutcome,
     oidcOutcome,
+    oidcProvider,
     googleSignInUrl,
+    cloudflareSignInUrl,
     error,
   } = props;
+
+  const oidcProviderLabel = oidcProvider === "cloudflare"
+    ? t("oidcProviderCloudflare")
+    : t("oidcProviderGoogle");
 
   return (
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
       {magicLinkOutcome === "ok" && <Banner kind="info">{t("magicLinkOkBanner")}</Banner>}
       {magicLinkOutcome === "error" && <Banner kind="error">{t("magicLinkErrorBanner")}</Banner>}
       {magicLinkOutcome === "linked" && <Banner kind="info">{t("magicLinkLinkedBanner")}</Banner>}
-      {oidcOutcome === "ok" && <Banner kind="info">{t("oidcOkBanner")}</Banner>}
-      {oidcOutcome === "error" && <Banner kind="error">{t("oidcErrorBanner")}</Banner>}
-      {oidcOutcome === "linked" && <Banner kind="info">{t("oidcLinkedBanner")}</Banner>}
+      {oidcOutcome === "ok" && (
+        <Banner kind="info">{t("oidcOkBanner", { provider: oidcProviderLabel })}</Banner>
+      )}
+      {oidcOutcome === "error" && (
+        <Banner kind="error">{t("oidcErrorBanner", { provider: oidcProviderLabel })}</Banner>
+      )}
+      {oidcOutcome === "linked" && (
+        <Banner kind="info">{t("oidcLinkedBanner", { provider: oidcProviderLabel })}</Banner>
+      )}
 
       <div
         style={{
@@ -162,6 +177,9 @@ export function SignInCard(props: SignInCardProps) {
         {magicLinkSent && <Banner kind="info">{t("magicLinkSentBanner")}</Banner>}
         <a href={googleSignInUrl} style={secondaryButtonStyle}>
           {t("continueWithGoogle")}
+        </a>
+        <a href={cloudflareSignInUrl} style={secondaryButtonStyle}>
+          {t("continueWithCloudflare")}
         </a>
       </div>
 
