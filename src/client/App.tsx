@@ -2,7 +2,12 @@ import { lazy, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { addPasskey, loginWithPasskey, registerWithPasskey } from "./auth/passkey";
 import type { PasskeyIdentity } from "./auth/passkey";
 import { requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
-import { GOOGLE_LINK_URL, GOOGLE_SIGN_IN_URL } from "./auth/oidc";
+import {
+  CLOUDFLARE_LINK_URL,
+  CLOUDFLARE_SIGN_IN_URL,
+  GOOGLE_LINK_URL,
+  GOOGLE_SIGN_IN_URL,
+} from "./auth/oidc";
 import { getCurrentIdentity } from "./auth/session";
 import { deleteAccount, getAccountProfile, REQUIRED_CONFIRMATION_PHRASE, signOut } from "./account";
 import type { AccountProfile } from "./account";
@@ -122,6 +127,7 @@ const AccountView = lazy(() =>
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
+type OidcProvider = "google" | "cloudflare" | null;
 
 export function App() {
   const [currency, setCurrency] = useCurrency();
@@ -152,6 +158,7 @@ export function App() {
   const [linkEmailSent, setLinkEmailSent] = useState(false);
   const [magicLinkOutcome, setMagicLinkOutcome] = useState<MagicLinkOutcome>(null);
   const [oidcOutcome, setOidcOutcome] = useState<OidcOutcome>(null);
+  const [oidcProvider, setOidcProvider] = useState<OidcProvider>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleName, setVehicleName] = useState("");
   const [vehicleOdometerUnit, setVehicleOdometerUnit] = useState<"km" | "mi">("km");
@@ -226,9 +233,9 @@ export function App() {
   const mergedPlanCards = mergePlanCards(planCards, vehicleScopedActions);
 
   // GET /api/v1/auth/magic-link/verify redirects here with ?magicLink=ok/
-  // error/linked, and GET /api/v1/auth/oidc/google/callback with
-  // ?oidc=ok/error/linked (contracts/api.md) — the session cookie, if any,
-  // is already set by the time this page loads.
+  // error/linked, and GET /api/v1/auth/oidc/{google,cloudflare}/callback with
+  // ?oidc=ok/error/linked&provider=google|cloudflare (contracts/api.md) — the
+  // session cookie, if any, is already set by the time this page loads.
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const magicLinkOutcomeParam = params.get("magicLink");
@@ -243,6 +250,10 @@ export function App() {
       oidcOutcomeParam === "ok" || oidcOutcomeParam === "error" || oidcOutcomeParam === "linked"
     ) {
       setOidcOutcome(oidcOutcomeParam);
+    }
+    const oidcProviderParam = params.get("provider");
+    if (oidcProviderParam === "google" || oidcProviderParam === "cloudflare") {
+      setOidcProvider(oidcProviderParam);
     }
   }, []);
 
@@ -711,7 +722,9 @@ export function App() {
         magicLinkSent={magicLinkSent}
         magicLinkOutcome={magicLinkOutcome}
         oidcOutcome={oidcOutcome}
+        oidcProvider={oidcProvider}
         googleSignInUrl={GOOGLE_SIGN_IN_URL}
+        cloudflareSignInUrl={CLOUDFLARE_SIGN_IN_URL}
         error={error}
       />
     );
@@ -1297,6 +1310,7 @@ export function App() {
               })}
             linkEmailSent={linkEmailSent}
             googleLinkUrl={GOOGLE_LINK_URL}
+            cloudflareLinkUrl={CLOUDFLARE_LINK_URL}
             onError={() => setError(t("genericError"))}
             onConfirmDelete={handleDeleteAccount}
           />

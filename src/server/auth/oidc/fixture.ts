@@ -23,7 +23,7 @@ async function getFixtureKeyPair(): Promise<CryptoKeyPair> {
 
 let cachedJwks: JWTVerifyGetKey | undefined;
 
-/** The injectable `jwks` fixture-side counterpart to `verifyGoogleIdToken`'s production `createRemoteJWKSet`. */
+/** The injectable `jwks` fixture-side counterpart to `verifyOidcIdToken`'s production `createRemoteJWKSet`. */
 export async function fixtureJwks(): Promise<JWTVerifyGetKey> {
   if (!cachedJwks) {
     const { publicKey } = await getFixtureKeyPair();

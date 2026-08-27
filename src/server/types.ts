@@ -8,6 +8,15 @@ type GoogleOidcSecrets = {
   GOOGLE_CLIENT_SECRET: string;
 };
 
+// Same reasoning as GoogleOidcSecrets — Workers secrets, never in wrangler.toml. One more value
+// than Google needs: Cloudflare Access's OIDC endpoints are per-operator-team, not global
+// constants, so the team domain itself has to be configurable (specs/061 research.md Decision 6).
+type CloudflareOidcSecrets = {
+  CLOUDFLARE_ACCESS_TEAM_DOMAIN: string;
+  CLOUDFLARE_ACCESS_CLIENT_ID: string;
+  CLOUDFLARE_ACCESS_CLIENT_SECRET: string;
+};
+
 // Same reasoning as GoogleOidcSecrets — a one-time-generated Workers secret pair (spec 022
 // quickstart.md), never in wrangler.toml, never codegen'd. Exported: evaluateAllReminders and the
 // scheduled handler both need it directly, outside any Hono AppEnv context (the Cron Trigger has
@@ -20,7 +29,7 @@ export type VapidSecrets = {
 };
 
 export type AppEnv = {
-  Bindings: Env & GoogleOidcSecrets & VapidSecrets;
+  Bindings: Env & GoogleOidcSecrets & CloudflareOidcSecrets & VapidSecrets;
   Variables: {
     tenant: TenantContext;
     sessionTokenHash: string;

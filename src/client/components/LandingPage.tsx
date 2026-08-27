@@ -8,6 +8,7 @@ import { en as docsEn } from "../docs-content";
 
 type MagicLinkOutcome = "ok" | "error" | "linked" | null;
 type OidcOutcome = "ok" | "error" | "linked" | null;
+type OidcProvider = "google" | "cloudflare" | null;
 
 type LandingPageProps = {
   email: string;
@@ -19,7 +20,9 @@ type LandingPageProps = {
   magicLinkSent: boolean;
   magicLinkOutcome: MagicLinkOutcome;
   oidcOutcome: OidcOutcome;
+  oidcProvider: OidcProvider;
   googleSignInUrl: string;
+  cloudflareSignInUrl: string;
   error: string | null;
 };
 

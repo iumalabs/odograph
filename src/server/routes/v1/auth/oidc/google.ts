@@ -18,7 +18,7 @@ function redirectUriFor(requestUrl: string): string {
 }
 
 function errorRedirect(requestUrl: string): Response {
-  return Response.redirect(new URL("/?oidc=error", requestUrl).toString(), 302);
+  return Response.redirect(new URL("/?oidc=error&provider=google", requestUrl).toString(), 302);
 }
 
 // The write-path step (creates an oidc_states row) — rate-limited like magic-link's /request.
@@ -82,7 +82,7 @@ googleOidcAuth.get("/callback", async (c) => {
       return errorRedirect(c.req.url);
     }
     c.header("Set-Cookie", linkResult.cookie);
-    return c.redirect(new URL("/app?oidc=linked", c.req.url).toString());
+    return c.redirect(new URL("/app?oidc=linked&provider=google", c.req.url).toString());
   }
 
   const result = await completeGoogleSignIn(c.env.DB, exchange.idToken, {
@@ -94,5 +94,5 @@ googleOidcAuth.get("/callback", async (c) => {
   }
 
   c.header("Set-Cookie", result.cookie);
-  return c.redirect(new URL("/app?oidc=ok", c.req.url).toString());
+  return c.redirect(new URL("/app?oidc=ok&provider=google", c.req.url).toString());
 });
