@@ -334,51 +334,57 @@ export function App() {
     if (identity) resolveReauth();
   }, [identity]);
 
+  // Every vehicle-scoped fetch below is also gated on `identity`, not just `selectedVehicleId` —
+  // the latter is read from localStorage unconditionally at mount (research above: issue #272),
+  // so on a signed-out `/app/*` load with a vehicle selected from a previous session, these would
+  // otherwise fire against the API with no session, 401, and surface the catch-all error banner
+  // for a state (being signed out) that isn't actually an error. `identity` in the dependency
+  // array re-fires the fetch once sign-in actually completes.
   useEffect(() => {
-    if (!selectedVehicleId) {
+    if (!selectedVehicleId || !identity) {
       setServiceRecords([]);
       return;
     }
     listServiceRecords(selectedVehicleId).then(setServiceRecords).catch(() =>
       setError(t("genericError"))
     );
-  }, [selectedVehicleId]);
+  }, [selectedVehicleId, identity]);
 
   useEffect(() => {
-    if (!selectedVehicleId) {
+    if (!selectedVehicleId || !identity) {
       setFuelRecords([]);
       return;
     }
     listFuelRecords(selectedVehicleId, distanceUnit).then(setFuelRecords).catch(() =>
       setError(t("genericError"))
     );
-  }, [selectedVehicleId, distanceUnit]);
+  }, [selectedVehicleId, distanceUnit, identity]);
 
   useEffect(() => {
-    if (!selectedVehicleId) {
+    if (!selectedVehicleId || !identity) {
       setReminderRules([]);
       return;
     }
     listReminderRules(selectedVehicleId).then(setReminderRules).catch(() =>
       setError(t("genericError"))
     );
-  }, [selectedVehicleId]);
+  }, [selectedVehicleId, identity]);
 
   useEffect(() => {
-    if (!selectedVehicleId) {
+    if (!selectedVehicleId || !identity) {
       setDocuments([]);
       return;
     }
     listDocuments(selectedVehicleId).then(setDocuments).catch(() => setError(t("genericError")));
-  }, [selectedVehicleId]);
+  }, [selectedVehicleId, identity]);
 
   useEffect(() => {
-    if (!selectedVehicleId) {
+    if (!selectedVehicleId || !identity) {
       setPlanCards([]);
       return;
     }
     listPlanCards(selectedVehicleId).then(setPlanCards).catch(() => setError(t("genericError")));
-  }, [selectedVehicleId]);
+  }, [selectedVehicleId, identity]);
 
   // Once a queued action actually syncs, patch it into the cached server-confirmed list (the
   // same "apply the server's response" pattern every handler used before this feature) and let it
