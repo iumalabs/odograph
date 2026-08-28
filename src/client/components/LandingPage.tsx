@@ -84,6 +84,7 @@ export function LandingPage(props: LandingPageProps) {
           <button
             type="button"
             onClick={toggleTheme}
+            aria-label={t("themeToggleLabel")}
             style={{
               width: 32,
               height: 32,
@@ -175,8 +176,9 @@ export function LandingPage(props: LandingPageProps) {
                 >
                   {t("landingKicker")}
                 </div>
-                <div
+                <h1
                   style={{
+                    margin: 0,
                     font: "700 48px/1.06 var(--font-ui)",
                     letterSpacing: "-.035em",
                     textWrap: "pretty",
@@ -187,7 +189,7 @@ export function LandingPage(props: LandingPageProps) {
                   {t("landingHeadlineLine2")}
                   <br />
                   {t("landingHeadlineLine3")}
-                </div>
+                </h1>
                 <div
                   style={{
                     font: "400 14px/1.6 var(--font-ui)",

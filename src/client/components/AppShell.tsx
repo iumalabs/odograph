@@ -422,6 +422,7 @@ export function AppShell(
             <button
               type="button"
               onClick={toggleTheme}
+              aria-label={t("themeToggleLabel")}
               style={{
                 width: 32,
                 height: 32,
