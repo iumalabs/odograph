@@ -17,8 +17,14 @@ function redirectUriFor(requestUrl: string): string {
   return new URL("/api/v1/auth/oidc/google/callback", requestUrl).toString();
 }
 
+// A manually-built Response, not Response.redirect() — that static factory produces a Response
+// whose headers are spec-marked immutable, which throws when the security-headers middleware
+// (index.ts) tries to attach its headers to it after the fact (issue #286 regression).
 function errorRedirect(requestUrl: string): Response {
-  return Response.redirect(new URL("/?oidc=error&provider=google", requestUrl).toString(), 302);
+  return new Response(null, {
+    status: 302,
+    headers: { Location: new URL("/?oidc=error&provider=google", requestUrl).toString() },
+  });
 }
 
 // The write-path step (creates an oidc_states row) — rate-limited like magic-link's /request.
