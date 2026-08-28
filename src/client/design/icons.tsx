@@ -116,12 +116,13 @@ export function CloseIcon({ size = 20 }: IconProps) {
   );
 }
 
-// Not in the mockup's icon sheet — hand-rolled to the same spec (see CloseIcon).
+// Mockup's "НАПОМИНАНИЯ" nav icon (section 03).
 export function BellIcon({ size = 20 }: IconProps) {
   return (
     <svg width={size} height={size} {...commonProps}>
-      <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.75 2.5H4.25z" />
-      <path d="M10 20.5a2 2 0 0 0 4 0" />
+      <path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5" />
+      <path d="M4.5 16.5h15" />
+      <path d="M10 19.5a2 2 0 0 0 4 0" />
     </svg>
   );
 }
@@ -136,13 +137,13 @@ export function CameraIcon({ size = 20 }: IconProps) {
   );
 }
 
-// Not in the mockup's icon sheet — hand-rolled to the same spec (see CloseIcon).
+// Mockup's "ПРОСРОЧЕНО" state icon (section 05).
 export function AlertIcon({ size = 20 }: IconProps) {
   return (
     <svg width={size} height={size} {...commonProps}>
-      <path d="M12 3.5 21.5 20h-19z" />
-      <path d="M12 9.5v5" />
-      <circle cx="12" cy="17.25" r="0.75" fill="currentColor" stroke="none" />
+      <path d="M12 4l8.5 15.5H3.5z" />
+      <path d="M12 9.5v4.5" />
+      <circle cx="12" cy="16.8" r="0.9" fill="currentColor" stroke="none" />
     </svg>
   );
 }

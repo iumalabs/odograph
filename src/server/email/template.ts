@@ -8,8 +8,11 @@
 //
 // Colors/markup ported from the design source (Claude Design project
 // dfecc39c-323d-4b89-a9ec-c126b3aa2deb, "Письмо - ссылка для входа.html") — deliberately NOT
-// porting its "rotate your Access policy" copy, which references a Cloudflare Access mechanism
-// this app doesn't have (spec.md Assumptions).
+// porting its "rotate your Access policy" copy (references a Cloudflare Access mechanism this app
+// doesn't have — spec.md Assumptions), its fabricated DEVICE/IP detail rows (never actually
+// captured — Principle IV), or its "self-hosted" footer tagline (same fictional-self-hosted framing
+// LandingPage.tsx's header already rewrote away from — this app is hosted, open-signup,
+// multi-tenant; footer now says "vehicle maintenance tracker", matching appTagline).
 
 export type EmailContentDetail = { label: string; value: string };
 
@@ -207,7 +210,7 @@ ${renderFallback(content)}
 <tr>
 <td class="pad" bgcolor="${COLOR.dark}" style="background:${COLOR.dark};padding:24px 32px;border-radius:0 0 14px 14px">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse">
-<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;mso-line-height-rule:exactly;color:#c3ccd6;padding-bottom:10px"><b style="color:${COLOR.white}">odograph</b> — a self-hosted maintenance log. Fill-ups, service, reminders, documents.</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;mso-line-height-rule:exactly;color:#c3ccd6;padding-bottom:10px"><b style="color:${COLOR.white}">odograph</b> — a vehicle maintenance tracker. Fill-ups, service, reminders, documents.</td></tr>
 <tr><td style="font-family:'Courier New',Courier,monospace;font-size:11px;line-height:18px;mso-line-height-rule:exactly;color:${COLOR.footerFine}">Transactional mail — no marketing, nothing to unsubscribe from.</td></tr>
 </table>
 </td>
