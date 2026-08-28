@@ -1,7 +1,7 @@
 import { lazy, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { addPasskey, loginWithPasskey, registerWithPasskey } from "./auth/passkey";
 import type { PasskeyIdentity } from "./auth/passkey";
-import { requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
+import { MagicLinkRequestError, requestMagicLink, requestMagicLinkLink } from "./auth/magic-link";
 import {
   CLOUDFLARE_LINK_URL,
   CLOUDFLARE_SIGN_IN_URL,
@@ -510,6 +510,43 @@ export function App() {
     });
   }, [selectedVehicleId]);
 
+  // Maps the server's specific magic-link error codes to actionable copy instead of routing every
+  // failure through genericError (issue #288) — shared by both the sign-in request below and
+  // AccountView's email-link request, which hit the same server error codes.
+  function magicLinkRequestErrorMessage(error: unknown): string {
+    if (error instanceof MagicLinkRequestError) {
+      if (error.code === "invalid_email") return t("invalidEmailError");
+      if (error.code === "rate_limited") return t("rateLimitedError");
+      if (error.code === "send_failed") return t("magicLinkSendFailedError");
+    }
+    return t("genericError");
+  }
+
+  async function handleSendMagicLink() {
+    if (authPending) return;
+    setAuthPending(true);
+    setError(null);
+    try {
+      await requestMagicLink(email);
+      setMagicLinkSent(true);
+    } catch (error) {
+      setError(magicLinkRequestErrorMessage(error));
+    } finally {
+      setAuthPending(false);
+    }
+  }
+
+  async function handleLinkEmail() {
+    setError(null);
+    try {
+      await requestMagicLinkLink(linkEmail);
+      setLinkEmailSent(true);
+      refetchAccountProfile();
+    } catch (error) {
+      setError(magicLinkRequestErrorMessage(error));
+    }
+  }
+
   async function handle<T>(
     action: () => Promise<T>,
     onSuccess: (result: T) => void,
@@ -772,8 +809,7 @@ export function App() {
         onEmailChange={setEmail}
         onSignUpPasskey={() => handleAuthAction(() => registerWithPasskey(email), setIdentity)}
         onSignInPasskey={() => handleAuthAction(loginWithPasskey, setIdentity)}
-        onSendMagicLink={() =>
-          handleAuthAction(() => requestMagicLink(email), () => setMagicLinkSent(true))}
+        onSendMagicLink={handleSendMagicLink}
         pending={authPending}
         magicLinkSent={magicLinkSent}
         magicLinkOutcome={magicLinkOutcome}
@@ -1359,11 +1395,7 @@ export function App() {
             linkEmail={linkEmail}
             onLinkEmailChange={setLinkEmail}
             onAddPasskey={() => handle(addPasskey, refetchAccountProfile)}
-            onLinkEmail={() =>
-              handle(() => requestMagicLinkLink(linkEmail), () => {
-                setLinkEmailSent(true);
-                refetchAccountProfile();
-              })}
+            onLinkEmail={handleLinkEmail}
             linkEmailSent={linkEmailSent}
             googleLinkUrl={GOOGLE_LINK_URL}
             cloudflareLinkUrl={CLOUDFLARE_LINK_URL}
