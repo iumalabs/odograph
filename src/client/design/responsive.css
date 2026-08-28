@@ -51,6 +51,15 @@
      label legibly spaced regardless of item count; .app-nav's existing overflow-x: auto (above)
      picks up the slack by scrolling horizontally once the items no longer all fit. */
   .app-nav-item {
+    /* flex-basis: auto (the "auto" in the shorthand below) explicitly falls back to the width
+       property when one is set — and the button's own inline style sets width: 100% for the
+       desktop vertical-rail context (where 100% of a 76px-wide rail is exactly right). Left
+       unoverridden here, every mobile tab still stretched to 100% of the horizontal nav bar's
+       full (near-viewport) width instead of shrinking to its own content, turning the bar into
+       an 11-swipe carousel with only one tab visible at a time (issue #278) — the min-width fix
+       above (for #215) never actually took effect because of this. width: auto lets flex-basis
+       (and therefore min-width) govern sizing instead. */
+    width: auto !important;
     flex: 0 0 auto !important;
     min-width: 58px !important;
     padding: 6px 0 !important;
