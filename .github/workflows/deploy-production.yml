@@ -52,7 +52,7 @@ jobs:
       # under concurrent host load (github-runners RUNBOOK.md) — three consecutive real deploys
       # failed here on transient fetch-failed/timeout errors, not auth or migration-state issues.
       - name: Apply D1 migrations (production)
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
