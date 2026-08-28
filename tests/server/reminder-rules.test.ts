@@ -7,7 +7,8 @@ import {
 } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import worker from "../../src/server/index";
-import { evaluateAllReminders } from "../../src/server/db/repository";
+import { computeReminderStatus, evaluateAllReminders } from "../../src/server/db/repository";
+import type { ReminderRule } from "../../src/server/db/repository";
 
 function cookieValue(setCookie: string | null): string {
   if (!setCookie) throw new Error("missing Set-Cookie header");
@@ -345,6 +346,51 @@ describe("reminder rule status computation (User Story 2)", () => {
     expect(overdue.remainingFraction).toBeCloseTo(-0.2, 5);
     expect(overdue.remainingUnit).toBe("distance");
     expect(overdue.remainingValue).toBeCloseTo(-200, 5);
+  });
+
+  it("shows overdue, not coming_up, when elapsed distance exactly equals the interval (issue #279)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+    await createFuelRecordReq(sharedCookie, vehicleId, {
+      fuelDate: isoDateDaysFromNow(0),
+      odometerReading: 10500,
+      volume: 40,
+      cost: 60,
+    });
+
+    const exact = (await (await createReminderRule(sharedCookie, vehicleId, {
+      label: "Oil change",
+      intervalDistance: 500,
+      lastDoneOdometer: 10000, // due 10500, current 10500: exactly 100% elapsed
+    })).json()) as { status: string; remainingFraction: number | null };
+    expect(exact.status).toBe("overdue");
+    expect(exact.remainingFraction).toBeCloseTo(0, 5);
+  });
+
+  it("computeReminderStatus treats exactly-elapsed as overdue for a date-based rule too (issue #279)", () => {
+    // computeReminderStatus is a pure function (data-model.md), so the date side's boundary can be
+    // tested deterministically with a fixed `now` — reaching remainingDays === 0 through the wall
+    // clock in an HTTP-level test would require the test to run at exactly midnight UTC.
+    const lastDoneDate = "2026-01-01";
+    const intervalDays = 100;
+    const now = new Date(Date.parse(lastDoneDate) + intervalDays * 86_400_000);
+    const rule: ReminderRule = {
+      id: "rule-1",
+      tenantId: "tenant-1",
+      vehicleId: "vehicle-1",
+      label: "Exactly due",
+      intervalDays,
+      intervalDistance: null,
+      lastDoneDate,
+      lastDoneOdometer: null,
+      cachedStatus: null,
+      lastEvaluatedAt: null,
+      lastNotifiedSeverity: null,
+      createdAt: lastDoneDate,
+      updatedAt: lastDoneDate,
+    };
+    const result = computeReminderStatus(rule, null, now);
+    expect(result.status).toBe("overdue");
+    expect(result.remainingFraction).toBeCloseTo(0, 5);
   });
 
   it("shows not_enough_data for a mileage-only rule on a vehicle with no fuel/service records", async () => {

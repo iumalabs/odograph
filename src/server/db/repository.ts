@@ -2960,7 +2960,7 @@ const REMINDER_URGENCY: Record<"on_track" | "coming_up" | "overdue", number> = {
 function classifyRemainingFraction(
   remainingFraction: number,
 ): "on_track" | "coming_up" | "overdue" {
-  if (remainingFraction < 0) return "overdue";
+  if (remainingFraction <= 0) return "overdue";
   if (remainingFraction <= REMINDER_COMING_UP_THRESHOLD) return "coming_up";
   return "on_track";
 }
