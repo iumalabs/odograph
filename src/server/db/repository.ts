@@ -1773,9 +1773,20 @@ export async function listFuelRecordsWithEconomy(
       economyById.set(record.id, null);
       continue;
     }
+    // Odometer order is the correct sequence for a legitimate backfill (an earlier fill entered
+    // later, with an honestly-lower odometer and honestly-earlier date) — but it also silently
+    // absorbs a genuinely contradictory record (a *later*-dated fill with a *lower* odometer than
+    // an existing one, e.g. a data-entry mistake), splicing it in as if it were a valid backfill
+    // and producing a plausible-but-wrong economy figure for its odometer-neighbor (issue #277).
+    // A real vehicle's odometer never decreases with time, so `previous`'s date must be no later
+    // than the current record's — when it isn't, the pairing is physically impossible and MUST NOT
+    // produce a guessed number (Principle IV): the figure is omitted, not computed, for this
+    // record only. `previous` still advances to the current record regardless, so a later,
+    // correctly-sequenced record can still compute a valid economy against it.
+    const dateConsistent = previous === null || previous.fuelDate <= record.fuelDate;
     economyById.set(
       record.id,
-      previous
+      previous && dateConsistent
         ? computeFuelEconomyForDisplay(
           vehicle.odometerUnit,
           unit,

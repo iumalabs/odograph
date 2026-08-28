@@ -415,6 +415,70 @@ describe("vehicle aggregates: averageFuelEconomy (spec 013, US2)", () => {
     expect(aggregates.averageFuelEconomy).toBeCloseTo((9 + 10) / 2, 5);
   });
 
+  it("excludes a record whose odometer regresses relative to an earlier-dated record, instead of silently splicing it into the sequence (issue #277)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+
+    // 500km / 40L = 8 L/100km — the only two records so far, so this is the correct baseline.
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 10000,
+      volume: 40,
+      cost: 2000,
+    });
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-15",
+      odometerReading: 10500,
+      volume: 40,
+      cost: 2100,
+    });
+    const baseline = (await (await getAggregates(sharedCookie, vehicleId)).json()) as Aggregates;
+    expect(baseline.averageFuelEconomy).toBeCloseTo(8, 5);
+
+    // Chronologically the *latest* fill (2026-01-20), but with a *lower* odometer than the
+    // 2026-01-15 record — a physically impossible pairing for a real vehicle (odometer never
+    // decreases with time), the kind of data-entry mistake issue #277 reported. Odometer order
+    // alone would splice this in as the earliest fill and silently corrupt the average to 6.0
+    // (the exact number the issue observed) -- it must instead be excluded from any economy
+    // figure it would otherwise produce, per Principle IV ("no guessed number presented as
+    // fact"), leaving the average at its original, correct 8.0.
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-01-20",
+      odometerReading: 9000,
+      volume: 30,
+      cost: 1500,
+    });
+    const afterBadRecord = (await (await getAggregates(sharedCookie, vehicleId))
+      .json()) as Aggregates;
+    expect(afterBadRecord.averageFuelEconomy).toBeCloseTo(8, 5);
+    expect(afterBadRecord.averageFuelEconomy).not.toBeCloseTo(6, 5);
+  });
+
+  it("still computes a legitimate backfill's neighbor economy correctly (odometer order stays the source of truth when dates agree with it)", async () => {
+    const vehicleId = await createVehicleId(sharedCookie);
+
+    // The vehicle's only fill so far.
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-02-15",
+      odometerReading: 5500,
+      volume: 40,
+      cost: 60,
+    });
+    // A genuine backfill: entered into the app after the record above, but with an honestly
+    // *earlier* date and *lower* odometer than it -- date order and odometer order agree, so
+    // this must slot in as the new earliest fill and enable the later record's economy exactly
+    // as issue #277's own "Suggested fix" section describes as the legitimate case to preserve.
+    await createFuelRecord(sharedCookie, vehicleId, {
+      fuelDate: "2026-02-01",
+      odometerReading: 5000,
+      volume: 40,
+      cost: 55,
+    });
+
+    const aggregates = (await (await getAggregates(sharedCookie, vehicleId)).json()) as Aggregates;
+    // 500km / 40L = 8 L/100km
+    expect(aggregates.averageFuelEconomy).toBeCloseTo(8, 5);
+  });
+
   it("returns null averageFuelEconomy when no fuel record has a computable economy yet", async () => {
     const vehicleId = await createVehicleId(sharedCookie);
 
