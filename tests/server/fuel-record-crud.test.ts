@@ -335,6 +335,40 @@ describe("fuel record read + economy calculation (User Story 2)", () => {
     expect(converted?.fuelEconomy).toBeCloseTo(expectedKm, 5);
   });
 
+  it("a record's own fuelEconomy is null, not a wrong number, when its odometer-neighbor's date is inconsistent (issue #277)", async () => {
+    const { cookie } = await createSession();
+    const vehicleId = await createVehicleId(cookie, { odometerUnit: "km" });
+
+    const first = (await (await createFuelRecord(cookie, vehicleId, {
+      fuelDate: "2026-01-01",
+      odometerReading: 10000,
+      volume: 40,
+      cost: 2000,
+    })).json()) as { id: string };
+    await createFuelRecord(cookie, vehicleId, {
+      fuelDate: "2026-01-15",
+      odometerReading: 10500,
+      volume: 40,
+      cost: 2100,
+    });
+
+    // Lower odometer than `first`, but a *later* date — physically impossible for a real
+    // vehicle, so it must not silently become `first`'s "previous" fill-up in the odometer-order
+    // pass (which would give `first` a wrong 4.0 instead of correctly staying null, since `first`
+    // has no legitimate earlier fill at all).
+    await createFuelRecord(cookie, vehicleId, {
+      fuelDate: "2026-01-20",
+      odometerReading: 9000,
+      volume: 30,
+      cost: 1500,
+    });
+
+    const refetchedFirst = (await (await getFuelRecord(cookie, first.id)).json()) as {
+      fuelEconomy: number | null;
+    };
+    expect(refetchedFirst.fuelEconomy).toBeNull();
+  });
+
   it("?unit= omitted matches the vehicle's native unit (FR-003) and an invalid value 400s", async () => {
     const { cookie } = await createSession();
     const vehicleId = await createVehicleId(cookie, { odometerUnit: "km" });
