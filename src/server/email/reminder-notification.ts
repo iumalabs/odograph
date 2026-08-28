@@ -1,12 +1,13 @@
 import { renderEmailHtml, renderEmailText } from "./template";
 import type { EmailContent } from "./template";
 
-// odograph.dev was never onboarded in Cloudflare's Email Sending product (distinct from Email
-// Routing, which is enabled for the zone but doesn't cover outbound send) — every email from this
-// address has silently failed to send. Cloudflare Email Sending is configured per exact domain,
-// not inherited by subdomains — auth@odograph.iuma.dev 502'd until odograph.iuma.dev was
-// onboarded there as its own domain, separately from the parent iuma.dev zone (issue #223).
-const FROM_ADDRESS = "auth@odograph.iuma.dev";
+// Deliberately a different local-part from magic-link.ts's own FROM_ADDRESS (issue #285) — a
+// reminder/expiry notification isn't an authentication email, and sharing auth@ made the two
+// indistinguishable at a glance in a user's inbox. No separate Cloudflare onboarding needed for
+// this: Email Sending verifies at the domain level, not per address (confirmed against Cloudflare's
+// own docs) — odograph.iuma.dev is already onboarded (issue #223), so any address on it, including
+// this one, sends immediately.
+const FROM_ADDRESS = "notifications@odograph.iuma.dev";
 
 export type SendReminderDueEmailResult = { sent: true } | { sent: false; error: string };
 
