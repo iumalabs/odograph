@@ -330,6 +330,7 @@ export function AppShell(
               <button
                 type="button"
                 onClick={() => setOpenMenu((open) => open === "currency" ? null : "currency")}
+                title={t("currencySettingHint")}
                 style={{
                   font: "500 10.5px var(--font-mono)",
                   color: "var(--dim)",

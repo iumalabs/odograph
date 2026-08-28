@@ -45,6 +45,9 @@ export function SettingsView(
             <option value="KGS">{t("currencyKgsLabel")}</option>
             <option value="GBP">{t("currencyGbpLabel")}</option>
           </select>
+          <span style={{ font: "400 11.5px var(--font-ui)", color: "var(--dim)" }}>
+            {t("currencySettingHint")}
+          </span>
         </label>
         <PushNotifications onError={onError} />
       </div>

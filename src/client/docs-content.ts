@@ -71,7 +71,7 @@ export const en: DocSection[] = [
       {
         kind: "note",
         text:
-          "Distance unit (km/mi) and currency are per-viewer preferences, switchable any time from the header — they don't change what's stored, only how it's displayed.",
+          "Distance unit (km/mi) and currency are per-viewer preferences, switchable any time from the header. Distance unit recalculates the displayed figures (km ↔ mi); currency only swaps the symbol shown next to costs — amounts are never converted between currencies.",
       },
     ],
   },
@@ -143,7 +143,7 @@ export const en: DocSection[] = [
       {
         kind: "paragraph",
         text:
-          "Switch between km/L and mi/gal, and between currencies, from the header at any time — this only changes how figures are displayed, not what's stored.",
+          "Switch between km/L and mi/gal from the header at any time — the underlying figures are recalculated for you. Currency, switched the same way, only changes the symbol shown next to costs; there's no exchange-rate conversion, so the numbers themselves stay exactly as entered.",
       },
     ],
   },
@@ -293,7 +293,7 @@ export const ru: DocSection[] = [
       {
         kind: "note",
         text:
-          "Единица расстояния (км/мили) и валюта — персональные настройки, переключаются в любой момент из шапки — они не меняют то, что хранится, только то, как это отображается.",
+          "Единица расстояния (км/мили) и валюта — персональные настройки, переключаются в любой момент из шапки. Единица расстояния пересчитывает отображаемые цифры (км ↔ мили); валюта лишь меняет значок рядом с суммами — сами суммы никогда не конвертируются между валютами.",
       },
     ],
   },
@@ -365,7 +365,7 @@ export const ru: DocSection[] = [
       {
         kind: "paragraph",
         text:
-          "Переключайтесь между км/л и милями/галлонами, а также между валютами, в любой момент из шапки — это меняет только отображение цифр, а не то, что хранится.",
+          "Переключайтесь между км/л и милями/галлонами в любой момент из шапки — базовые цифры при этом пересчитываются. Валюта переключается там же, но меняет только значок рядом с суммами; курсов конвертации нет, поэтому числа остаются точно такими, как введены.",
       },
     ],
   },
