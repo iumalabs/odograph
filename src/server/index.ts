@@ -25,9 +25,18 @@ import { vinLookup } from "./routes/v1/vin-lookup";
 import { evaluateAllDocumentReminders, evaluateAllReminders } from "./db/repository";
 import { buildServerMonitoringConfig } from "./monitoring/config";
 import { buildCspHeader, generateNonce } from "./security/csp";
+import { applySecurityHeaders } from "./security/headers";
 import type { AppEnv, VapidSecrets } from "./types";
 
 const app = new Hono<AppEnv>();
+
+// Static security headers (issue #286) on every /api/v1/* response, every environment — unlike
+// CSP, none of these interact with Vite's dev-only inline script, so there's no reason to skip
+// them locally the way CSP is skipped below.
+app.use("*", async (c, next) => {
+  await next();
+  applySecurityHeaders(c.res.headers);
+});
 
 app.route("/api/v1/health", health);
 app.route("/api/v1/_dev/session", devSession);
@@ -98,6 +107,7 @@ const handler = {
 
     const response = new Response(assetResponse.body, assetResponse);
     response.headers.set("Content-Security-Policy", buildCspHeader(generateNonce()));
+    applySecurityHeaders(response.headers);
     return response;
   },
   // The daily sweep (wrangler.toml's [triggers]) — the only entry point in this codebase
