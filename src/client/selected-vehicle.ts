@@ -12,3 +12,10 @@ export function readStoredSelectedVehicleId(): string | null {
 export function storeSelectedVehicleId(id: string): void {
   localStorage.setItem(STORAGE_KEY, id);
 }
+
+/** Signing in as a different account on the same browser (issue #276) leaves the previous
+ * account's vehicle id behind otherwise — the key is global, not per-account, since there's no
+ * stable per-account namespace available before the account's own identity check resolves. */
+export function clearSelectedVehicleId(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}

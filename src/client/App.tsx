@@ -14,7 +14,11 @@ import type { AccountProfile } from "./account";
 import { createVehicle, listVehicles, uploadVehicleCoverPhoto } from "./vehicles";
 import { AttachmentUploadError as VehicleAttachmentUploadError } from "./vehicles";
 import type { Vehicle } from "./vehicles";
-import { readStoredSelectedVehicleId, storeSelectedVehicleId } from "./selected-vehicle";
+import {
+  clearSelectedVehicleId,
+  readStoredSelectedVehicleId,
+  storeSelectedVehicleId,
+} from "./selected-vehicle";
 import { lookupVin } from "./vin-lookup";
 import {
   AttachmentUploadError,
@@ -160,6 +164,11 @@ export function App() {
   const [oidcOutcome, setOidcOutcome] = useState<OidcOutcome>(null);
   const [oidcProvider, setOidcProvider] = useState<OidcProvider>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  // Distinct from `vehicles.length === 0`: that's also true before the list has even been
+  // fetched for the current identity, which the stale-selectedVehicleId cleanup below must not
+  // act on yet (issue #276) -- clearing a legitimate returning user's selection before their own
+  // vehicle list has loaded would be its own bug.
+  const [vehiclesLoaded, setVehiclesLoaded] = useState(false);
   const [vehicleName, setVehicleName] = useState("");
   const [vehicleOdometerUnit, setVehicleOdometerUnit] = useState<"km" | "mi">("km");
   const [vehicleVin, setVehicleVin] = useState("");
@@ -282,8 +291,14 @@ export function App() {
   }, [authChecked, route.kind, identity]);
 
   useEffect(() => {
-    if (!identity) return;
-    listVehicles().then(setVehicles).catch(() => setError(t("genericError")));
+    if (!identity) {
+      setVehiclesLoaded(false);
+      return;
+    }
+    listVehicles().then((found) => {
+      setVehicles(found);
+      setVehiclesLoaded(true);
+    }).catch(() => setError(t("genericError")));
   }, [identity]);
 
   // Header account dropdown + Account page (specs/058).
@@ -316,7 +331,20 @@ export function App() {
   // first. Depends on `vehicles` (not `mergedVehicles`) so it fires only when the fetched/synced
   // list itself changes, not on every render.
   useEffect(() => {
-    if (vehicles.length === 0) return;
+    if (vehicles.length === 0) {
+      // A genuinely empty account (not just "not fetched yet" -- vehiclesLoaded distinguishes
+      // the two) never has a legitimate selection to fall back to. Clearing a leftover foreign
+      // id from a previously signed-in account (issue #276) here, rather than only relying on
+      // validSelectedVehicleId to stop it being *used*, also stops it lingering in storage to
+      // confuse a future selectVehicle() call or a future account that happens to own a vehicle
+      // with that same id in a different tenant (ids are UUIDs, so collision is theoretical, but
+      // there's no reason to leave known-stale data sitting in localStorage regardless).
+      if (vehiclesLoaded && selectedVehicleId !== null) {
+        setSelectedVehicleId(null);
+        clearSelectedVehicleId();
+      }
+      return;
+    }
     if (vehicles.length === 1) {
       const only = vehicles[0]!;
       if (selectedVehicleId !== only.id) selectVehicle(only.id);
@@ -326,7 +354,7 @@ export function App() {
     const stored = readStoredSelectedVehicleId();
     const fallback = stored && vehicles.some((v) => v.id === stored) ? stored : vehicles[0]!.id;
     selectVehicle(fallback);
-  }, [vehicles, selectedVehicleId]);
+  }, [vehicles, selectedVehicleId, vehiclesLoaded]);
 
   // Resumes a queue paused on a 401 once the user signs back in (research.md) — a no-op if the
   // queue was never paused (e.g. ordinary first sign-in).
@@ -340,51 +368,71 @@ export function App() {
   // otherwise fire against the API with no session, 401, and surface the catch-all error banner
   // for a state (being signed out) that isn't actually an error. `identity` in the dependency
   // array re-fires the fetch once sign-in actually completes.
+  //
+  // Beyond that, `selectedVehicleId` isn't scoped per-account either (issue #276) — signing in as
+  // a *different* account on the same browser leaves the previous account's vehicle id sitting in
+  // state/localStorage, which is truthy and therefore still "valid enough" to pass the guard
+  // above even though it belongs to someone else's data entirely. `validSelectedVehicleId` closes
+  // that gap: it's only ever a real id once `vehicles` (this identity's own list) has loaded *and*
+  // actually contains it, so these five effects wait for that confirmation instead of firing
+  // against a foreign/stale id and getting a cascade of 404s. Every other use of
+  // `selectedVehicleId` elsewhere in this file (selection UI, form submission, the offline-queue
+  // merge) is deliberately left as-is — this file-load race is specific to fetches that fire
+  // automatically on identity/vehicle change, not to something the user has to click into first.
+  const validSelectedVehicleId =
+    selectedVehicleId && vehicles.some((v) => v.id === selectedVehicleId)
+      ? selectedVehicleId
+      : null;
+
   useEffect(() => {
-    if (!selectedVehicleId || !identity) {
+    if (!validSelectedVehicleId || !identity) {
       setServiceRecords([]);
       return;
     }
-    listServiceRecords(selectedVehicleId).then(setServiceRecords).catch(() =>
+    listServiceRecords(validSelectedVehicleId).then(setServiceRecords).catch(() =>
       setError(t("genericError"))
     );
-  }, [selectedVehicleId, identity]);
+  }, [validSelectedVehicleId, identity]);
 
   useEffect(() => {
-    if (!selectedVehicleId || !identity) {
+    if (!validSelectedVehicleId || !identity) {
       setFuelRecords([]);
       return;
     }
-    listFuelRecords(selectedVehicleId, distanceUnit).then(setFuelRecords).catch(() =>
+    listFuelRecords(validSelectedVehicleId, distanceUnit).then(setFuelRecords).catch(() =>
       setError(t("genericError"))
     );
-  }, [selectedVehicleId, distanceUnit, identity]);
+  }, [validSelectedVehicleId, distanceUnit, identity]);
 
   useEffect(() => {
-    if (!selectedVehicleId || !identity) {
+    if (!validSelectedVehicleId || !identity) {
       setReminderRules([]);
       return;
     }
-    listReminderRules(selectedVehicleId).then(setReminderRules).catch(() =>
+    listReminderRules(validSelectedVehicleId).then(setReminderRules).catch(() =>
       setError(t("genericError"))
     );
-  }, [selectedVehicleId, identity]);
+  }, [validSelectedVehicleId, identity]);
 
   useEffect(() => {
-    if (!selectedVehicleId || !identity) {
+    if (!validSelectedVehicleId || !identity) {
       setDocuments([]);
       return;
     }
-    listDocuments(selectedVehicleId).then(setDocuments).catch(() => setError(t("genericError")));
-  }, [selectedVehicleId, identity]);
+    listDocuments(validSelectedVehicleId).then(setDocuments).catch(() =>
+      setError(t("genericError"))
+    );
+  }, [validSelectedVehicleId, identity]);
 
   useEffect(() => {
-    if (!selectedVehicleId || !identity) {
+    if (!validSelectedVehicleId || !identity) {
       setPlanCards([]);
       return;
     }
-    listPlanCards(selectedVehicleId).then(setPlanCards).catch(() => setError(t("genericError")));
-  }, [selectedVehicleId, identity]);
+    listPlanCards(validSelectedVehicleId).then(setPlanCards).catch(() =>
+      setError(t("genericError"))
+    );
+  }, [validSelectedVehicleId, identity]);
 
   // Once a queued action actually syncs, patch it into the cached server-confirmed list (the
   // same "apply the server's response" pattern every handler used before this feature) and let it
