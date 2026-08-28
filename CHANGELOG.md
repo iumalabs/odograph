@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.18.1](https://github.com/iumalabs/odograph/compare/v1.18.0...v1.18.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* add a landing-page heading and label the theme-toggle button ([#294](https://github.com/iumalabs/odograph/issues/294)) ([5cff18a](https://github.com/iumalabs/odograph/commit/5cff18a12718d63d290ca6d57879ed7b76d23a02))
+* add HSTS, X-Content-Type-Options, Referrer-Policy, and Permissions-Policy headers ([#290](https://github.com/iumalabs/odograph/issues/290)) ([66b499d](https://github.com/iumalabs/odograph/commit/66b499de83850e92b8dd166ab0a49cb597b3a981))
+* clarify that currency switching only relabels amounts, never converts them ([#284](https://github.com/iumalabs/odograph/issues/284)) ([77c9031](https://github.com/iumalabs/odograph/commit/77c90311f863a23f3dd6b760f920015453c64d50))
+* correct BellIcon and AlertIcon geometry against the design spec ([#289](https://github.com/iumalabs/odograph/issues/289)) ([98c091e](https://github.com/iumalabs/odograph/commit/98c091e5efd4d073184f82d0f6cc16a9bc453580))
+* don't compute fuel economy against a chronologically-later "previous" fill ([#281](https://github.com/iumalabs/odograph/issues/281)) ([4d361ce](https://github.com/iumalabs/odograph/commit/4d361ce0723a255cf4d200aca6bf041f0cd34a59))
+* don't fetch vehicle-scoped data for a stale, cross-account selectedVehicleId ([#283](https://github.com/iumalabs/odograph/issues/283)) ([fcc45ee](https://github.com/iumalabs/odograph/commit/fcc45ee7d4ad1fd40d35f76f0ea90f39af763dc0))
+* don't show a false error banner when visiting /app signed out ([#274](https://github.com/iumalabs/odograph/issues/274)) ([de00f18](https://github.com/iumalabs/odograph/commit/de00f18b4e887f6238aeded90fe20031f06a3ecb))
+* mobile bottom nav tabs stretched to full width instead of compact ([#280](https://github.com/iumalabs/odograph/issues/280)) ([f9415e2](https://github.com/iumalabs/odograph/commit/f9415e22f593c2f9c0e487f8e247eaf98469b226))
+* send reminder/notification emails from a distinct address, not auth@ ([#293](https://github.com/iumalabs/odograph/issues/293)) ([b58f954](https://github.com/iumalabs/odograph/commit/b58f95405a4c0f715d7f4f85680b031a0d692451))
+* surface specific magic-link errors instead of a generic banner ([#291](https://github.com/iumalabs/odograph/issues/291)) ([060ae51](https://github.com/iumalabs/odograph/commit/060ae51a9989c220daa709c5b18d6acd32664155))
+* treat exactly-elapsed reminders as overdue, not coming_up ([#287](https://github.com/iumalabs/odograph/issues/287)) ([d70e406](https://github.com/iumalabs/odograph/commit/d70e4060fa6a3c0d8fb92f43710892b1f30bca29))
+
 ## [1.18.0](https://github.com/iumalabs/odograph/compare/v1.17.0...v1.18.0) (2026-08-27)
 
 
