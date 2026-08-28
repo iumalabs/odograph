@@ -229,6 +229,8 @@ const en = {
   settingsNavLabel: "SETTINGS",
   settingsScreenHeading: "Settings",
   currencySettingLabel: "Currency",
+  currencySettingHint:
+    "Changes the symbol shown next to costs. Amounts themselves aren't converted.",
   currencyUsdLabel: "US Dollar",
   currencyEurLabel: "Euro",
   currencyKgsLabel: "Kyrgyzstani Som",
@@ -525,6 +527,7 @@ const ru = {
   settingsNavLabel: "НАСТРОЙКИ",
   settingsScreenHeading: "Настройки",
   currencySettingLabel: "Валюта",
+  currencySettingHint: "Меняет только значок рядом с суммами. Сами суммы не пересчитываются.",
   currencyUsdLabel: "Доллар США",
   currencyEurLabel: "Евро",
   currencyKgsLabel: "Киргизский сом",
